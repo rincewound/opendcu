@@ -1,6 +1,9 @@
 
 use crate::core::ChannelManager::*;
-use std::thread;
+use std::{io, thread, self};
+use std::io::Write;
+
+pub mod TraceHelper;
 
 #[derive(Clone)]
 pub struct trace_message
@@ -33,7 +36,8 @@ pub fn launch(chm: &mut ChannelManager)
         loop
         {
             let message = trace_rx.receive();
-            print!("{}", message.msg);
+            println!("{}", message.msg);
+            io::stdout().flush();
         }
     });
 }

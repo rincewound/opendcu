@@ -1,11 +1,18 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::cell::*;
-use std::collections::VecDeque;
-use crate::core::Event::*;
+use super::{Event::DataEvent, AtomicQueue::AtomicQueue};
+
+/*
+ToDo:
+
+* Channels should notice, when a receiver dies and drop its queue.
+* There should be a posibility to wait for multiple receivers.
+
+*/
 
 pub struct ChannelImpl<T: Clone>
 {
-    receiver_queues:  Cell<Vec<Arc<Mutex<Cell<VecDeque<T>>>>>>
+    receiver_queues:  Cell<Vec<Weak<GenericReceiver<T>>>>
 }
 
 impl <T: Clone> ChannelImpl<T>
@@ -19,116 +26,130 @@ impl <T: Clone> ChannelImpl<T>
 
     pub fn push_message(&self, data: T)
     {
-        let theVec = self.receiver_queues.take();
-        for i in theVec.iter()
+        let the_vec = self.receiver_queues.take();
+        for i in the_vec.iter()
         {
-            i.lock().unwrap().get_mut().push_back(data.clone())
+           if let Some(owned) = i.upgrade()
+           {
+                owned.push_message(data.clone());
+           }
         }
-        self.receiver_queues.set(theVec);
+        self.receiver_queues.set(the_vec);
     }
 
-    pub fn make_receiver(owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>) -> GenericReceiver<T>
-    {
-        let q = Arc::new(Mutex::new(Cell::new(VecDeque::new())));
-        let rc = GenericReceiver::<T>::new(owner.clone(), q.clone());
+    // pub fn unregister_queue(&mut self, queue: &Arc<Mutex<Cell<VecDeque<T>>>>)
+    // {
+    //     let queue_vec = self.receiver_queues.take();
+    //     let vecNew = queue_vec.drain_filter(|x| -> *x == *queue);
+    // }
+}
 
-        let mut recQueue = owner.lock().unwrap();
-        let m = recQueue.get_mut();
-        m.receiver_queues.get_mut().push(q.clone());
-        rc
-    }
+pub fn make_receiver<T: Clone>(owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>) -> Arc<GenericReceiver<T>>
+{
+    let rec = Arc::new(GenericReceiver::<T>::new(owner.clone()));
+    let weak = Arc::downgrade(&rec.clone());
+    let mut rec_queue = owner.lock().unwrap();
+    let m = rec_queue.get_mut();
+    m.receiver_queues.get_mut().push(weak);
+    rec
+}
 
-    pub fn make_sender(owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>) -> GenericSender<T>
-    {
-        GenericSender::<T>::new(owner)
-    }
+pub fn make_sender<T: Clone>(owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>) -> GenericSender<T>
+{
+    GenericSender::<T>::new(owner)
+}
 
-    pub fn make_chan() -> (GenericSender<T>, GenericReceiver<T>)
-    {
-        let chan = Arc::new(Mutex::new(RefCell::new(ChannelImpl::<T>::new())));
-        let receiver = ChannelImpl::make_receiver(chan.clone());
-        let sender = ChannelImpl::make_sender(chan);        
-        (sender, receiver)
-    }
+pub fn make_chan<T: Clone>() -> (GenericSender<T>, Arc<GenericReceiver<T>>)
+{
+    let chan = Arc::new(Mutex::new(RefCell::new(ChannelImpl::<T>::new())));
+    let receiver = make_receiver(chan.clone());
+    let sender = make_sender(chan);        
+    (sender, receiver)
 }
 
 pub struct GenericReceiver<T: Clone>
 {
-    data_event: Event,
     owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>,
-    data: Arc<Mutex<Cell<VecDeque<T>>>>
+    data: AtomicQueue<T>
 }
 
 impl <T: Clone> GenericReceiver<T>
 {
-    pub fn new(owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>, _data: Arc<Mutex<Cell<VecDeque<T>>>> ) -> Self
+    pub fn new(owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>) -> Self
     {
         GenericReceiver
         {
-            data_event: Event::new(),
             owner: owner,
-            data: _data
+            data: AtomicQueue::<T>::new()
         }
     }
 
-    pub fn clone(&self) -> Self
+    pub fn clone_receiver(&self) -> Arc<Self>
     {
-        ChannelImpl::make_receiver(self.owner.clone())
+        make_receiver(self.owner.clone())
     }
 
     pub fn push_message(&self, data: T)
     {
-        let mut d = self.data.lock().unwrap();
-        d.get_mut().push_back(data.clone());
-        self.data_event.trigger();
+        self.data.push(data);
+    }
+
+    pub fn has_data(&self) -> bool
+    {
+        return self.data.len() != 0;
     }
 
     pub fn receive(&self) -> T
     {
-        {
-            let mut data = self.data.lock()
-                                    .unwrap();
-            let mutable_d = data.get_mut();
-            if mutable_d.len() != 0
-            {
-                return mutable_d.pop_front().unwrap()
-            }
-        }
-        
-        // if we got here, data is currently empty. We wait.
-        self.data_event.wait();
-        
-        let mut data = self.data.lock()
-                                .unwrap();
-        let mutable_d = data.get_mut();
-        return mutable_d.pop_front().unwrap()     
+        self.data.wait_data();
+        return self.data.pop().unwrap();     
     }
 
     pub fn receive_with_timeout(&self, milliseconds: u64) -> Option<T>
     {
-        {
-            let mut data = self.data.lock()
-                                    .unwrap();
-            let mutable_d = data.get_mut();
-            if mutable_d.len() != 0
-            {
-                return Some(mutable_d.pop_front().unwrap())
-            }
-        }
-        
-        // if we got here, data is currently empty. We wait.
-        if !self.data_event.wait_with_timeout(milliseconds)
-        {
-            return None
-        }
-        
-        let mut data = self.data.lock()
-                                .unwrap();
-        let mutable_d = data.get_mut();
-        return Some(mutable_d.pop_front().unwrap())
+        self.data.wait_with_timeout(milliseconds);
+        return self.data.pop();
+    }
+
+    pub fn set_data_trigger(&self, d: Arc<DataEvent<u32>>, trigger_data:u32)
+    {
+        self.data.set_data_trigger(d, trigger_data)
     }
 }
 
+
+
+macro_rules! wait_for {
+    ($evt: expr, $id: expr, $head: expr) => (
+        {
+            if $head.has_data() { 
+                ($id)
+            }
+            else
+            {
+                $head.set_data_trigger($evt, $id);
+                ($evt.wait())
+            }
+        }
+    );
+    ($evt: expr, $id: expr, $head: expr, $($tail: expr),+) =>(
+        {
+            if $head.has_data()
+            {
+                ($id)
+            }
+            else
+            {
+                $head.set_data_trigger($evt, $id);
+                (wait_for!($evt,$id+1, $($tail),+))
+            }
+        }
+    )
+}
+
+macro_rules! select_chan {
+    ($($channels: expr),+) => (wait_for!(Arc::new(DataEvent::<u32>::new()), 0, $($channels),+));
+}
 pub struct GenericSender<T: Clone>
 {
     source: Arc<Mutex<RefCell<ChannelImpl<T> >>>
@@ -163,7 +184,7 @@ mod tests {
     #[test]
     fn can_create_channel()
     {
-        let (tx, rx) = ChannelImpl::make_chan();
+        let (tx, rx) = make_chan();
         tx.send(24);
         assert_eq!(24, rx.receive())
     }
@@ -171,8 +192,8 @@ mod tests {
     #[test]
     fn cloned_receiver_receives_all_messages()
     {
-        let (tx, rx) = ChannelImpl::make_chan();        
-        let rx2 = rx.clone();
+        let (tx, rx) = make_chan();        
+        let rx2 = rx.clone_receiver();
         tx.send(24);
         assert_eq!(24, rx.receive());
         assert_eq!(24, rx2.receive())
@@ -181,7 +202,7 @@ mod tests {
     #[test]
     fn receive_with_timeout_yields_none_after_timeout()
     {
-        let (tx, rx) = ChannelImpl::make_chan();
+        let (tx, rx) = make_chan();
         tx.send(24);
         rx.receive();
         assert!(None == rx.receive_with_timeout(50))
@@ -190,8 +211,30 @@ mod tests {
     #[test]
     fn receive_with_timeout_yields_some_after_timeout()
     {
-        let (tx, rx) = ChannelImpl::make_chan();
+        let (tx, rx) = make_chan();
         tx.send(24);
         assert!(Some(24) == rx.receive_with_timeout(50))
+    }
+
+    #[test]
+    fn can_use_select_macro()
+    {
+        let (tx, rx) = make_chan();
+        tx.send(1);
+        let chanid = select_chan!(rx);
+        assert_eq!(0, chanid);
+    }
+
+    #[test]
+    fn can_use_select_macro_for_multiple_channels()
+    {
+        let (tx1, rx1) = make_chan();
+        let (tx2, rx2) = make_chan();
+        let (tx3, rx3) = make_chan();
+        tx2.send(11.2);
+        let chanid = select_chan!(rx1, rx2, rx3);
+        assert_eq!(1, chanid);
+        tx1.send(10);
+        tx3.send("foo".to_string());
     }
 }

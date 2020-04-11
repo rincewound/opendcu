@@ -13,3 +13,20 @@ pub mod BroadcastChannel;
 pub mod ChannelManager;
 pub mod Checkpoint;
 pub mod Event;
+pub mod AtomicQueue;
+
+#[derive(Clone, PartialEq)]
+pub enum BootStage
+{
+    LowLevelInit,
+    HighLevelInit,
+    Application
+}
+
+#[derive(Clone)]
+pub enum SystemMessage
+{
+    Shutdown,
+    StageComplete(BootStage),
+    RunStage(BootStage)
+}
