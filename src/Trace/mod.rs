@@ -32,7 +32,7 @@ pub fn launch(chm: &mut ChannelManager)
 {
     chm.register_channel::<trace_message>();
     let trace_rx = chm.get_receiver::<trace_message>().unwrap();
-    thread::spawn(move || {
+    thread::Builder::new().name("Trace".to_string()).spawn(move || {
         loop
         {
             let message = trace_rx.receive();

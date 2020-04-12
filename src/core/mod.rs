@@ -11,7 +11,6 @@ for the rest of the appliaction, most notably
 
 pub mod BroadcastChannel;
 pub mod ChannelManager;
-pub mod Checkpoint;
 pub mod Event;
 pub mod AtomicQueue;
 

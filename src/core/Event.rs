@@ -20,7 +20,9 @@ impl Event
         let mut guard = mtx.lock().unwrap();
         while !*guard {
             guard = cnd.wait(guard).unwrap();
+            
         }
+        *guard = false;
     }
 
     pub fn wait_with_timeout(&self, millis: u64) -> bool
@@ -30,8 +32,7 @@ impl Event
         loop 
         {
             // Let's put a timeout on the condvar's wait.
-            let result = cvar.wait_timeout(started, Duration::from_millis(millis)).unwrap();
-            // 10 milliseconds have passed, or maybe the value changed!
+            let mut result = cvar.wait_timeout(started, Duration::from_millis(millis)).unwrap();
             
             started = result.0;
             if *started == true 
@@ -58,7 +59,7 @@ impl Event
 }
 
 pub struct DataEvent <T: Copy+Sync>{
-    state: Arc<(Mutex<bool>, Condvar)>,
+    evt: Event,
     data: Mutex<Cell<Option<T>>>
 }
 
@@ -67,18 +68,14 @@ impl<T: Copy+Sync> DataEvent<T>
     pub fn new() -> Self
     {
         DataEvent{
-            state: Arc::new((Mutex::new(false), Condvar::new())),
+            evt: Event::new(),
             data: Mutex::new(Cell::new(None))
         }
     }
 
     pub fn wait(&self) -> T
     {
-        let &(ref mtx, ref cnd) = &*self.state;
-        let mut guard = mtx.lock().unwrap();
-        while !*guard {
-            guard = cnd.wait(guard).unwrap();
-        }
+        self.evt.wait();
         return self.data.lock()
                         .unwrap()
                         .take()
@@ -87,36 +84,17 @@ impl<T: Copy+Sync> DataEvent<T>
 
     pub fn wait_with_timeout(&self, millis: u64) -> Option<T>
     {
-        let &(ref lock, ref cvar) = &*self.state.clone();
-        let mut started = lock.lock().unwrap();
-        loop 
+        if self.evt.wait_with_timeout(millis)
         {
-            // Let's put a timeout on the condvar's wait.
-            let result = cvar.wait_timeout(started, Duration::from_millis(millis)).unwrap();
-            // 10 milliseconds have passed, or maybe the value changed!
-            
-            started = result.0;
-            if *started == true 
-            {
-                *started = false;
-                return self.data.lock().unwrap().take();
-            }
-
-            if result.1.timed_out()
-            {
-                return None;
-            }
-
+            return  self.data.lock().unwrap().take();
         }
+        return None;        
     }
 
     pub fn trigger(&self, data: T)
     {
-        let &(ref mtx, _) = &*(self.state.clone());
-        let mut done = mtx.lock()
-                          .unwrap();
         self.data.lock().unwrap().set(Some(data));
-        *done = true;
+        self.evt.trigger();
     }
 }
 
@@ -136,6 +114,25 @@ mod tests {
          let e = DataEvent::<u32>::new();      
          e.trigger(1048);
          assert_eq!(1048, e.wait())
+     }
+
+     #[test]
+     fn event_resets_after_trigger()
+     {
+         let e =  Event::new();
+         e.trigger();
+         assert!(e.wait_with_timeout(50));
+         assert!(!e.wait_with_timeout(10));
+     }
+
+     #[test]
+     fn event_can_be_triggered_twice()
+     {
+         let e =  Event::new();
+         e.trigger();
+         assert!(e.wait_with_timeout(10));
+         e.trigger();
+         assert!(e.wait_with_timeout(10));
      }
 
 }

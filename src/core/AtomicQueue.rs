@@ -39,19 +39,11 @@ impl<T: Clone> AtomicQueue<T> {
 
     pub fn wait_data(&self)
     {
-        if self.len() != 0
-        {
-            return;
-        }
         self.evt.wait();
     }
 
     pub fn wait_with_timeout(&self, milliseconds: u64) -> bool
     {
-        if self.len() != 0
-        {
-            return true;
-        }
         return self.evt.wait_with_timeout(milliseconds);       
     }
 
@@ -67,7 +59,14 @@ impl<T: Clone> AtomicQueue<T> {
 
     pub fn pop(&self) -> Option<T>
     {
-        return self.data.lock().unwrap().get_mut().pop_front();
+        // if self.len() > 0
+        // {
+            return self.data.lock().unwrap().get_mut().pop_front();
+        // }
+        // else
+        // {
+        //     return None
+        // }
     }
 
     pub fn len(&self) -> usize

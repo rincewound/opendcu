@@ -4,19 +4,19 @@
 mod core;
 mod Trace;
 
-//use crate::acm::WhitelistAccessRequest;
+use crate::acm::WhitelistAccessRequest;
 
 
 use self::core::BroadcastChannel::GenericReceiver;
 use self::core::ChannelManager::ChannelManager;
 
 // Modules
-//mod acm;
+mod acm;
 
 fn main() {
     let mut chm = ChannelManager::new();
     chm.register_channel::<core::SystemMessage>();
-    //chm.register_channel::<WhitelistAccessRequest>();
+    chm.register_channel::<WhitelistAccessRequest>();
 
     Trace::launch(&mut chm);
 
@@ -43,7 +43,7 @@ fn launch_modules(recv: &GenericReceiver<core::SystemMessage>, chm: &ChannelMana
 {
     let sender = chm.get_sender::<core::SystemMessage>().unwrap();
     // Step 1: Launch all modules
-    //crate::acm::generic_whitelist::launch(chm);
+    crate::acm::generic_whitelist::launch(chm);
 
     // Once all threads are go, send a message to the threads to actually start:
     sender.send(core::SystemMessage::RunStage(core::BootStage::LowLevelInit));

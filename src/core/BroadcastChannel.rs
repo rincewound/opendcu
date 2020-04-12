@@ -5,9 +5,8 @@ use super::{Event::DataEvent, AtomicQueue::AtomicQueue};
 /*
 ToDo:
 
-* Channels should notice, when a receiver dies and drop its queue.
-* There should be a posibility to wait for multiple receivers.
-
+* Channels should occiasionally clean the rec_queue of any 
+* died references.
 */
 
 pub struct ChannelImpl<T: Clone>
@@ -36,12 +35,6 @@ impl <T: Clone> ChannelImpl<T>
         }
         self.receiver_queues.set(the_vec);
     }
-
-    // pub fn unregister_queue(&mut self, queue: &Arc<Mutex<Cell<VecDeque<T>>>>)
-    // {
-    //     let queue_vec = self.receiver_queues.take();
-    //     let vecNew = queue_vec.drain_filter(|x| -> *x == *queue);
-    // }
 }
 
 pub fn make_receiver<T: Clone>(owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>) -> Arc<GenericReceiver<T>>
@@ -107,8 +100,11 @@ impl <T: Clone> GenericReceiver<T>
 
     pub fn receive_with_timeout(&self, milliseconds: u64) -> Option<T>
     {
-        self.data.wait_with_timeout(milliseconds);
-        return self.data.pop();
+        if self.data.wait_with_timeout(milliseconds)
+        {
+            return self.data.pop();
+        }
+        return None
     }
 
     pub fn set_data_trigger(&self, d: Arc<DataEvent<u32>>, trigger_data:u32)
