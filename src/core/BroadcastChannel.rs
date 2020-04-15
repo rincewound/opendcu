@@ -94,8 +94,21 @@ impl <T: Clone> GenericReceiver<T>
 
     pub fn receive(&self) -> T
     {
-        self.data.wait_data();
-        return self.data.pop().unwrap();     
+        let mut result: Option<T> = None;
+        /*
+            Note: Depending on how data arrives,
+            there are situations where we actually
+            receive a None from the Queue!
+        */
+        while result.is_none()
+        {
+            if self.data.len() == 0
+            {
+                self.data.wait_data();
+            }
+            result = self.data.pop();  
+        }
+        return result.unwrap();   
     }
 
     pub fn receive_with_timeout(&self, milliseconds: u64) -> Option<T>

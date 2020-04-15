@@ -6,9 +6,6 @@ mod core;
 mod Trace;
 
 use crate::acm::WhitelistAccessRequest;
-
-
-use self::core::BroadcastChannel::GenericReceiver;
 use self::core::ChannelManager::ChannelManager;
 
 // Modules
@@ -34,6 +31,6 @@ fn main() {
     tracer.TraceStr("..welcome to barracuda. Starting up.");
 
     // Note: Launch never returns!
-    launch!(Trace::launch,
+    launch!(//Trace::launch,
             crate::acm::generic_whitelist::launch);
 }
