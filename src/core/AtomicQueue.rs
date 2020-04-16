@@ -71,14 +71,7 @@ impl<T: Clone> AtomicQueue<T> {
 
     pub fn pop(&self) -> Option<T>
     {
-        // if self.len() > 0
-        // {
-            return self.data.lock().unwrap().get_mut().pop_front();
-        // }
-        // else
-        // {
-        //     return None
-        // }
+        return self.data.lock().unwrap().get_mut().pop_front();
     }
 
     pub fn len(&self) -> usize

@@ -28,7 +28,7 @@ impl Event
     pub fn wait_with_timeout(&self, millis: u64) -> bool
     {
         let &(ref lock, ref cvar) = &*self.state.clone();
-        let mut started = lock.lock().unwrap();
+        let mut started = lock.lock().unwrap();    
         loop 
         {
             // Let's put a timeout on the condvar's wait.
@@ -36,7 +36,7 @@ impl Event
             
             started = result.0;
             if *started == true 
-            {
+            {                
                 *started = false;
                 return true;
             }
@@ -76,7 +76,10 @@ impl<T: Copy+Sync> DataEvent<T>
 
     pub fn wait(&self) -> T
     {
+        let ptr = self as *const Self;
+        // println!("+WAIT DE! {}", ptr as u64);
         self.evt.wait();
+        // println!("-WAIT DE");
         return self.data.lock()
                         .unwrap()
                         .take()
@@ -89,13 +92,17 @@ impl<T: Copy+Sync> DataEvent<T>
         {
             return self.data.lock().unwrap().take();
         }
+
         return None;        
     }
 
     pub fn trigger(&self, data: T)
     {
+        let ptr = self as *const Self;
+        //println!("+TRG DE! {}", ptr as u64);
         self.data.lock().unwrap().set(Some(data));
         self.evt.trigger();
+        //println!("-TRG DE!");
     }
 }
 

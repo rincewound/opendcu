@@ -26,7 +26,7 @@ pub enum BootStage
 pub enum SystemMessage
 {
     Shutdown,
-    StageComplete(BootStage),
+    StageComplete(BootStage, u32),
     RunStage(BootStage)
 }
 
@@ -58,27 +58,27 @@ macro_rules! launch_impl {
 
 
 macro_rules! wait_for {
-    ($evt: expr, $id: expr, $head: expr) => (
+    ($evt: ident, $id: expr, $head: expr) => (
         {
-            if $head.has_data() { 
-                ($id)
-            }
-            else
-            {
-                $head.set_data_trigger($evt, $id);
+             if $head.has_data() { 
+                 ($id)
+             }
+             else
+             {
+                $head.set_data_trigger($evt.clone(), $id);
                 ($evt.wait())
             }
         }
     );
-    ($evt: expr, $id: expr, $head: expr, $($tail: expr),+) =>(
+    ($evt: ident, $id: expr, $head: expr, $($tail: expr),+) =>(
         {
-            if $head.has_data()
-            {
-                ($id)
-            }
-            else
-            {
-                $head.set_data_trigger($evt, $id);
+             if $head.has_data()
+             {
+                 ($id)
+             }
+             else
+             {
+                $head.set_data_trigger($evt.clone(), $id);
                 (wait_for!($evt,$id+1, $($tail),+))
             }
         }
@@ -86,7 +86,12 @@ macro_rules! wait_for {
 }
 
 macro_rules! select_chan {
-    ($($channels: expr),+) => (wait_for!(Arc::new(DataEvent::<u32>::new()), 0, $($channels),+));
+    ($($channels: expr),+) => (
+        {
+            let mut evt = Arc::new(DataEvent::<u32>::new());
+            (wait_for!(evt, 0, $($channels),+))
+        }
+    );
 }
 
 

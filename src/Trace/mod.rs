@@ -11,6 +11,8 @@ use crate::core::SystemMessage;
 
 pub mod TraceHelper;
 
+const Module_ID: u32 = 0x02000000;
+
 #[derive(Clone)]
 pub struct trace_message
 {
@@ -39,7 +41,7 @@ pub fn launch(chm: &mut ChannelManager)
     let trace_rx = chm.get_receiver::<trace_message>();
     let sys_rx= chm.get_receiver::<crate::core::SystemMessage>();
     let sys_tx= chm.get_sender::<crate::core::SystemMessage>();
-    sys_tx.send(SystemMessage::StageComplete(crate::core::BootStage::Sync));
+    sys_tx.send(SystemMessage::StageComplete(crate::core::BootStage::Sync, Module_ID));
     println!("Trace active");
 
     let thrd = thread::Builder::new().name("Trace".to_string()).spawn(move || {
@@ -59,7 +61,7 @@ pub fn launch(chm: &mut ChannelManager)
                 {
                     
                     println!("Ran bootstage {}", x as u32);
-                    sys_tx.send(SystemMessage::StageComplete(x));
+                    sys_tx.send(SystemMessage::StageComplete(x, Module_ID));
                 }
             }        
         }

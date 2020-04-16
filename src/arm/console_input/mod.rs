@@ -6,15 +6,15 @@ use crate::core::{SystemMessage, ChannelManager::*};
 use crate::Trace;
 use crate::acm::*;
 use std::{sync::Arc, thread};
+use std::io;
 
-mod whitelist;
 
-const Module_ID: u32 = 0x03000000;
+const Module_ID: u32 = 0x04000000;
 
 pub fn launch(chm: &mut ChannelManager)
 {    
-    let tracer = Trace::TraceHelper::TraceHelper::new("ACM/Whitelist".to_string(), chm);
-    let mut wl = GenericWhitelist::new(tracer, chm, whitelist::SqliteEntryProvider);
+    let tracer = Trace::TraceHelper::TraceHelper::new("ARM/ConsoleInput".to_string(), chm);
+    let mut wl = ConsoleInput::new(tracer, chm);
     thread::spawn(move || {  
         wl.init();   
         loop 
@@ -28,26 +28,24 @@ pub fn launch(chm: &mut ChannelManager)
     });
 }
 
-struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
+struct ConsoleInput
 {
     tracer: Trace::TraceHelper::TraceHelper,
-    access_request_rx: Arc<GenericReceiver<crate::acm::WhitelistAccessRequest>>,
+    access_request_tx: GenericSender<crate::acm::WhitelistAccessRequest>,
     system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
     system_events_tx: GenericSender<crate::core::SystemMessage>,
-    whitelist: WhitelistProvider
 }
 
-impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<WhitelistProvider>
+impl ConsoleInput
 {
-    fn new(trace: Trace::TraceHelper::TraceHelper, chm: &mut ChannelManager, whitelist: WhitelistProvider) -> Self
+    fn new(trace: Trace::TraceHelper::TraceHelper, chm: &mut ChannelManager) -> Self
     {
-        GenericWhitelist
+        ConsoleInput
         {
             tracer: trace,
-            access_request_rx: chm.get_receiver::<crate::acm::WhitelistAccessRequest>(),
+            access_request_tx: chm.get_sender::<crate::acm::WhitelistAccessRequest>(),
             system_events_rx: chm.get_receiver::<crate::core::SystemMessage>(),
             system_events_tx: chm.get_sender::<crate::core::SystemMessage>(),
-            whitelist
         }
     }
 
@@ -91,27 +89,19 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<Whit
 
     pub fn do_request(&mut self) -> bool
     {
-        self.tracer.TraceStr("Start serving requests.");
-        let req = self.access_request_rx.receive();
-        self.tracer.TraceStr("Received request.");
-        // ToDo: This should be done from a threadpool.
-        self.process_access_request(req);
+
+        let mut input = String::new();
+        match io::stdin().read_line(&mut input) {
+            Ok(n) => {
+                let req = WhitelistAccessRequest
+                {
+                    access_point_id: 0,
+                    identity_token_number: input.into_bytes()
+                };
+                self.access_request_tx.send(req);
+            }
+            Err(error) => println!("error: {}", error),
+        }
         true
-    }
-
-    fn process_access_request(&self, req: WhitelistAccessRequest)
-    {
-        // Pull Whitelist Entry
-        let entry = self.whitelist.get_entry(req.identity_token_number);
-
-        // Found? If so, check access profile, otherwise emit AccessDenied Sig
-        if let Some(entry) = entry {
-            
-            // Good? If so, emit DoorOpenRequest, otherwise emit AccessDenied Sig          
-        }
-        else
-        {
-            // Emit Access Denied
-        }
     }
 }
