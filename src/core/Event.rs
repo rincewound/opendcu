@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex, Condvar};
 use std::{cell::Cell, time::Duration};
 
 pub struct Event{
-    state: Arc<(Mutex<bool>, Condvar)>
+    state: Arc<(Mutex<bool>, Condvar)>,
 }
 
 impl Event
@@ -10,7 +10,7 @@ impl Event
     pub fn new() -> Self
     {
         Event{
-            state: Arc::new((Mutex::new(false), Condvar::new()))
+            state: Arc::new((Mutex::new(false), Condvar::new())),
         }
     }
 
@@ -32,7 +32,7 @@ impl Event
         loop 
         {
             // Let's put a timeout on the condvar's wait.
-            let mut result = cvar.wait_timeout(started, Duration::from_millis(millis)).unwrap();
+            let result = cvar.wait_timeout(started, Duration::from_millis(millis)).unwrap();
             
             started = result.0;
             if *started == true 
@@ -51,10 +51,11 @@ impl Event
 
     pub fn trigger(&self)
     {
-        let &(ref mtx, _) = &*(self.state.clone());
+        let &(ref mtx, ref cvar) = &*(self.state.clone());
         let mut done = mtx.lock()
                           .unwrap();
         *done = true;
+        cvar.notify_one();
     }
 }
 
@@ -86,7 +87,7 @@ impl<T: Copy+Sync> DataEvent<T>
     {
         if self.evt.wait_with_timeout(millis)
         {
-            return  self.data.lock().unwrap().take();
+            return self.data.lock().unwrap().take();
         }
         return None;        
     }

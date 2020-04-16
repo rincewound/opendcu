@@ -20,17 +20,18 @@ fn main() {
        the channel manager.
 */
 
-    let mut chm = ChannelManager::new();
+    // This instance of the chm cannot be used!
+    //let mut chm = ChannelManager::new();
     //chm.register_channel::<Trace::trace_message>();
-    chm.register_channel::<core::SystemMessage>();
-    chm.register_channel::<WhitelistAccessRequest>();
+    // chm.register_channel::<core::SystemMessage>();
+    // chm.register_channel::<WhitelistAccessRequest>();
 
-    Trace::launch(&mut chm);
+    // Trace::launch(&mut chm);
 
-    let tracer = Trace::TraceHelper::TraceHelper::new(String::from("Main"), &chm);
-    tracer.TraceStr("..welcome to barracuda. Starting up.");
+    // let tracer = Trace::TraceHelper::TraceHelper::new(String::from("Main"), &chm);
+    // tracer.TraceStr("..welcome to barracuda. Starting up.");
 
     // Note: Launch never returns!
-    launch!(//Trace::launch,
-            crate::acm::generic_whitelist::launch);
+    launch!(Trace::launch
+    /*crate::acm::generic_whitelist::launch*/);
 }

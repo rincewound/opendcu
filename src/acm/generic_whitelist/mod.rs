@@ -9,7 +9,7 @@ use std::{sync::Arc, thread};
 
 mod whitelist;
 
-pub fn launch(chm: &ChannelManager)
+pub fn launch(chm: &mut ChannelManager)
 {    
     let tracer = Trace::TraceHelper::TraceHelper::new("ACM/Whitelist".to_string(), chm);
     let mut wl = GenericWhitelist::new(tracer, chm, whitelist::SqliteEntryProvider);
@@ -37,14 +37,14 @@ struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
 
 impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<WhitelistProvider>
 {
-    fn new(trace: Trace::TraceHelper::TraceHelper, chm: &ChannelManager, whitelist: WhitelistProvider) -> Self
+    fn new(trace: Trace::TraceHelper::TraceHelper, chm: &mut ChannelManager, whitelist: WhitelistProvider) -> Self
     {
         GenericWhitelist
         {
             tracer: trace,
-            access_request_rx: chm.get_receiver::<crate::acm::WhitelistAccessRequest>().unwrap(),
-            system_events_rx: chm.get_receiver::<crate::core::SystemMessage>().unwrap(),
-            system_events_tx: chm.get_sender::<crate::core::SystemMessage>().unwrap(),
+            access_request_rx: chm.get_receiver::<crate::acm::WhitelistAccessRequest>(),
+            system_events_rx: chm.get_receiver::<crate::core::SystemMessage>(),
+            system_events_tx: chm.get_sender::<crate::core::SystemMessage>(),
             whitelist
         }
     }

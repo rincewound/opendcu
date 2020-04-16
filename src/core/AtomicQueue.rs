@@ -38,17 +38,29 @@ impl<T: Clone> AtomicQueue<T> {
     }
 
     pub fn wait_data(&self)
-    {
+    {        
+        if self.len() != 0
+        {
+            return;
+        }
         self.evt.wait();
     }
 
     pub fn wait_with_timeout(&self, milliseconds: u64) -> bool
-    {
+    {   
+        if self.len() != 0
+        {
+            return true;
+        }
         return self.evt.wait_with_timeout(milliseconds);       
     }
 
     pub fn set_data_trigger(&self, evt: Arc<DataEvent<u32>>, trigger_data: u32)
     {
+        if self.len() != 0
+        {
+            evt.trigger(trigger_data)            
+        }
         let mut trg = self.data_trigger
                                                         .lock()
                                                         .unwrap();

@@ -2,6 +2,8 @@ use std::sync::{Arc, Mutex, Weak};
 use std::cell::*;
 use super::{Event::DataEvent, AtomicQueue::AtomicQueue};
 
+
+
 /*
 ToDo:
 
@@ -128,37 +130,6 @@ impl <T: Clone> GenericReceiver<T>
 
 
 
-macro_rules! wait_for {
-    ($evt: expr, $id: expr, $head: expr) => (
-        {
-            if $head.has_data() { 
-                ($id)
-            }
-            else
-            {
-                $head.set_data_trigger($evt, $id);
-                ($evt.wait())
-            }
-        }
-    );
-    ($evt: expr, $id: expr, $head: expr, $($tail: expr),+) =>(
-        {
-            if $head.has_data()
-            {
-                ($id)
-            }
-            else
-            {
-                $head.set_data_trigger($evt, $id);
-                (wait_for!($evt,$id+1, $($tail),+))
-            }
-        }
-    )
-}
-
-macro_rules! select_chan {
-    ($($channels: expr),+) => (wait_for!(Arc::new(DataEvent::<u32>::new()), 0, $($channels),+));
-}
 pub struct GenericSender<T: Clone>
 {
     source: Arc<Mutex<RefCell<ChannelImpl<T> >>>
@@ -189,6 +160,9 @@ impl <T: Clone> GenericSender<T>
 #[cfg(test)]
 mod tests {
      use crate::core::BroadcastChannel::*;
+
+     #[macro_use]
+     use crate::core;
 
     #[test]
     fn can_create_channel()

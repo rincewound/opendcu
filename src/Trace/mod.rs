@@ -1,7 +1,13 @@
 
 use crate::core::ChannelManager::*;
+#[macro_use]
+use crate::core;
+use crate::core::Event::DataEvent;
 use std::{io, thread, self};
-use std::io::Write;
+use std::{sync::Arc, io::Write};
+
+use crate::core::SystemMessage;
+
 
 pub mod TraceHelper;
 
@@ -29,15 +35,33 @@ impl trace_message
 }
 
 pub fn launch(chm: &mut ChannelManager)
-{
-    chm.register_channel::<trace_message>();
-    let trace_rx = chm.get_receiver::<trace_message>().unwrap();
-    thread::Builder::new().name("Trace".to_string()).spawn(move || {
+{    
+    let trace_rx = chm.get_receiver::<trace_message>();
+    let sys_rx= chm.get_receiver::<crate::core::SystemMessage>();
+    let sys_tx= chm.get_sender::<crate::core::SystemMessage>();
+    sys_tx.send(SystemMessage::StageComplete(crate::core::BootStage::Sync));
+    println!("Trace active");
+
+    let thrd = thread::Builder::new().name("Trace".to_string()).spawn(move || {
         loop
         {
-            let message = trace_rx.receive();
-            println!("{}", message.msg);
-            io::stdout().flush();
+            let queue = select_chan!(sys_rx, trace_rx);
+            if queue == 1
+            {
+                let message = trace_rx.receive();
+                println!("{}", message.msg);
+                io::stdout().flush();
+            }
+            if queue == 0
+            {
+                let msg = sys_rx.receive();
+                if let SystemMessage::RunStage(x) = msg
+                {
+                    
+                    println!("Ran bootstage {}", x as u32);
+                    sys_tx.send(SystemMessage::StageComplete(x));
+                }
+            }        
         }
     });
 }

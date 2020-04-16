@@ -9,12 +9,12 @@ pub struct TraceHelper
 
 impl TraceHelper
 {
-    pub fn new(module_name: String, channelManager: &crate::core::ChannelManager::ChannelManager) -> Self
+    pub fn new(module_name: String, channelManager: &mut crate::core::ChannelManager::ChannelManager) -> Self
     {
         TraceHelper
         {
             source_mod: module_name,
-            trace_tx: channelManager.get_sender::<crate::Trace::trace_message>().unwrap()
+            trace_tx: channelManager.get_sender::<crate::Trace::trace_message>()
         }
     }
 

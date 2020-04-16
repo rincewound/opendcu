@@ -4,8 +4,6 @@ The barracuda core services module contains the infrastructure
 for the rest of the appliaction, most notably
 
 * The implementation of the channel manager
-* The implementation of the checkpoint system
-* Logging/Tracing
 
 */
 
@@ -15,7 +13,7 @@ pub mod Event;
 pub mod AtomicQueue;
 pub mod Supervisor;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub enum BootStage
 {
     Sync,
@@ -56,4 +54,70 @@ macro_rules! launch_impl {
             $supervisor.start_thread($head);         
         }
     )
+}
+
+
+macro_rules! wait_for {
+    ($evt: expr, $id: expr, $head: expr) => (
+        {
+            if $head.has_data() { 
+                ($id)
+            }
+            else
+            {
+                $head.set_data_trigger($evt, $id);
+                ($evt.wait())
+            }
+        }
+    );
+    ($evt: expr, $id: expr, $head: expr, $($tail: expr),+) =>(
+        {
+            if $head.has_data()
+            {
+                ($id)
+            }
+            else
+            {
+                $head.set_data_trigger($evt, $id);
+                (wait_for!($evt,$id+1, $($tail),+))
+            }
+        }
+    )
+}
+
+macro_rules! select_chan {
+    ($($channels: expr),+) => (wait_for!(Arc::new(DataEvent::<u32>::new()), 0, $($channels),+));
+}
+
+
+macro_rules! wait_for_with_timeout {
+    ($evt: expr, $timeout: expr, $id: expr, $head: expr) => (
+        {
+            if $head.has_data() { 
+                Some($id)
+            }
+            else
+            {
+                $head.set_data_trigger($evt, $id);
+                ($evt.wait_with_timeout($timeout))
+            }
+        }
+    );
+    ($evt: expr, $timeout: expr, $id: expr, $head: expr, $($tail: expr),+) =>(
+        {
+            if $head.has_data()
+            {
+                Some($id)
+            }
+            else
+            {
+                $head.set_data_trigger($evt, $id);
+                (wait_for_with_timeout!($evt, $timeout, $id + 1, $($tail),+))
+            }
+        }
+    )
+}
+
+macro_rules! select_chan_with_timeout {
+    ($timeout: expr, $($channels: expr),+) => (wait_for_with_timeout!(Arc::new(DataEvent::<u32>::new()), $timeout, 0, $($channels),+));
 }
