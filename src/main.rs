@@ -6,6 +6,8 @@ mod core;
 mod Trace;
 mod acm;
 mod arm;
+mod sig;
+mod dcm;
 
 fn main() {
     // Note: Launch never returns!

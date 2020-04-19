@@ -77,9 +77,7 @@ impl<T: Copy+Sync> DataEvent<T>
     pub fn wait(&self) -> T
     {
         let ptr = self as *const Self;
-        // println!("+WAIT DE! {}", ptr as u64);
         self.evt.wait();
-        // println!("-WAIT DE");
         return self.data.lock()
                         .unwrap()
                         .take()
@@ -99,10 +97,8 @@ impl<T: Copy+Sync> DataEvent<T>
     pub fn trigger(&self, data: T)
     {
         let ptr = self as *const Self;
-        //println!("+TRG DE! {}", ptr as u64);
         self.data.lock().unwrap().set(Some(data));
         self.evt.trigger();
-        //println!("-TRG DE!");
     }
 }
 

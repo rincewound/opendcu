@@ -30,6 +30,19 @@ pub enum SystemMessage
     RunStage(BootStage)
 }
 
+/**
+Launch expects a list of functions. Launch will call all
+functions and walk through the bootup sequence, expecting
+all called functions to:
+    start a thread that implements the bootup protocol, 
+    i.e. it shall check in when a RunStage command is
+    sent.
+
+    Panics if any of the stages fail to check in within
+    2.5 seconds after a run-stage command, except for
+    the "Application" stage which is not expected to
+    be answered.
+**/
 macro_rules! launch {
     ($($threadlist: expr),+) => (
         {
