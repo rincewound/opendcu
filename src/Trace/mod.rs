@@ -1,7 +1,5 @@
 
 use crate::core::ChannelManager::*;
-#[macro_use]
-use crate::core;
 use crate::core::Event::DataEvent;
 use std::{io, thread, self};
 use std::{sync::Arc, io::Write};

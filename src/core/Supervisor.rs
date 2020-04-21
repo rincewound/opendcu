@@ -8,9 +8,7 @@
 
 use crate::core::{SystemMessage, BootStage};
 use crate::core::BroadcastChannel::*;
-use crate::Trace::TraceHelper::TraceHelper;
 use std::sync::Arc;
-use std::mem::*;
 
 pub struct Supervisor{
     sysrec: Arc<crate::core::BroadcastChannel::GenericReceiver<SystemMessage>>,

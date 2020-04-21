@@ -85,7 +85,6 @@ impl<T: Clone> AtomicQueue<T> {
 #[cfg(test)]
 mod tests {
      use crate::core::AtomicQueue::*;
-     use crate::core::Event::*;
 
      #[test]
      fn can_push_data()

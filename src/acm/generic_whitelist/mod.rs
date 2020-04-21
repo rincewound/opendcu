@@ -6,6 +6,7 @@ use crate::core::{SystemMessage, ChannelManager::*};
 use crate::Trace;
 use crate::{sig::*, acm::*};
 use std::{sync::Arc, thread};
+use crate::cfg;
 
 mod whitelist;
 
@@ -27,6 +28,33 @@ pub fn launch(chm: &mut ChannelManager)
         
     });
 }
+
+/*
+Idea for configuration:
+* Each module should have its own cfg channel where cfg changes can be injected. This would
+* allow us to use free functions for actually injecting the data. ideally the API would be
+* something like:
+
+#[Post, Endpoint=ACM/Whitelist/{InstanceId}/]
+fn add_whitelist(wlentry: WhitelistEntry, InstanceId: u32) -> Success
+{
+
+}
+
+However: 
+* We need access to the channel manager for this to work
+* There needs to be a way to gather all endpoints across all active services
+  (ideally during LLI)
+
+
+  -> The Macro Expasion of #Post would be something like
+  fn _post_add_whitelist(req: Request) -> Success
+  {
+      // deserialize data from req
+      add_whitelist(deserialized data)
+  }
+
+*/
 
 
 struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
@@ -134,6 +162,19 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<Whit
             self.send_signal_command(req.access_point_id, SigType::AccessDenied, 1000);
         }
     }
+
+
+    
+    fn process_put_req(entry: whitelist::WhitelistEntry)
+    {
+
+    }
+
+    fn register_handlers()
+    {
+        let h = Handler!(GenericWhitelist::<WhitelistProvider>::process_put_req);
+    }
+
 }
 
 #[cfg(test)]

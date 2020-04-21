@@ -7,6 +7,9 @@ for the rest of the appliaction, most notably
 
 */
 
+use std::sync::{Arc, Mutex};
+use crate::modcaps::*;
+
 pub mod BroadcastChannel;
 pub mod ChannelManager;
 pub mod Event;
@@ -17,6 +20,7 @@ pub mod Supervisor;
 pub enum BootStage
 {
     Sync,
+    Advertise,
     LowLevelInit,
     HighLevelInit,
     Application
@@ -27,7 +31,9 @@ pub enum SystemMessage
 {
     Shutdown,
     StageComplete(BootStage, u32),
-    RunStage(BootStage)
+    Advertisement(ModuleCapability),
+    RunStage(BootStage),
+    RegisterConfigInterface(Arc<Mutex<i32>>)        // Note that we might not actually need this, if CFG is just another module.
 }
 
 /**
@@ -53,7 +59,6 @@ macro_rules! launch {
     )
 }
 
-
 macro_rules! launch_impl {
     ($supervisor: expr, $head: expr, $($threadlist: expr),+) => (
         {
@@ -68,7 +73,6 @@ macro_rules! launch_impl {
         }
     )
 }
-
 
 macro_rules! wait_for {
     ($evt: ident, $id: expr, $head: expr) => (
@@ -101,12 +105,11 @@ macro_rules! wait_for {
 macro_rules! select_chan {
     ($($channels: expr),+) => (
         {
-            let mut evt = Arc::new(DataEvent::<u32>::new());
+            let evt = Arc::new(DataEvent::<u32>::new());
             (wait_for!(evt, 0, $($channels),+))
         }
     );
 }
-
 
 macro_rules! wait_for_with_timeout {
     ($evt: expr, $timeout: expr, $id: expr, $head: expr) => (
