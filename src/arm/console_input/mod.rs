@@ -1,8 +1,6 @@
 
-
-use crate::core::BootStage;
 use crate::core::BroadcastChannel::*;
-use crate::core::{SystemMessage, ChannelManager::*};
+use crate::core::ChannelManager::*;
 use crate::Trace;
 use crate::acm::*;
 use std::{sync::Arc, thread};
@@ -49,42 +47,9 @@ impl ConsoleInput
         }
     }
 
-    fn wait_for_stage(&self, stage: BootStage)
-    {
-        self.tracer.Trace(format!("Wait for stage signal {}", stage as u32));
-        loop
-        {
-            let msg = self.system_events_rx.receive();
-            match msg
-            {
-                SystemMessage::RunStage(s) => if s == stage {
-                    break;
-                },
-                _ => continue /*ABORTS!*/
-            }
-        }  
-    }
-
-    fn send_stage_complete(&self, stage: BootStage)
-    {
-        self.system_events_tx.send(crate::core::SystemMessage::StageComplete(stage, Module_ID));
-    }
-
     pub fn init(&mut self)
     {
-        self.tracer.TraceStr("Starting");
-        self.send_stage_complete(BootStage::Sync);
-
-        self.wait_for_stage(BootStage::LowLevelInit);
-        self.tracer.TraceStr("Runstage: LLI");
-        self.send_stage_complete(BootStage::LowLevelInit);
-
-        self.wait_for_stage(BootStage::HighLevelInit);
-        self.tracer.TraceStr("Runstage: HLI");
-        self.send_stage_complete(BootStage::HighLevelInit);
-
-        self.wait_for_stage(BootStage::Application);
-        self.tracer.TraceStr("Runstage: APP");
+        crate::core::BootstageHelper::Boot(Module_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
     }
 
     pub fn do_request(&mut self) -> bool

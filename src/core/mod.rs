@@ -15,6 +15,7 @@ pub mod ChannelManager;
 pub mod Event;
 pub mod AtomicQueue;
 pub mod Supervisor;
+pub mod BootstageHelper;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum BootStage

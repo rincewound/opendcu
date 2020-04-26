@@ -31,6 +31,12 @@ macro_rules! Handler {
     };
 }
 
+/*
+
+The rubbish bit here ist, that this introduces a rouille dependency
+for all components, even if we - at some point, want to
+have use a different CFG module.
+*/
 pub fn convert_data<T: for<'de> serde::Deserialize<'de>>(r: rouille::Request) -> Option<T>
 {
     let rdr = r.data().unwrap();
