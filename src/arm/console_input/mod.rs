@@ -49,7 +49,7 @@ impl ConsoleInput
 
     pub fn init(&mut self)
     {
-        crate::core::bootstage_helper::boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
+        crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
     }
 
     pub fn do_request(&mut self) -> bool

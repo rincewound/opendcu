@@ -5,7 +5,7 @@ use crate::core::broadcast_channel::*;
 use crate::core::{SystemMessage, channel_manager::*};
 use crate::trace::*;
 use std::{sync::Arc, thread};
-
+use crate::core::bootstage_helper::*;
 
 
 const MODULE_ID: u32 = 0x06000000;
@@ -68,44 +68,14 @@ impl ConfigRest
 
     }
 
-    fn wait_for_stage(&self, stage: BootStage)
-    {
-        self.tracer.trace(format!("Wait for stage signal {}", stage as u32));
-        loop
-        {
-            let msg = self.system_events_rx.receive();
-            match msg
-            {
-                SystemMessage::RunStage(s) => if s == stage {
-                    break;
-                },
-                _ => continue /*ABORTS!*/
-            }
-        }  
-    }
-
-    fn send_stage_complete(&self, stage: BootStage)
-    {
-        self.system_events_tx.send(crate::core::SystemMessage::StageComplete(stage, MODULE_ID));
-    }
-
     pub fn init(&mut self)
     {
-        self.tracer.trace_str("Starting");
-        self.send_stage_complete(BootStage::Sync);
+        let cbs = [Some(||{}), None];
 
-        self.wait_for_stage(BootStage::LowLevelInit);
-        self.tracer.trace_str("Runstage: LLI");
-        self.send_stage_complete(BootStage::LowLevelInit);
-
-        self.wait_for_stage(BootStage::HighLevelInit);
-        self.tracer.trace_str("Runstage: HLI");
-        self.send_stage_complete(BootStage::HighLevelInit);
-
-        // Assumption: All modules *should* have published their
-        // cfg interface before we enter the App stage.
-        self.wait_for_stage(BootStage::Application);
-        self.tracer.trace_str("Runstage: APP");
+        boot(MODULE_ID, cbs, 
+            self.system_events_tx.clone(), 
+            self.system_events_rx.clone(), 
+            &self.tracer);
     }
 
     fn do_put(&self, req: &rouille::Request, _module: String) -> rouille::Response

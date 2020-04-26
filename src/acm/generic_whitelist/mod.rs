@@ -4,6 +4,7 @@ use crate::trace::*;
 use crate::{sig::*, acm::*};
 use std::{sync::{Mutex, Arc}, thread};
 use crate::cfg;
+use crate::core::bootstage_helper::*;
 
 mod whitelist;
 
@@ -84,7 +85,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<Whit
 
     pub fn init(&mut self)
     {
-        crate::core::bootstage_helper::boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
+        plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
     }
 
     pub fn do_request(&mut self) -> bool
