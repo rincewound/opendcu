@@ -1,7 +1,7 @@
 
 
 use std::{collections::VecDeque, sync::{Arc, Mutex}, cell::Cell};
-use super::Event::{DataEvent, Event};
+use super::event::{DataEvent, Event};
 
 
 pub struct AtomicQueue<T: Clone>
@@ -84,7 +84,7 @@ impl<T: Clone> AtomicQueue<T> {
 
 #[cfg(test)]
 mod tests {
-     use crate::core::AtomicQueue::*;
+     use crate::core::atomic_queue::*;
 
      #[test]
      fn can_push_data()

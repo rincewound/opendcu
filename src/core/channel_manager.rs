@@ -1,5 +1,5 @@
 
-use crate::core::BroadcastChannel::*;
+use crate::core::broadcast_channel::*;
 extern crate anymap;
 use anymap::AnyMap;
 use std::sync::Arc;
@@ -49,7 +49,7 @@ impl ChannelManager  {
 
 #[cfg(test)]
 mod tests {
-    use crate::core::ChannelManager::*;
+    use crate::core::channel_manager::*;
 
     #[test]
     fn broadcast_works_as_intended()

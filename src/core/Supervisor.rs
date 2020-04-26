@@ -7,33 +7,34 @@
 */
 
 use crate::core::{SystemMessage, BootStage};
-use crate::core::BroadcastChannel::*;
+use crate::core::broadcast_channel::*;
+use crate::trace::*;
 use std::sync::Arc;
 
 pub struct Supervisor{
-    sysrec: Arc<crate::core::BroadcastChannel::GenericReceiver<SystemMessage>>,
-    tracer: crate::Trace::TraceHelper::TraceHelper,
-    chm: crate::core::ChannelManager::ChannelManager,
+    sysrec: Arc<crate::core::broadcast_channel::GenericReceiver<SystemMessage>>,
+    tracer: trace_helper::TraceHelper,
+    chm: crate::core::channel_manager::ChannelManager,
     num_threads: u32
 }
 
 impl Supervisor
 {
     pub fn new() -> Self{
-        let mut chanmgr = crate::core::ChannelManager::ChannelManager::new();
+        let mut chanmgr = crate::core::channel_manager::ChannelManager::new();
         let syschan = chanmgr.get_receiver::<SystemMessage>();
 
         Supervisor
         { 
             sysrec: syschan,
-            tracer: crate::Trace::TraceHelper::TraceHelper::new("SYS/Sypervisor".to_string(), &mut chanmgr),
+            tracer: trace_helper::TraceHelper::new("SYS/Sypervisor".to_string(), &mut chanmgr),
             chm: chanmgr,            
             num_threads: 0
         }
     }
 
     pub fn start_thread<T>(&mut self, launcher: T)
-        where T: FnOnce(&mut crate::core::ChannelManager::ChannelManager)
+        where T: FnOnce(&mut crate::core::channel_manager::ChannelManager)
     {
         self.num_threads += 1;
         launcher(&mut self.chm);
@@ -89,13 +90,13 @@ impl Supervisor
             if let Some(received) = data {
                 match received
                 {
-                    SystemMessage::StageComplete(the_stage, modId) => 
+                    SystemMessage::StageComplete(the_stage, mod_id) => 
                     {
                         if std::mem::discriminant(&the_stage) == std::mem::discriminant(&stage) {
-                            let mod_type = (modId &0xFF000000) >> 24;
-                            let mod_instance = modId & 0x000000FF;
+                            let mod_type = (mod_id &0xFF000000) >> 24;
+                            let mod_instance = mod_id & 0x000000FF;
                             self.tracer.Trace(format!("Module {}, instance {} checked in for stage {} ", mod_type, mod_instance, the_stage as u32));
-                            checked_in.push(modId);
+                            checked_in.push(mod_id);
                             messages_left -= 1
                         }                     
                     }

@@ -1,18 +1,18 @@
 use rouille::*;
 
 use crate::core::BootStage;
-use crate::core::BroadcastChannel::*;
-use crate::core::{SystemMessage, ChannelManager::*};
-use crate::Trace;
+use crate::core::broadcast_channel::*;
+use crate::core::{SystemMessage, channel_manager::*};
+use crate::trace::*;
 use std::{sync::Arc, thread};
 
 
 
-const Module_ID: u32 = 0x06000000;
+const MODULE_ID: u32 = 0x06000000;
 
 pub fn launch(chm: &mut ChannelManager)
 {    
-    let tracer = Trace::TraceHelper::TraceHelper::new("CFG/Rest".to_string(), chm);
+    let tracer = trace_helper::TraceHelper::new("CFG/Rest".to_string(), chm);
     let mut cr = ConfigRest::new(tracer, chm);
     thread::spawn(move || {  
         cr.init();  
@@ -50,14 +50,14 @@ However:
 
 struct ConfigRest
 {
-    tracer: Trace::TraceHelper::TraceHelper,
+    tracer: trace_helper::TraceHelper,
     system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
     system_events_tx: GenericSender<crate::core::SystemMessage>,
 }
 
 impl ConfigRest
 {
-    fn new(trace: Trace::TraceHelper::TraceHelper, chm: &mut ChannelManager) -> Self
+    fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager) -> Self
     {
         ConfigRest
         {
@@ -86,7 +86,7 @@ impl ConfigRest
 
     fn send_stage_complete(&self, stage: BootStage)
     {
-        self.system_events_tx.send(crate::core::SystemMessage::StageComplete(stage, Module_ID));
+        self.system_events_tx.send(crate::core::SystemMessage::StageComplete(stage, MODULE_ID));
     }
 
     pub fn init(&mut self)
@@ -108,25 +108,25 @@ impl ConfigRest
         self.tracer.TraceStr("Runstage: APP");
     }
 
-    fn do_put(&self, req: &rouille::Request, module: String) -> rouille::Response
+    fn do_put(&self, req: &rouille::Request, _module: String) -> rouille::Response
     {
         print!("{}", req.url());
         rouille::Response::text("All is bad.")
     }
 
-    fn do_post(&self, req: &rouille::Request, module: String) -> rouille::Response
+    fn do_post(&self, req: &rouille::Request, _module: String) -> rouille::Response
     {
         print!("{}", req.url());
         rouille::Response::text("All is bad.")
     }
 
-    fn do_get(&self, req: &rouille::Request, module: String) -> rouille::Response
+    fn do_get(&self, req: &rouille::Request, _module: String) -> rouille::Response
     {
         print!("{}", req.url());
         rouille::Response::text("All is bad.")
     }
 
-    fn do_delete(&self, req: &rouille::Request, module: String) -> rouille::Response
+    fn do_delete(&self, req: &rouille::Request, _module: String) -> rouille::Response
     {
         print!("{}", req.url());
         rouille::Response::text("All is bad.")

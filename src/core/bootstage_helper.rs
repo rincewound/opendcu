@@ -1,6 +1,6 @@
 use crate::core::{SystemMessage, BootStage};
-use crate::core::BroadcastChannel::*;
-use crate::Trace::TraceHelper::TraceHelper;
+use crate::core::broadcast_channel::*;
+use crate::trace::trace_helper::TraceHelper;
 use std::sync::Arc;
 
 /*
@@ -9,26 +9,26 @@ use std::sync::Arc;
 *  making it easier to boot modules
 *  that have no external dependencies.
 */
-pub fn Boot(module_ID: u32, sys_chan: GenericSender<crate::core::SystemMessage>, sys_chan_rx: Arc<GenericReceiver<crate::core::SystemMessage>>, tracer: &TraceHelper)
+pub fn boot(module_id: u32, sys_chan: GenericSender<crate::core::SystemMessage>, sys_chan_rx: Arc<GenericReceiver<crate::core::SystemMessage>>, tracer: &TraceHelper)
 {
     tracer.TraceStr("Starting");
-    send_stage_complete(module_ID, BootStage::Sync, &sys_chan);
+    send_stage_complete(module_id, BootStage::Sync, &sys_chan);
 
     wait_for_stage(BootStage::LowLevelInit, &sys_chan_rx, tracer);
     tracer.TraceStr("Runstage: LLI");
-    send_stage_complete(module_ID, BootStage::LowLevelInit, &sys_chan);
+    send_stage_complete(module_id, BootStage::LowLevelInit, &sys_chan);
 
     wait_for_stage(BootStage::HighLevelInit, &sys_chan_rx, tracer);
     tracer.TraceStr("Runstage: HLI");
-    send_stage_complete(module_ID, BootStage::HighLevelInit, &sys_chan);
+    send_stage_complete(module_id, BootStage::HighLevelInit, &sys_chan);
 
     wait_for_stage(BootStage::Application, &sys_chan_rx, tracer);
     tracer.TraceStr("Runstage: APP");
 }
 
-fn send_stage_complete(Module_ID: u32, stage: BootStage, sys_chan: &GenericSender<crate::core::SystemMessage>)
+fn send_stage_complete(module_id: u32, stage: BootStage, sys_chan: &GenericSender<crate::core::SystemMessage>)
 {
-    sys_chan.send(crate::core::SystemMessage::StageComplete(stage, Module_ID));
+    sys_chan.send(crate::core::SystemMessage::StageComplete(stage, module_id));
 }
 
 fn wait_for_stage(stage: BootStage, sys_chan_rx: &Arc<GenericReceiver<crate::core::SystemMessage>>, tracer: &TraceHelper)

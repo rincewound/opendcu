@@ -10,18 +10,18 @@ for the rest of the appliaction, most notably
 use std::sync::{Arc, Mutex};
 use crate::modcaps::*;
 
-pub mod BroadcastChannel;
-pub mod ChannelManager;
-pub mod Event;
-pub mod AtomicQueue;
-pub mod Supervisor;
-pub mod BootstageHelper;
+pub mod broadcast_channel;
+pub mod channel_manager;
+pub mod event;
+pub mod atomic_queue;
+pub mod supervisor;
+pub mod bootstage_helper;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum BootStage
 {
     Sync,
-    Advertise,
+    _Advertise,
     LowLevelInit,
     HighLevelInit,
     Application
@@ -32,9 +32,9 @@ pub enum SystemMessage
 {
     Shutdown,
     StageComplete(BootStage, u32),
-    Advertisement(ModuleCapability),
+    _Advertisement(ModuleCapability),
     RunStage(BootStage),
-    RegisterConfigInterface(Arc<Mutex<i32>>)        // Note that we might not actually need this, if CFG is just another module.
+    _RegisterConfigInterface(Arc<Mutex<i32>>)        // Note that we might not actually need this, if CFG is just another module.
 }
 
 /**
@@ -53,7 +53,7 @@ all called functions to:
 macro_rules! launch {
     ($($threadlist: expr),+) => (
         {
-            let mut supervisor = crate::core::Supervisor::Supervisor::new();
+            let mut supervisor = crate::core::supervisor::Supervisor::new();
             launch_impl!(supervisor, $($threadlist),+);            
             supervisor.run();
         }

@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex, Weak};
 use std::cell::*;
-use super::{Event::DataEvent, AtomicQueue::AtomicQueue};
+use super::{event::DataEvent, atomic_queue::AtomicQueue};
 
 
 
@@ -161,10 +161,8 @@ impl <T: Clone> GenericSender<T>
 
 #[cfg(test)]
 mod tests {
-     use crate::core::BroadcastChannel::*;
+     use crate::core::broadcast_channel::*;
 
-     #[macro_use]
-     use crate::core;
 
     #[test]
     fn can_create_channel()

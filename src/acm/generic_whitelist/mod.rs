@@ -1,20 +1,17 @@
-
-
-use crate::core::BootStage;
-use crate::core::BroadcastChannel::*;
-use crate::core::{SystemMessage, ChannelManager::*};
-use crate::Trace;
+use crate::core::broadcast_channel::*;
+use crate::core::{channel_manager::*};
+use crate::trace::*;
 use crate::{sig::*, acm::*};
 use std::{sync::Arc, thread};
 use crate::cfg;
 
 mod whitelist;
 
-const Module_ID: u32 = 0x03000000;
+const MODULE_ID: u32 = 0x03000000;
 
 pub fn launch(chm: &mut ChannelManager)
 {    
-    let tracer = Trace::TraceHelper::TraceHelper::new("ACM/Whitelist".to_string(), chm);
+    let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), chm);
     let mut wl = GenericWhitelist::new(tracer, chm, whitelist::SqliteEntryProvider);
     thread::spawn(move || {  
         wl.init();   
@@ -59,7 +56,7 @@ However:
 
 struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
 {
-    tracer: Trace::TraceHelper::TraceHelper,
+    tracer: trace_helper::TraceHelper,
     access_request_rx: Arc<GenericReceiver<crate::acm::WhitelistAccessRequest>>,
     system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
     system_events_tx: GenericSender<crate::core::SystemMessage>,
@@ -70,7 +67,7 @@ struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
 
 impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<WhitelistProvider>
 {
-    fn new(trace: Trace::TraceHelper::TraceHelper, chm: &mut ChannelManager, whitelist: WhitelistProvider) -> Self
+    fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager, whitelist: WhitelistProvider) -> Self
     {
         GenericWhitelist
         {
@@ -84,9 +81,10 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<Whit
         }
     }
 
+
     pub fn init(&mut self)
     {
-        crate::core::BootstageHelper::Boot(Module_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
+        crate::core::bootstage_helper::boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
     }
 
     pub fn do_request(&mut self) -> bool
@@ -146,7 +144,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<Whit
 
 #[cfg(test)]
 mod tests {
-     use crate::{core::ChannelManager::ChannelManager, acm::*, Trace, sig::SigCommand};
+     use crate::{core::channel_manager::ChannelManager, acm::*, trace::*, sig::SigCommand};
      use generic_whitelist::whitelist::WhitelistEntry;
      use crate::sig::*;
 
@@ -178,7 +176,7 @@ mod tests {
      {
          let mut chm = ChannelManager::new();
          let wl = DummyWhitelist::new();
-         let tracer = Trace::TraceHelper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
+         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
          let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl);
 
          let sig_rx = chm.get_receiver::<SigCommand>();
@@ -224,7 +222,7 @@ mod tests {
             access_profiles: Vec::new()
 
         });
-        let tracer = Trace::TraceHelper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
+        let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
         let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl);
 
         let dcm_rx = chm.get_receiver::<crate::dcm::DoorOpenRequest>();

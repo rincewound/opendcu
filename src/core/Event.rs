@@ -76,7 +76,6 @@ impl<T: Copy+Sync> DataEvent<T>
 
     pub fn wait(&self) -> T
     {
-        let ptr = self as *const Self;
         self.evt.wait();
         return self.data.lock()
                         .unwrap()
@@ -96,7 +95,6 @@ impl<T: Copy+Sync> DataEvent<T>
 
     pub fn trigger(&self, data: T)
     {
-        let ptr = self as *const Self;
         self.data.lock().unwrap().set(Some(data));
         self.evt.trigger();
     }
@@ -104,7 +102,7 @@ impl<T: Copy+Sync> DataEvent<T>
 
 #[cfg(test)]
 mod tests {
-     use crate::core::Event::*;
+     use crate::core::event::*;
 
      #[test]
      fn can_create_data_event()

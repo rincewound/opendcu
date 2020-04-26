@@ -12,7 +12,7 @@ mod core;
 #[macro_use]
 mod cfg;
 
-mod Trace;
+mod trace;
 mod acm;
 mod arm;
 mod sig;
@@ -22,7 +22,7 @@ mod modcaps;
 
 fn main() {
     // Note: Launch never returns!
-    launch!(Trace::launch,
+    launch!(trace::launch,
             crate::cfg::REST::launch,
             crate::acm::generic_whitelist::launch,
             crate::arm::console_input::launch)

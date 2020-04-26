@@ -1,17 +1,17 @@
 
-use crate::core::BroadcastChannel::*;
-use crate::core::ChannelManager::*;
-use crate::Trace;
+use crate::core::broadcast_channel::*;
+use crate::core::channel_manager::*;
+use crate::trace::*;
 use crate::acm::*;
 use std::{sync::Arc, thread};
 use std::io;
 
 
-const Module_ID: u32 = 0x04000000;
+const MODULE_ID: u32 = 0x04000000;
 
 pub fn launch(chm: &mut ChannelManager)
 {    
-    let tracer = Trace::TraceHelper::TraceHelper::new("ARM/ConsoleInput".to_string(), chm);
+    let tracer = trace_helper::TraceHelper::new("ARM/ConsoleInput".to_string(), chm);
     let mut wl = ConsoleInput::new(tracer, chm);
     thread::spawn(move || {  
         wl.init();   
@@ -28,7 +28,7 @@ pub fn launch(chm: &mut ChannelManager)
 
 struct ConsoleInput
 {
-    tracer: Trace::TraceHelper::TraceHelper,
+    tracer: trace_helper::TraceHelper,
     access_request_tx: GenericSender<crate::acm::WhitelistAccessRequest>,
     system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
     system_events_tx: GenericSender<crate::core::SystemMessage>,
@@ -36,7 +36,7 @@ struct ConsoleInput
 
 impl ConsoleInput
 {
-    fn new(trace: Trace::TraceHelper::TraceHelper, chm: &mut ChannelManager) -> Self
+    fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager) -> Self
     {
         ConsoleInput
         {
@@ -49,7 +49,7 @@ impl ConsoleInput
 
     pub fn init(&mut self)
     {
-        crate::core::BootstageHelper::Boot(Module_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
+        crate::core::bootstage_helper::boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
     }
 
     pub fn do_request(&mut self) -> bool
@@ -57,7 +57,7 @@ impl ConsoleInput
 
         let mut input = String::new();
         match io::stdin().read_line(&mut input) {
-            Ok(n) => {
+            Ok(_) => {
                 let req = WhitelistAccessRequest
                 {
                     access_point_id: 0,
