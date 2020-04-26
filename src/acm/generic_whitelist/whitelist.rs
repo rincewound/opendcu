@@ -40,7 +40,7 @@ pub struct WhitelistEntry
 pub trait WhitelistEntryProvider
 {
     fn get_entry(&self, identity_token_id: Vec<u8>) -> Option<WhitelistEntry>;
-    fn put_entry(&self,entry: WhitelistEntry);
+    fn put_entry(&mut self,entry: WhitelistEntry);
 }
 
 
@@ -53,7 +53,7 @@ impl WhitelistEntryProvider for SqliteEntryProvider
         None
     }
 
-    fn put_entry(&self, entry: WhitelistEntry)
+    fn put_entry(&mut self, entry: WhitelistEntry)
     {
 
     }

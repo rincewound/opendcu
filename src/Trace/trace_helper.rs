@@ -18,15 +18,15 @@ impl TraceHelper
         }
     }
 
-    pub fn Trace(&self, message: String)
+    pub fn trace(&self, message: String)
     {
-        let finalMessage = format!("{}: {}", self.source_mod, message);        
-        self.trace_tx.send(TraceMessage::new(finalMessage));
+        let final_message = format!("{}: {}", self.source_mod, message);        
+        self.trace_tx.send(TraceMessage::new(final_message));
     }
 
-    pub fn TraceStr(&self, message: &str)
+    pub fn trace_str(&self, message: &str)
     {
         let msgstring = String::from(message);
-        self.Trace(msgstring);
+        self.trace(msgstring);
     }
 }

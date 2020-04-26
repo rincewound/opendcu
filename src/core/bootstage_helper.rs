@@ -11,19 +11,19 @@ use std::sync::Arc;
 */
 pub fn boot(module_id: u32, sys_chan: GenericSender<crate::core::SystemMessage>, sys_chan_rx: Arc<GenericReceiver<crate::core::SystemMessage>>, tracer: &TraceHelper)
 {
-    tracer.TraceStr("Starting");
+    tracer.trace_str("Starting");
     send_stage_complete(module_id, BootStage::Sync, &sys_chan);
 
     wait_for_stage(BootStage::LowLevelInit, &sys_chan_rx, tracer);
-    tracer.TraceStr("Runstage: LLI");
+    tracer.trace_str("Runstage: LLI");
     send_stage_complete(module_id, BootStage::LowLevelInit, &sys_chan);
 
     wait_for_stage(BootStage::HighLevelInit, &sys_chan_rx, tracer);
-    tracer.TraceStr("Runstage: HLI");
+    tracer.trace_str("Runstage: HLI");
     send_stage_complete(module_id, BootStage::HighLevelInit, &sys_chan);
 
     wait_for_stage(BootStage::Application, &sys_chan_rx, tracer);
-    tracer.TraceStr("Runstage: APP");
+    tracer.trace_str("Runstage: APP");
 }
 
 fn send_stage_complete(module_id: u32, stage: BootStage, sys_chan: &GenericSender<crate::core::SystemMessage>)
@@ -33,7 +33,7 @@ fn send_stage_complete(module_id: u32, stage: BootStage, sys_chan: &GenericSende
 
 fn wait_for_stage(stage: BootStage, sys_chan_rx: &Arc<GenericReceiver<crate::core::SystemMessage>>, tracer: &TraceHelper)
     {
-        tracer.Trace(format!("Wait for stage signal {}", stage as u32));
+        tracer.trace(format!("Wait for stage signal {}", stage as u32));
         loop
         {
             let msg = sys_chan_rx.receive();

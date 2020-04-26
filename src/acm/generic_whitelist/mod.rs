@@ -2,7 +2,7 @@ use crate::core::broadcast_channel::*;
 use crate::core::{channel_manager::*};
 use crate::trace::*;
 use crate::{sig::*, acm::*};
-use std::{sync::Arc, thread};
+use std::{sync::{Mutex, Arc}, thread};
 use crate::cfg;
 
 mod whitelist;
@@ -62,7 +62,7 @@ struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
     system_events_tx: GenericSender<crate::core::SystemMessage>,
     sig_tx: GenericSender<crate::sig::SigCommand>,
     door_tx: GenericSender<crate::dcm::DoorOpenRequest>,
-    whitelist: WhitelistProvider
+    whitelist: Arc<Mutex<WhitelistProvider>>
 }
 
 impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<WhitelistProvider>
@@ -77,7 +77,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<Whit
             system_events_tx: chm.get_sender::<crate::core::SystemMessage>(),
             sig_tx: chm.get_sender::<crate::sig::SigCommand>(),
             door_tx: chm.get_sender::<crate::dcm::DoorOpenRequest>(),
-            whitelist
+            whitelist: Arc::new(Mutex::new(whitelist))
         }
     }
 
@@ -89,9 +89,9 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<Whit
 
     pub fn do_request(&mut self) -> bool
     {
-        self.tracer.TraceStr("Start serving requests.");
+        self.tracer.trace_str("Start serving requests.");
         let req = self.access_request_rx.receive();
-        self.tracer.TraceStr("Received request.");
+        self.tracer.trace_str("Received request.");
         // ToDo: This should be done from a threadpool.
         self.process_access_request(req);
         true
@@ -111,7 +111,9 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<Whit
     fn process_access_request(&self, req: WhitelistAccessRequest)
     {
         // Pull Whitelist Entry
-        let entry = self.whitelist.get_entry(req.identity_token_number);
+        let entry = self.whitelist.lock()
+                                                          .unwrap()
+                                                          .get_entry(req.identity_token_number);
 
         // Found? If so, check access profile, otherwise emit AccessDenied Sig
         if let Some(entry) = entry 
@@ -123,21 +125,29 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<Whit
         }
         else
         {
-            self.tracer.TraceStr("Access Denied; Unknown identifiaction token.");
+            self.tracer.trace_str("Access Denied; Unknown identifiaction token.");
             self.send_signal_command(req.access_point_id, SigType::AccessDenied, 1000);
         }
     }
 
 
-    
-    fn process_put_req(entry: whitelist::WhitelistEntry)
+    fn process_put_req(wl: Arc<Mutex<WhitelistProvider>>, entry: whitelist::WhitelistEntry)
     {
-
+        let mut thewhitelist = wl.lock().unwrap();
+        thewhitelist.put_entry(entry);
     }
 
-    fn register_handlers()
+    fn register_handlers(&self)
     {
-        let h = Handler!(GenericWhitelist::<WhitelistProvider>::process_put_req);
+        /*
+            Adding a new WL entry involves just the database, 
+            hence we can use a mutex for the db interface here.
+        */
+        let h = Handler!(|r: whitelist::WhitelistEntry|
+            {
+                let mtx = self.whitelist.clone();
+                GenericWhitelist::<WhitelistProvider>::process_put_req(mtx, r);
+            });
     }
 
 }
@@ -167,7 +177,10 @@ mod tests {
          { 
              self.entry.clone()
          }
-         fn put_entry(&self,entry: generic_whitelist::whitelist::WhitelistEntry) { unimplemented!() }
+         fn put_entry(&mut self, entry: generic_whitelist::whitelist::WhitelistEntry) 
+         { 
+            self.entry = Some(entry);
+         }
 
      }  
 
@@ -219,7 +232,7 @@ mod tests {
         let mut wl = DummyWhitelist::new();
         wl.entry = Some(WhitelistEntry{
             access_token_id: Vec::new(),
-            access_profiles: Vec::new()
+            //access_profiles: Vec::new()
 
         });
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);

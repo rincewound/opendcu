@@ -70,7 +70,7 @@ impl ConfigRest
 
     fn wait_for_stage(&self, stage: BootStage)
     {
-        self.tracer.Trace(format!("Wait for stage signal {}", stage as u32));
+        self.tracer.trace(format!("Wait for stage signal {}", stage as u32));
         loop
         {
             let msg = self.system_events_rx.receive();
@@ -91,21 +91,21 @@ impl ConfigRest
 
     pub fn init(&mut self)
     {
-        self.tracer.TraceStr("Starting");
+        self.tracer.trace_str("Starting");
         self.send_stage_complete(BootStage::Sync);
 
         self.wait_for_stage(BootStage::LowLevelInit);
-        self.tracer.TraceStr("Runstage: LLI");
+        self.tracer.trace_str("Runstage: LLI");
         self.send_stage_complete(BootStage::LowLevelInit);
 
         self.wait_for_stage(BootStage::HighLevelInit);
-        self.tracer.TraceStr("Runstage: HLI");
+        self.tracer.trace_str("Runstage: HLI");
         self.send_stage_complete(BootStage::HighLevelInit);
 
         // Assumption: All modules *should* have published their
         // cfg interface before we enter the App stage.
         self.wait_for_stage(BootStage::Application);
-        self.tracer.TraceStr("Runstage: APP");
+        self.tracer.trace_str("Runstage: APP");
     }
 
     fn do_put(&self, req: &rouille::Request, _module: String) -> rouille::Response
