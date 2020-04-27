@@ -4,6 +4,10 @@ use crate::trace::trace_helper::TraceHelper;
 use std::{mem, sync::Arc};
 
 
+/// This function will return a
+/// "stage complete" for all stages,
+/// making it easier to boot modules
+/// that have no external dependencies.
 pub fn plain_boot(module_id: u32, sys_chan: GenericSender<SystemMessage>, sys_chan_rx: Arc<GenericReceiver<SystemMessage>>, tracer: &TraceHelper)
 {
     tracer.trace_str("Starting");
@@ -31,12 +35,11 @@ fn try_trigger_stage_cb<Fun>(boot_stage: BootStage, stage_cb: &mut [Option<Fun>;
     }
 }
 
-/*
-*  This function will return a
-*  "stage complete" for all stages,
-*  making it easier to boot modules
-*  that have no external dependencies.
-*/
+
+/// This function will return a
+/// "stage complete" for all stages,
+/// making it easier to boot modules
+/// that have no external dependencies.
 pub fn boot<Fun>(module_id: u32, mut stage_cb: [Option<Fun>; 2], sys_chan: GenericSender<SystemMessage>, sys_chan_rx: Arc<GenericReceiver<SystemMessage>>, tracer: &TraceHelper)
     where Fun: FnOnce() -> ()
 {

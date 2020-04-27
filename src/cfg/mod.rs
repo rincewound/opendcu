@@ -18,11 +18,18 @@ which is an FnOnce using the converted
 value
 
 */
+pub mod cfgholder;
+
+// pub enum ConfigMessage
+// {
+//     RegisterHandlers(cfgholder::CfgHolder)
+// }
+
 
 macro_rules! Handler {
     ($func: expr) => {
-        (|req| { 
-            let e = cfg::convert_data(req); 
+        (|req : rouille::Request| { 
+            let e = cfg::convert_data(req.data().unwrap()); 
             if e.is_some() 
             {
                 $func(e.unwrap())
@@ -37,10 +44,11 @@ The rubbish bit here ist, that this introduces a rouille dependency
 for all components, even if we - at some point, want to
 have use a different CFG module.
 */
-pub fn convert_data<T: for<'de> serde::Deserialize<'de>>(r: rouille::Request) -> Option<T>
+pub fn convert_data<T: for<'de> serde::Deserialize<'de>, U>(r: U) -> Option<T>
+    where U: std::io::Read
 {
-    let rdr = r.data().unwrap();
-    let someval = serde_json::from_reader(rdr);
+    //let rdr = r.data().unwrap();
+    let someval = serde_json::from_reader(r);
     if let Ok(data) = someval {
         return Some(data)
     }
