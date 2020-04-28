@@ -4,6 +4,7 @@ use crate::trace::*;
 use crate::{sig::*, acm::*};
 use std::{sync::{Mutex, Arc}, thread};
 use crate::cfg;
+use crate::cfg::cfgholder::*;
 use crate::core::bootstage_helper::*;
 
 mod whitelist;
@@ -59,6 +60,7 @@ struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
 {
     tracer: trace_helper::TraceHelper,
     access_request_rx: Arc<GenericReceiver<crate::acm::WhitelistAccessRequest>>,
+    cfg_rx: Arc<GenericReceiver<crate::cfg::ConfigMessage>>,
     system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
     system_events_tx: GenericSender<crate::core::SystemMessage>,
     sig_tx: GenericSender<crate::sig::SigCommand>,
@@ -66,26 +68,42 @@ struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
     whitelist: Arc<Mutex<WhitelistProvider>>
 }
 
-impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<WhitelistProvider>
+impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> GenericWhitelist<WhitelistProvider>
 {
     fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager, whitelist: WhitelistProvider) -> Self
     {
         GenericWhitelist
         {
-            tracer: trace,
-            access_request_rx: chm.get_receiver::<crate::acm::WhitelistAccessRequest>(),
-            system_events_rx: chm.get_receiver::<crate::core::SystemMessage>(),
-            system_events_tx: chm.get_sender::<crate::core::SystemMessage>(),
-            sig_tx: chm.get_sender::<crate::sig::SigCommand>(),
-            door_tx: chm.get_sender::<crate::dcm::DoorOpenRequest>(),
-            whitelist: Arc::new(Mutex::new(whitelist))
+            tracer              : trace,
+            access_request_rx   : chm.get_receiver::<crate::acm::WhitelistAccessRequest>(),
+            cfg_rx              : chm.get_receiver::<crate::cfg::ConfigMessage>(), 
+            system_events_rx    : chm.get_receiver::<crate::core::SystemMessage>(),
+            system_events_tx    : chm.get_sender::<crate::core::SystemMessage>(),
+            sig_tx              : chm.get_sender::<crate::sig::SigCommand>(),
+            door_tx             : chm.get_sender::<crate::dcm::DoorOpenRequest>(),
+            whitelist           : Arc::new(Mutex::new(whitelist))
         }
     }
 
-
     pub fn init(&mut self)
-    {
-        plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
+    {    
+        let theReceiver = self.cfg_rx.clone();  
+        let theWhitelist = self.whitelist.clone();
+        let cbs = [None, Some(move|| {
+
+            let res = theReceiver.receive();
+            let crate::cfg::ConfigMessage::RegisterHandlers(cfg_holder) = res;
+            let mut holder = cfg_holder.lock().unwrap();
+            holder.register_handler(FunctionType::Put, "wl".to_string(), Handler!(|r: whitelist::WhitelistEntry|
+                {
+                    GenericWhitelist::<WhitelistProvider>::process_put_req(theWhitelist.clone(), r);
+                }))
+        })];
+
+        boot(MODULE_ID, cbs, 
+            self.system_events_tx.clone(), 
+            self.system_events_rx.clone(), 
+            &self.tracer);
     }
 
     pub fn do_request(&mut self) -> bool
@@ -134,21 +152,9 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider> GenericWhitelist<Whit
 
     fn process_put_req(wl: Arc<Mutex<WhitelistProvider>>, entry: whitelist::WhitelistEntry)
     {
+        println!("PUT into whitelist.");
         let mut thewhitelist = wl.lock().unwrap();
         thewhitelist.put_entry(entry);
-    }
-
-    fn register_handlers(&self)
-    {
-        /*
-            Adding a new WL entry involves just the database, 
-            hence we can use a mutex for the db interface here.
-        */
-        let h = Handler!(|r: whitelist::WhitelistEntry|
-            {
-                let mtx = self.whitelist.clone();
-                GenericWhitelist::<WhitelistProvider>::process_put_req(mtx, r);
-            });
     }
 
 }

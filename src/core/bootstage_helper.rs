@@ -28,7 +28,14 @@ pub fn plain_boot(module_id: u32, sys_chan: GenericSender<SystemMessage>, sys_ch
 fn try_trigger_stage_cb<Fun>(boot_stage: BootStage, stage_cb: &mut [Option<Fun>; 2])
     where Fun: FnOnce() -> ()
 {
-    let func = mem::replace(&mut stage_cb[boot_stage as usize], std::option::Option::<Fun>::None);
+    let stage_index: usize;
+    match boot_stage
+    {
+        BootStage::HighLevelInit => stage_index = 1,
+        BootStage::LowLevelInit => stage_index = 0,
+        _ => return
+    }
+    let func = mem::replace(&mut stage_cb[stage_index], std::option::Option::<Fun>::None);
     if let Some(f) = func
     {
         f();

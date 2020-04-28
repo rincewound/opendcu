@@ -3,17 +3,19 @@ use rouille::*;
 use crate::core::broadcast_channel::*;
 use crate::core::{channel_manager::*};
 use crate::trace::*;
-use std::{sync::Arc, thread};
+use std::{sync::{Mutex, Arc}, thread};
+use std::io::Read;
 use crate::core::bootstage_helper::*;
+use crate::cfg::cfgholder::*;
 
 
 const MODULE_ID: u32 = 0x06000000;
 
 pub fn launch(chm: &mut ChannelManager)
-{    
+{        
     let tracer = trace_helper::TraceHelper::new("CFG/Rest".to_string(), chm);
-    let mut cr = ConfigRest::new(tracer, chm);
-    thread::spawn(move || {  
+    let mut cr = ConfigRest::new(tracer, chm);      
+    thread::spawn(move|| {
         cr.init();  
         cr.run();         
     });
@@ -52,9 +54,12 @@ struct ConfigRest
     tracer: trace_helper::TraceHelper,
     system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
     system_events_tx: GenericSender<crate::core::SystemMessage>,
+    cfg_publish_tx: GenericSender<crate::cfg::ConfigMessage>,
+    cfg: Arc<Mutex<crate::cfg::cfgholder::CfgHolder>>,
+    
 }
 
-impl ConfigRest
+impl ConfigRest //<'a>
 {
     fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager) -> Self
     {
@@ -62,14 +67,20 @@ impl ConfigRest
         {
             tracer: trace,            
             system_events_rx: chm.get_receiver::<crate::core::SystemMessage>(),
-            system_events_tx: chm.get_sender::<crate::core::SystemMessage>(),                                    
+            system_events_tx: chm.get_sender::<crate::core::SystemMessage>(),
+            cfg_publish_tx: chm.get_sender::<crate::cfg::ConfigMessage>(),
+            cfg: Arc::new(Mutex::new(CfgHolder::new()))
         }
 
     }
 
     pub fn init(&mut self)
     {
-        let cbs = [Some(||{}), None];
+        let theSender = self.cfg_publish_tx.clone();
+        let theCfg = self.cfg.clone();
+        let cbs = [None, Some(move|| {
+            theSender.send(super::ConfigMessage::RegisterHandlers(theCfg))
+        })];
 
         boot(MODULE_ID, cbs, 
             self.system_events_tx.clone(), 
@@ -79,7 +90,12 @@ impl ConfigRest
 
     fn do_put(&self, req: &rouille::Request, _module: String) -> rouille::Response
     {
-        print!("{}", req.url());
+        let mut reqdata = Vec::new();
+        let mut d = req.data().unwrap();
+        d.read_to_end(&mut reqdata);
+        self.cfg.lock()
+                .unwrap()
+                .do_put(_module, reqdata);
         rouille::Response::text("All is bad.")
     }
 
@@ -132,7 +148,7 @@ impl ConfigRest
             // We return an empty response with a 404 status code.
             _ => rouille::Response::empty_404()
         )
-    });
+    });    
     }      
 }
 
