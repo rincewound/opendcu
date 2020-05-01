@@ -4,6 +4,8 @@ use super::{event::DataEvent, atomic_queue::AtomicQueue};
 
 
 
+const Garbage_Threshold: u32 = 10;
+
 /*
 ToDo:
 
@@ -27,14 +29,31 @@ impl <T: Clone> ChannelImpl<T>
 
     pub fn push_message(&self, data: T)
     {
-        let the_vec = self.receiver_queues.take();
+        let mut the_vec = self.receiver_queues.take();
+        let mut garbage = 0;
         for i in the_vec.iter()
         {
            if let Some(owned) = i.upgrade()
            {
                 owned.push_message(data.clone());
            }
+           else
+           {
+               garbage += 1;
+           }
         }
+
+        // The garbage variable contains the number of "dead"
+        // references in the receiver queue, i.e. weak-refs that
+        // no longer point to alive objects. Since these still
+        // use memory and slow down processing of this function
+        // we will collect the garbage, whenever it passes a 
+        // threshold
+        if garbage > Garbage_Threshold
+        {
+            the_vec.retain(|x| x.upgrade().is_some());
+        }
+
         self.receiver_queues.set(the_vec);
     }
 }
