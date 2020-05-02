@@ -148,7 +148,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
     {
         println!("DELETE from whitelist.");
         let mut thewhitelist = wl.lock().unwrap();
-        //thewhitelist.delete_entry(entry);
+        thewhitelist.delete_entry(entry.access_token_id);
     }
 
 }
@@ -179,6 +179,9 @@ mod tests {
          fn put_entry(&mut self, entry: generic_whitelist::whitelist::WhitelistEntry) 
          { 
             self.entry = Some(entry);
+         }
+         fn delete_entry(&mut self, identity_token_id: Vec<u8>) { 
+             self.entry = None;
          }
 
      }  

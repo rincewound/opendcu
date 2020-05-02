@@ -1,6 +1,6 @@
 
-use serde::{Deserialize};
-use std::{cmp::Ordering, io::Read};
+use serde::{Deserialize, Serialize};
+use std::{cmp::Ordering, io::Read, fs::File};
 
 // pub enum AccessFlags
 // {
@@ -31,7 +31,7 @@ use std::{cmp::Ordering, io::Read};
 //     time_pro: TimeProfile
 // }
 
-#[derive(Clone, Deserialize, Debug)]
+#[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct WhitelistEntry
 {
     pub access_token_id: Vec<u8>,
@@ -42,55 +42,36 @@ pub trait WhitelistEntryProvider
 {
     fn get_entry(&self, identity_token_id: Vec<u8>) -> Option<WhitelistEntry>;
     fn put_entry(&mut self,entry: WhitelistEntry);
-    // fn delete_entry(&mut self, identity_token_id Vec<u8>);
+    fn delete_entry(&mut self, identity_token_id: Vec<u8>);
     fn new() -> Self;
 }
 
-
-pub struct SqliteEntryProvider;
-
-impl WhitelistEntryProvider for SqliteEntryProvider
-{
-    fn new() -> Self{
-        SqliteEntryProvider
-    }
-
-    fn get_entry(&self, identity_token_id: Vec<u8>) -> Option<WhitelistEntry>
-    {
-        None
-    }
-
-    fn put_entry(&mut self, entry: WhitelistEntry)
-    {
-
-    }    
-    
-}
-
-pub struct JsonEntryProvider
+///   # The JsonEntry Provider
+///   This is a decidedly simple way of storing whitelist
+///   entries. It will just serialize the entry to a plain
+///   textfile
+///
+///   This is fine for development purposes and very
+///   small whitelists. However:
+///   * The whole whitelist is kept in RAM at all times
+///   * The whole whitelist is serialized and written to
+///     storage for each change
+/// 
+///  This behavior makes the implementation suboptimal
+///  for all but the simplest and most statig production
+///  uses.
+ pub struct JsonEntryProvider
 {
     entries: Vec<WhitelistEntry>
 }
 
 impl JsonEntryProvider
 {
-    // fn new<T>(dataSource: T) -> Self
-    //     where T: Read
-    // {
-    //     let entries_read = serde_json::from_reader(dataSource);
-
-    //     let mut data: Vec<WhitelistEntry> = Vec::new();
-    //     if entries_read.is_ok()
-    //     {
-    //         data = entries_read.unwrap();
-    //     }
-
-
-    //     JsonEntryProvider
-    //     {
-    //         entries: data
-    //     }
-    // }
+    fn update_storage(&self)
+    {
+        let writer = File::create("whitelist.txt").unwrap();
+        serde_json::to_writer_pretty(writer, &self.entries);
+    }
 
 }
 
@@ -98,9 +79,21 @@ impl WhitelistEntryProvider for JsonEntryProvider
 {    
     fn new() -> Self
     {
-        JsonEntryProvider
+        let reader = File::open("whitelist.txt");
+        if let Ok(file) = reader
         {
-            entries: Vec::new()
+            return JsonEntryProvider
+                    {
+                    entries : serde_json::from_reader(file).unwrap_or_else(|_| Vec::new())
+                    }
+
+        }
+        else
+        {
+            return JsonEntryProvider
+            {
+                entries: Vec::new()
+            }
         }
     }
     
@@ -118,10 +111,15 @@ impl WhitelistEntryProvider for JsonEntryProvider
 
     fn put_entry(&mut self, entry: WhitelistEntry) 
     { 
-        // ToDo:
-        // - Check if entry is already available, if so update
-
+        self.entries.retain(|x| x.access_token_id.cmp(&entry.access_token_id) != Ordering::Equal);
         self.entries.push(entry);
+        self.update_storage();
+    }
+
+    fn delete_entry(&mut self, identity_token_id: Vec<u8>) 
+    { 
+        self.entries.retain(|x| x.access_token_id.cmp(&identity_token_id) != Ordering::Equal);
+        self.update_storage();
     }
 }
 
