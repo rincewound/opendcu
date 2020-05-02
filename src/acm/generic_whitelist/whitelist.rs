@@ -1,5 +1,6 @@
 
 use serde::{Deserialize};
+use std::{cmp::Ordering, io::Read};
 
 // pub enum AccessFlags
 // {
@@ -41,6 +42,8 @@ pub trait WhitelistEntryProvider
 {
     fn get_entry(&self, identity_token_id: Vec<u8>) -> Option<WhitelistEntry>;
     fn put_entry(&mut self,entry: WhitelistEntry);
+    // fn delete_entry(&mut self, identity_token_id Vec<u8>);
+    fn new() -> Self;
 }
 
 
@@ -48,6 +51,10 @@ pub struct SqliteEntryProvider;
 
 impl WhitelistEntryProvider for SqliteEntryProvider
 {
+    fn new() -> Self{
+        SqliteEntryProvider
+    }
+
     fn get_entry(&self, identity_token_id: Vec<u8>) -> Option<WhitelistEntry>
     {
         None
@@ -56,6 +63,65 @@ impl WhitelistEntryProvider for SqliteEntryProvider
     fn put_entry(&mut self, entry: WhitelistEntry)
     {
 
+    }    
+    
+}
+
+pub struct JsonEntryProvider
+{
+    entries: Vec<WhitelistEntry>
+}
+
+impl JsonEntryProvider
+{
+    // fn new<T>(dataSource: T) -> Self
+    //     where T: Read
+    // {
+    //     let entries_read = serde_json::from_reader(dataSource);
+
+    //     let mut data: Vec<WhitelistEntry> = Vec::new();
+    //     if entries_read.is_ok()
+    //     {
+    //         data = entries_read.unwrap();
+    //     }
+
+
+    //     JsonEntryProvider
+    //     {
+    //         entries: data
+    //     }
+    // }
+
+}
+
+impl WhitelistEntryProvider for JsonEntryProvider
+{    
+    fn new() -> Self
+    {
+        JsonEntryProvider
+        {
+            entries: Vec::new()
+        }
+    }
+    
+    fn get_entry(&self, identity_token_id: Vec<u8>) -> Option<WhitelistEntry> 
+    { 
+        for e in self.entries.iter()
+        {
+            if e.access_token_id.cmp(&identity_token_id) == Ordering::Equal
+            {
+                return Some(e.clone());
+            }
+        }
+        return None;
+    }
+
+    fn put_entry(&mut self, entry: WhitelistEntry) 
+    { 
+        // ToDo:
+        // - Check if entry is already available, if so update
+
+        self.entries.push(entry);
     }
 }
 

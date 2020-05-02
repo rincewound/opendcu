@@ -93,8 +93,8 @@ impl Supervisor
                     SystemMessage::StageComplete(the_stage, mod_id) => 
                     {
                         if std::mem::discriminant(&the_stage) == std::mem::discriminant(&stage) {
-                            let mod_type = (mod_id &0xFF000000) >> 24;
-                            let mod_instance = mod_id & 0x000000FF;
+                            let mod_type = (mod_id & 0xFF000000) >> 24;
+                            let mod_instance = mod_id & 0x00FF0000 >> 16;
                             self.tracer.trace(format!("Module {}, instance {} checked in for stage {} ", mod_type, mod_instance, the_stage as u32));
                             checked_in.push(mod_id);
                             messages_left -= 1
@@ -117,7 +117,7 @@ impl Supervisor
             for i in checked_in.iter()
             {
                 let mod_type = (i &0xFF000000) >> 24;
-                let mod_instance = i & 0x000000FF;
+                let mod_instance = i & 0x00FF0000 >> 16;
                 println!("module {}, instance {} checked in", mod_type, mod_instance);
             }
             panic!("Failed to boot. Not all modules checked in.")

@@ -7,14 +7,15 @@ use crate::cfg;
 use crate::cfg::cfgholder::*;
 use crate::core::bootstage_helper::*;
 
-mod whitelist;
+pub mod whitelist;
 
 const MODULE_ID: u32 = 0x03000000;
 
-pub fn launch(chm: &mut ChannelManager)
+pub fn launch<T: 'static>(chm: &mut ChannelManager)
+    where T: whitelist::WhitelistEntryProvider + std::marker::Send
 {    
     let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), chm);
-    let mut wl = GenericWhitelist::new(tracer, chm, whitelist::SqliteEntryProvider);
+    let mut wl = GenericWhitelist::new(tracer, chm, T::new());
     thread::spawn(move || {  
         wl.init();   
         loop 
@@ -27,33 +28,6 @@ pub fn launch(chm: &mut ChannelManager)
         
     });
 }
-
-/*
-Idea for configuration:
-* Each module should have its own cfg channel where cfg changes can be injected. This would
-* allow us to use free functions for actually injecting the data. ideally the API would be
-* something like:
-
-#[Post, Endpoint=ACM/Whitelist/{InstanceId}/]
-fn add_whitelist(wlentry: WhitelistEntry, InstanceId: u32) -> Success
-{
-
-}
-
-However: 
-* We need access to the channel manager for this to work
-* There needs to be a way to gather all endpoints across all active services
-  (ideally during LLI)
-
-
-  -> The Macro Expasion of #Post would be something like
-  fn _post_add_whitelist(req: Request) -> Success
-  {
-      // deserialize data from req
-      add_whitelist(deserialized data)
-  }
-
-*/
 
 
 struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
@@ -87,17 +61,29 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
 
     pub fn init(&mut self)
     {    
-        let theReceiver = self.cfg_rx.clone();  
-        let theWhitelist = self.whitelist.clone();
-        let cbs = [None, Some(move|| {
+        let the_receiver = self.cfg_rx.clone();  
+        let the_whitelist = self.whitelist.clone();
+        let cbs= [None, Some(move|| {
+            /*
+                This is executed during HLI
+            */
 
-            let res = theReceiver.receive();
+            let res = the_receiver.receive();
             let crate::cfg::ConfigMessage::RegisterHandlers(cfg_holder) = res;
             let mut holder = cfg_holder.lock().unwrap();
+            let wl1 = the_whitelist.clone();
+            let wl2 = the_whitelist.clone();
+
             holder.register_handler(FunctionType::Put, "wl".to_string(), Handler!(|r: whitelist::WhitelistEntry|
                 {
-                    GenericWhitelist::<WhitelistProvider>::process_put_req(theWhitelist.clone(), r);
+                    GenericWhitelist::<WhitelistProvider>::process_put_req(wl1.clone(), r);
+                }));
+
+            holder.register_handler(FunctionType::Delete, "wl".to_string(), Handler!(|r: whitelist::WhitelistEntry|
+                {
+                    GenericWhitelist::<WhitelistProvider>::process_delete_req(wl2.clone(), r);
                 }))
+            
         })];
 
         boot(MODULE_ID, cbs, 
@@ -139,6 +125,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
         {
             
             // Good? If so, emit DoorOpenRequest, otherwise emit AccessDenied Sig 
+            self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.access_token_id));
             let openreq = crate::dcm::DoorOpenRequest {access_point_id: req.access_point_id};
             self.door_tx.send(openreq);
         }
@@ -157,12 +144,20 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
         thewhitelist.put_entry(entry);
     }
 
+    fn process_delete_req(wl: Arc<Mutex<WhitelistProvider>>, entry: whitelist::WhitelistEntry)
+    {
+        println!("DELETE from whitelist.");
+        let mut thewhitelist = wl.lock().unwrap();
+        //thewhitelist.delete_entry(entry);
+    }
+
 }
 
 #[cfg(test)]
 mod tests {
      use crate::{core::channel_manager::ChannelManager, acm::*, trace::*, sig::SigCommand};
      use generic_whitelist::whitelist::WhitelistEntry;
+     use crate::acm::generic_whitelist::whitelist::WhitelistEntryProvider;
      use crate::sig::*;
 
      struct DummyWhitelist
@@ -170,16 +165,13 @@ mod tests {
         pub entry: Option<WhitelistEntry>
      }
 
-     impl DummyWhitelist
-     {
-         pub fn new() -> Self
-         {
-             DummyWhitelist{entry: None}
-         }
-     }
-
      impl crate::acm::generic_whitelist::whitelist::WhitelistEntryProvider for DummyWhitelist
-     {
+     {         
+        fn new() -> Self
+        {
+            DummyWhitelist{entry: None}
+        }
+
          fn get_entry(&self, identity_token_id: Vec<u8>) -> Option<generic_whitelist::whitelist::WhitelistEntry> 
          { 
              self.entry.clone()
