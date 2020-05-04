@@ -1,3 +1,9 @@
+
+var importObject = {
+  imports: { imported_func: arg => console.log(arg) }
+};
+
+
 var app = new Vue(
   {
   // The div, to which our app is rendered to:
@@ -19,5 +25,11 @@ var app = new Vue(
 
   // any clientside code of our app.
   methods: {  },
-  mounted:function(){},
+  mounted:function()
+  {
+    WebAssembly.instantiateStreaming(fetch('test.wasm'), importObject)
+               .then(obj => {
+                 console.log( "WASM retuned: " + obj.instance.exports.hello_world(1011))
+               });
+  },
 })
