@@ -172,7 +172,7 @@ mod tests {
             DummyWhitelist{entry: None}
         }
 
-         fn get_entry(&self, identity_token_id: Vec<u8>) -> Option<generic_whitelist::whitelist::WhitelistEntry> 
+         fn get_entry(&self, _identity_token_id: Vec<u8>) -> Option<generic_whitelist::whitelist::WhitelistEntry> 
          { 
              self.entry.clone()
          }
@@ -180,7 +180,7 @@ mod tests {
          { 
             self.entry = Some(entry);
          }
-         fn delete_entry(&mut self, identity_token_id: Vec<u8>) { 
+         fn delete_entry(&mut self, _identity_token_id: Vec<u8>) { 
              self.entry = None;
          }
 

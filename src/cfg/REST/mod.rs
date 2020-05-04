@@ -132,6 +132,10 @@ impl ConfigRest //<'a>
                 self.do_put(&request, module)
             },
 
+            (PUT) (/api/{module: String}/{submodule: String}) => {
+                self.do_put(&request, module)
+            },
+
             (POST) (/api/{module: String}) => {
                 self.do_post(&request, module)
             },

@@ -95,6 +95,10 @@ impl Supervisor
                         if std::mem::discriminant(&the_stage) == std::mem::discriminant(&stage) {
                             let mod_type = (mod_id & 0xFF000000) >> 24;
                             let mod_instance = mod_id & 0x00FF0000 >> 16;
+                            // Note: It would probably be a good idea to not just count
+                            // modules, but to also make sure, that no module checks in
+                            // multiple times. This should also help to find ID clashes
+                            // of modules!
                             self.tracer.trace(format!("Module {}, instance {} checked in for stage {} ", mod_type, mod_instance, the_stage as u32));
                             checked_in.push(mod_id);
                             messages_left -= 1

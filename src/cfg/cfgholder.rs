@@ -16,19 +16,6 @@ struct RouteKey
     route: String
 }
 
-struct FunctionContainer
-{
-    func: Arc<Mutex<Box<dyn FnMut(Vec<u8>) ->() + Send>>>
-}
-
-impl FunctionContainer
-{
-    pub fn Trigger(&mut self, data: Vec<u8>)
-    {
-        //self.func.lock().unwrap()(data);
-    }
-}
-
 pub struct CfgHolder
 {
     put_funcs: Arc<Mutex<HashMap<RouteKey, Box<dyn FnMut(Vec<u8>) ->() + Send>>>>
@@ -98,88 +85,88 @@ impl CfgHolder
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use crate::cfg::cfgholder::*;
-//     use std::{sync::Arc, cell::{RefCell}};
+#[cfg(test)]
+mod tests {
+    use crate::cfg::cfgholder::*;
+    use std::{sync::Arc, cell::{RefCell}};
     
-//     #[macro_use]
-//     use crate::cfg;
+    #[macro_use]
+    use crate::cfg;
      
-//      struct TestStruct
-//      {
-//          pub val: bool
-//      }
+     struct TestStruct
+     {
+         pub val: bool
+     }
 
-//      #[test]
-//      fn put_triggers_correct_function()
-//      {
-//          let mut hdl = CfgHolder::new();
-//          let tmp = Arc::new(RefCell::new(false));
-//          let tmpclone = tmp.clone();
-//          hdl.register_handler(FunctionType::Put, "cfg/foo".to_string(), move |_t: Vec<u8>| {
-//              let mut m2 = tmpclone.borrow_mut();
-//              *m2 = true;
-//              drop(m2);
-//          });
-//          hdl.do_put("cfg/foo".to_string(), Vec::from("{val:true}".as_bytes()));
+     #[test]
+     fn put_triggers_correct_function()
+     {
+         let mut hdl = CfgHolder::new();
+         let tmp = Arc::new(Mutex::new(RefCell::new(false)));
+         let tmpclone = tmp.clone();
+         hdl.register_handler(FunctionType::Put, "cfg/foo".to_string(), move |_t: Vec<u8>| {
+             let mut m2 = tmpclone.clone().lock().unwrap().borrow_mut();
+             *m2 = true;
+             drop(m2);
+         });
+         hdl.do_put("cfg/foo".to_string(), Vec::from("{val:true}".as_bytes()));
          
-//          let result = *tmp.borrow();
-//          assert_eq!(true, result)
-//      }
+         let result = *tmp.lock().unwrap().borrow_mut();
+         assert_eq!(true, result)
+     }
 
-//      #[test]
-//      fn put_does_not_trigger_if_registered_function_has_different_method()
-//      {
-//          let mut hdl = CfgHolder::new();
-//          let tmp = Arc::new(RefCell::new(false));
-//          let tmpclone = tmp.clone();
-//          hdl.register_handler(FunctionType::Post, "cfg/foo".to_string(), move |_t: Vec<u8>| {
-//              let mut m2 = tmpclone.borrow_mut();
-//              *m2 = true;
-//              drop(m2);
-//          });
-//          hdl.do_put("cfg/foo".to_string(), Vec::from("{val:true}".as_bytes()));
+     #[test]
+     fn put_does_not_trigger_if_registered_function_has_different_method()
+     {
+         let mut hdl = CfgHolder::new();
+         let tmp = Arc::new(Mutex::new(RefCell::new(false)));
+         let tmpclone = tmp.clone();
+         hdl.register_handler(FunctionType::Post, "cfg/foo".to_string(), move |_t: Vec<u8>| {
+            let mut m2 = tmpclone.clone().lock().unwrap().borrow_mut();
+             *m2 = true;
+             drop(m2);
+         });
+         hdl.do_put("cfg/foo".to_string(), Vec::from("{val:true}".as_bytes()));
          
-//          let result = *tmp.borrow();
-//          assert_eq!(false, result)
-//      }
+         let result = *tmp.lock().unwrap().borrow_mut();
+         assert_eq!(false, result)
+     }
 
-//      #[test]
-//      fn put_triggers_a_post_triggers_b()
-//      {
-//          let mut hdl = CfgHolder::new();
-//          let tmp = Arc::new(RefCell::new(1));
-//          let tmpclone = tmp.clone();
-//          hdl.register_handler(FunctionType::Put, "cfg/foo".to_string(), move |_t: Vec<u8>| {
-//              let mut m2 = tmpclone.borrow_mut();
-//              *m2 = 2;
-//              drop(m2);
-//          });
+     #[test]
+     fn put_triggers_a_post_triggers_b()
+     {
+         let mut hdl = CfgHolder::new();
+         let tmp =  Arc::new(Mutex::new(RefCell::new(1)));
+         let tmpclone = tmp.clone();
+         hdl.register_handler(FunctionType::Put, "cfg/foo".to_string(), move |_t: Vec<u8>| {
+             let mut m2 =  tmpclone.clone().lock().unwrap().borrow_mut();
+             *m2 = 2;
+             drop(m2);
+         });
 
-//          let secondclone = tmp.clone();
-//          hdl.register_handler(FunctionType::Post, "cfg/foo".to_string(), move |_t: Vec<u8>| {
-//             let mut m2 = secondclone.borrow_mut();
-//             *m2 = 3;
-//             drop(m2);
-//         });
+         let secondclone = tmp.clone();
+         hdl.register_handler(FunctionType::Post, "cfg/foo".to_string(), move |_t: Vec<u8>| {
+            let mut m2 = secondclone.clone().lock().unwrap().borrow_mut();
+            *m2 = 3;
+            drop(m2);
+        });
 
-//          hdl.do_put("cfg/foo".to_string(), Vec::from("{val:true}".as_bytes()));
+         hdl.do_put("cfg/foo".to_string(), Vec::from("{val:true}".as_bytes()));
          
-//          let result = *tmp.borrow();
-//          assert_eq!(2, result);
-//          drop(result);
-//          hdl.do_post("cfg/foo".to_string(), Vec::from("{val:true}".as_bytes()));
-//          let result2 = *tmp.borrow();
-//          assert_eq!(3, result2);
-//      }
+         let result = *tmp.lock().unwrap().borrow();
+         assert_eq!(2, result);
+         drop(result);
+         hdl.do_post("cfg/foo".to_string(), Vec::from("{val:true}".as_bytes()));
+         let result2 = *tmp.lock().unwrap().borrow();
+         assert_eq!(3, result2);
+     }
 
-//      #[test]
-//      fn put_does_not_fail_if_unknown_route_is_triggered()
-//      {
-//          let mut hdl = CfgHolder::new();
-//          hdl.do_put("cfg/bar".to_string(), Vec::from("{val:true}".as_bytes()));
-//          // Nothing to check, we just want to make sure this does not panic.
-//      }
-// }
+     #[test]
+     fn put_does_not_fail_if_unknown_route_is_triggered()
+     {
+         let mut hdl = CfgHolder::new();
+         hdl.do_put("cfg/bar".to_string(), Vec::from("{val:true}".as_bytes()));
+         // Nothing to check, we just want to make sure this does not panic.
+     }
+}
 
