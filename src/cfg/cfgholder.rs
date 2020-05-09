@@ -105,8 +105,8 @@ mod tests {
          let tmp = Arc::new(Mutex::new(RefCell::new(false)));
          let tmpclone = tmp.clone();
          hdl.register_handler(FunctionType::Put, "cfg/foo".to_string(), move |_t: Vec<u8>| {
-             let mut m2 = tmpclone.clone().lock().unwrap().borrow_mut();
-             *m2 = true;
+             let m2 = tmpclone.clone();
+             *(m2.lock().unwrap().borrow_mut()) = true;
              drop(m2);
          });
          hdl.do_put("cfg/foo".to_string(), Vec::from("{val:true}".as_bytes()));
@@ -122,8 +122,8 @@ mod tests {
          let tmp = Arc::new(Mutex::new(RefCell::new(false)));
          let tmpclone = tmp.clone();
          hdl.register_handler(FunctionType::Post, "cfg/foo".to_string(), move |_t: Vec<u8>| {
-            let mut m2 = tmpclone.clone().lock().unwrap().borrow_mut();
-             *m2 = true;
+            let m2 = tmpclone.clone();
+            *(m2.lock().unwrap().borrow_mut()) = true;
              drop(m2);
          });
          hdl.do_put("cfg/foo".to_string(), Vec::from("{val:true}".as_bytes()));
@@ -139,15 +139,15 @@ mod tests {
          let tmp =  Arc::new(Mutex::new(RefCell::new(1)));
          let tmpclone = tmp.clone();
          hdl.register_handler(FunctionType::Put, "cfg/foo".to_string(), move |_t: Vec<u8>| {
-             let mut m2 =  tmpclone.clone().lock().unwrap().borrow_mut();
-             *m2 = 2;
+            let m2 = tmpclone.clone();
+            *(m2.lock().unwrap().borrow_mut()) = 2;
              drop(m2);
          });
 
          let secondclone = tmp.clone();
          hdl.register_handler(FunctionType::Post, "cfg/foo".to_string(), move |_t: Vec<u8>| {
-            let mut m2 = secondclone.clone().lock().unwrap().borrow_mut();
-            *m2 = 3;
+            let m2 = secondclone.clone();
+            *(m2.lock().unwrap().borrow_mut()) = 3;
             drop(m2);
         });
 

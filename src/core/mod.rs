@@ -37,6 +37,33 @@ pub enum SystemMessage
     _RegisterConfigInterface(Arc<Mutex<i32>>)        // Note that we might not actually need this, if CFG is just another module.
 }
 
+
+// # Generate a System Unique iD
+// A module ID is a 16 Bit integer consisting of the acutal id and the instancenumber of the module:
+// AAAA AAAA BBBB BBBB, where:
+// A: Identifies the actual implementation of the module, this is a value that should be unique to each moduleimplementation (i.e. two different kinds of ARM shall have different IDs!)
+// B: Identifies the instancenumber of the module (if a module is started multiple times, this number shall count up!).
+// A component ID is a 32 bit int, that consists of the ID of the module owning the component and 16 bits containing,
+// the index of the component within the module:
+// AAAA AAAA BBBB BBBB CCCC CCCC CCCC CCCC
+// C: Used to uniquely identify a given component of a module
+pub fn make_sud(module_id: u8, module_instance: u8, object_index: u16) -> u32
+{
+    let m = (module_id as u32) << 24;
+    let i = (module_instance as u32) << 16;
+    return m | i | (object_index as u32);
+}
+
+pub fn modid_from_sud(sud: u32) -> u32
+{
+    return sud >> 16;
+}
+
+pub fn objectindex_from_sud(sud: u32) -> u32
+{
+    return sud & 0x0000FFFF;
+}
+
 /**
 Launch expects a list of functions. Launch will call all
 functions and walk through the bootup sequence, expecting
