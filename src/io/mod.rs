@@ -2,7 +2,6 @@
 use crate::{trace::trace_helper, core::{broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::ChannelManager}};
 use std::{sync::Arc, thread};
 use crate::core::event::DataEvent;
-use crate::core::*;
 use crate::modcaps::*;
 
 #[derive(Clone)]
@@ -111,6 +110,11 @@ struct InputEntry
     sud: u32
 }
 
+struct OutputEntry
+{
+    sud: u32
+}
+
 /// # The IO Manager
 /// The IO Manager is responsible for providing
 /// a uniform list of input- and output ids from
@@ -139,6 +143,8 @@ pub struct IoManager
     raw_output_commands: GenericSender<RawOutputSwitch>,
     tracer: trace_helper::TraceHelper,
     input_list: Vec<InputEntry>,
+    output_list: Vec<OutputEntry>
+
 }
 
 impl IoManager
@@ -154,12 +160,13 @@ impl IoManager
             output_commands     : chm.get_receiver::<OutputSwitch>(),
             raw_output_commands : chm.get_sender::<RawOutputSwitch>(),
             tracer              : trace,
-            input_list          : Vec::new()
+            input_list          : Vec::new(),
+            output_list         : Vec::new()
         }
     } 
 
     pub fn init(&self)
-    {
+    {        
         crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer)
     }
 
@@ -179,10 +186,18 @@ impl IoManager
         {
             match x
             {
-                ModuleCapability::Inputs(ins) => {
+                ModuleCapability::Inputs(ins) => 
+                {
                     for i in 0..ins
                     {
                         self.input_list.push(InputEntry {sud: message.module_id | i});
+                    }
+                }
+                ModuleCapability::Outputs(outs) =>
+                {
+                    for i in 0..outs
+                    {
+                        self.output_list.push(OutputEntry {sud: message.module_id | i});
                     }
                 }
                 _ => continue
@@ -191,18 +206,24 @@ impl IoManager
 
     }
 
-    pub fn run(&self) -> bool
+    pub fn run(&mut self) -> bool
     {
         // get minimum timeout of all pending switch commands and
         // all pending debounce events.
 
         // wait for either new raw events or the timeout
-        let chanid = select_chan!(self.raw_input_events, self.output_commands);
+        let chanid = select_chan!(self.raw_input_events, self.output_commands, self.modcaps_rx);
 
         match chanid
         {
             0 => self.dispatch_raw_input_event(),
-            1 => self.dispatch_output_command(),
+            1 => self.dispatch_output_command(),            
+            2 => {
+                // Note: This should actually be done during HLI, however, if the
+                // other modules advertise only during LLI this should work just as
+                // well.
+                self.do_all_modcap_messages();
+            },
             _ => return true
         }
         return true
@@ -212,13 +233,14 @@ impl IoManager
     {
         let command = self.output_commands.receive();
 
-        // step 1: obtain SUD for output
-        // step 2: generate actual command:
-        let raw_cmd = RawOutputSwitch{output_id: command.output_id, target_state: command.target_state};
-        self.raw_output_commands.send(raw_cmd);
+        if let Some(output) = self.output_list.get(command.output_id as usize)
+        {
+            // step 2: generate actual command:
+            let raw_cmd = RawOutputSwitch{output_id: output.sud, target_state: command.target_state};
+            self.raw_output_commands.send(raw_cmd);          
+        }
 
         // step 3: store the switchtime
-
     }
     
     fn dispatch_raw_input_event(&self)
@@ -263,37 +285,36 @@ mod tests {
 
     /*
         Implement the following tests:
-        * can process a single modcaps message
-        * multiple modcaps messages cause correct alignment of IOs
         * switch_output sends message with correct SUD
         * switch_output with bad ID doesn't crash
-        * module will debounce input changes correctly
-        * debounce times are observed
     */    
     use crate::core::*;
     use crate::io::*;
     use crate::modcaps::{ModuleCapabilityAdvertisement, ModuleCapability};
 
 
-    fn make_mod() -> (IoManager, GenericSender<crate::io::RawInputEvent>, Arc<GenericReceiver<crate::io::InputEvent>>, GenericSender<OutputSwitch>)
+    fn make_mod() -> (IoManager, GenericSender<crate::io::RawInputEvent>, 
+                      Arc<GenericReceiver<crate::io::InputEvent>>, 
+                      GenericSender<OutputSwitch>, Arc<GenericReceiver<crate::io::RawOutputSwitch>>)
     {
         let mut chm = crate::core::channel_manager::ChannelManager::new();
         let trace = trace_helper::TraceHelper::new("".to_string(), &mut chm);
         let sender = chm.get_sender::<crate::io::RawInputEvent>();
         let receiver = chm.get_receiver::<crate::io::InputEvent>();
         let output_sender = chm.get_sender::<crate::io::OutputSwitch>();
+        let output_command_recv = chm.get_receiver::<crate::io::RawOutputSwitch>();
         let mut module = IoManager::new(trace, &mut chm);
         let modcap = ModuleCapabilityAdvertisement {module_id : make_sud(10, 0, 0), caps : vec![ModuleCapability::Inputs(4), ModuleCapability::Outputs(4)] };
         let modcap2 = ModuleCapabilityAdvertisement {module_id : make_sud(12, 0, 0), caps : vec![ModuleCapability::Inputs(2), ModuleCapability::Outputs(2)] };
         module.process_modcaps_message(modcap);
         module.process_modcaps_message(modcap2);
-        return (module, sender, receiver, output_sender)
+        return (module, sender, receiver, output_sender, output_command_recv)
     }
 
     #[test]
     pub fn raw_input_event_id_is_converted_to_input_event()
     {
-        let md = make_mod();
+        let mut md = make_mod();
         let s = md.1;
         let evt = RawInputEvent {input_id: make_sud(10, 0, 1), state: InputState::High};
         s.send(evt);
@@ -306,7 +327,7 @@ mod tests {
     #[test]
     pub fn raw_input_event_id_is_converted_to_input_event_from_second_module()
     {
-        let md = make_mod();
+        let mut md = make_mod();
         let s = md.1;
         let evt = RawInputEvent {input_id: make_sud(12, 0, 1), state: InputState::High};
         s.send(evt);
@@ -319,7 +340,7 @@ mod tests {
     #[test]
     pub fn raw_input_event_with_unknown_source_is_ignored()
     {
-        let md = make_mod();
+        let mut md = make_mod();
         let s = md.1;
         let evt = RawInputEvent {input_id: make_sud(14, 0, 1), state: InputState::High};
         s.send(evt);
@@ -327,6 +348,32 @@ mod tests {
         let recv = md.2.receive_with_timeout(1);
 
         assert!(recv.is_none())
+    }
+
+    #[test]
+    pub fn output_command_is_converted_to_raw_output_command()
+    {
+        let mut md = make_mod();
+        let s = md.3;
+        let evt = OutputSwitch {output_id: 1, target_state: OutputState::High, switch_time: 100};
+        s.send(evt);
+        md.0.run();
+        let recv = md.4.receive_with_timeout(1).unwrap();
+
+        assert_eq!(recv.output_id, make_sud(10, 0, 1))
+    }
+
+    #[test]
+    pub fn output_command_with_unkown_target_is_ignored()
+    {
+        let mut md = make_mod();
+        let s = md.3;
+        let evt = OutputSwitch {output_id: 74, target_state: OutputState::High, switch_time: 100};
+        s.send(evt);
+        md.0.run();
+        let recv = md.4.receive_with_timeout(1);
+
+        assert!(recv.is_none());
     }
     
     
