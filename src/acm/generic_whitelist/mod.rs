@@ -49,12 +49,12 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
         GenericWhitelist
         {
             tracer              : trace,
-            access_request_rx   : chm.get_receiver::<crate::acm::WhitelistAccessRequest>(),
-            cfg_rx              : chm.get_receiver::<crate::cfg::ConfigMessage>(), 
-            system_events_rx    : chm.get_receiver::<crate::core::SystemMessage>(),
-            system_events_tx    : chm.get_sender::<crate::core::SystemMessage>(),
-            sig_tx              : chm.get_sender::<crate::sig::SigCommand>(),
-            door_tx             : chm.get_sender::<crate::dcm::DoorOpenRequest>(),
+            access_request_rx   : chm.get_receiver(),
+            cfg_rx              : chm.get_receiver(), 
+            system_events_rx    : chm.get_receiver(),
+            system_events_tx    : chm.get_sender(),
+            sig_tx              : chm.get_sender(),
+            door_tx             : chm.get_sender(),
             whitelist           : Arc::new(Mutex::new(whitelist))
         }
     }

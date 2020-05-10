@@ -152,13 +152,13 @@ impl IoManager
     pub fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager) -> Self
     {
         IoManager{            
-            system_events_rx    : chm.get_receiver::<crate::core::SystemMessage>(),
-            system_events_tx    : chm.get_sender::<crate::core::SystemMessage>(),
-            modcaps_rx          : chm.get_receiver::<crate::modcaps::ModuleCapabilityAdvertisement>(),
-            raw_input_events    : chm.get_receiver::<RawInputEvent>(),
-            input_events        : chm.get_sender::<InputEvent>(),
-            output_commands     : chm.get_receiver::<OutputSwitch>(),
-            raw_output_commands : chm.get_sender::<RawOutputSwitch>(),
+            system_events_rx    : chm.get_receiver(),
+            system_events_tx    : chm.get_sender(),
+            modcaps_rx          : chm.get_receiver(),
+            raw_input_events    : chm.get_receiver(),
+            input_events        : chm.get_sender(),
+            output_commands     : chm.get_receiver(),
+            raw_output_commands : chm.get_sender(),
             tracer              : trace,
             input_list          : Vec::new(),
             output_list         : Vec::new()

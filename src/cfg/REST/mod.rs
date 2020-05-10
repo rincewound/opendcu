@@ -66,9 +66,9 @@ impl ConfigRest //<'a>
         ConfigRest
         {
             tracer: trace,            
-            system_events_rx: chm.get_receiver::<crate::core::SystemMessage>(),
-            system_events_tx: chm.get_sender::<crate::core::SystemMessage>(),
-            cfg_publish_tx: chm.get_sender::<crate::cfg::ConfigMessage>(),
+            system_events_rx: chm.get_receiver(),
+            system_events_tx: chm.get_sender(),
+            cfg_publish_tx: chm.get_sender(),
             cfg: Arc::new(Mutex::new(CfgHolder::new()))
         }
 

@@ -41,9 +41,9 @@ impl ConsoleInput
         ConsoleInput
         {
             tracer: trace,
-            access_request_tx: chm.get_sender::<crate::acm::WhitelistAccessRequest>(),
-            system_events_rx: chm.get_receiver::<crate::core::SystemMessage>(),
-            system_events_tx: chm.get_sender::<crate::core::SystemMessage>(),
+            access_request_tx: chm.get_sender(),
+            system_events_rx: chm.get_receiver(),
+            system_events_tx: chm.get_sender(),
         }
     }
 

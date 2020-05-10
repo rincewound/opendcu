@@ -1,20 +1,14 @@
 use crate::core::broadcast_channel::*;
 use crate::core::{channel_manager::*};
 use crate::trace::*;
-use crate::{sig::*, acm::*};
-use std::{sync::{Mutex, Arc}, thread};
-use crate::cfg;
-use crate::cfg::cfgholder::*;
-use crate::core::bootstage_helper::*;
-
-
+use std::{sync::{Arc}, thread};
 
 const MODULE_ID: u32 = 0x08000000;
 
 pub fn launch(chm: &mut ChannelManager)
 {    
     let tracer = trace_helper::TraceHelper::new("DCM/Trivial".to_string(), chm);
-    let mut tdc = TrivialDoorControl::new(tracer, chm);
+    let tdc = TrivialDoorControl::new(tracer, chm);
     thread::spawn(move || {  
         tdc.init();   
         loop 
@@ -32,7 +26,8 @@ pub fn launch(chm: &mut ChannelManager)
 /// This is the most basic door control module possible.
 /// It will literally just control a single output (i.e. an
 /// electric door opener/buzzer) when confronted with
-/// a door open request.
+/// a door open request. Also this output happens to be out0, 
+/// always.
 pub struct TrivialDoorControl
 {
     tracer: trace_helper::TraceHelper,
@@ -47,8 +42,7 @@ impl TrivialDoorControl
     pub fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager) -> Self
     {
         TrivialDoorControl
-        {
-            
+        {            
             tracer              : trace,
             system_events_rx    : chm.get_receiver(),
             system_events_tx    : chm.get_sender(),
@@ -68,7 +62,8 @@ impl TrivialDoorControl
 
         self.tracer.trace(format!("Open door {}", request.access_point_id));
 
-        // ToDo: Map access point ID to output id (... in the correct way!)
+        // ToDo: 
+        // * Use switchtime configuration
         let cmd = crate::io::OutputSwitch{output_id: request.access_point_id, target_state: crate::io::OutputState::High, switch_time: 5000};
         self.output_cmd_tx.send(cmd);
 
