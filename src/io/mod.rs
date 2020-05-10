@@ -79,9 +79,9 @@ pub struct RawOutputSwitch
 #[derive(Clone)]
 pub struct OutputSwitch
 {
-    output_id: u32,
-    target_state: OutputState,   //logical!
-    switch_time: u64            // in ms!
+    pub output_id: u32,
+    pub target_state: OutputState,   //logical!
+    pub switch_time: u64            // in ms!
 }
 
 
@@ -231,6 +231,7 @@ impl IoManager
 
     fn dispatch_output_command(&self)
     {
+        self.tracer.trace_str("Switching output.");
         let command = self.output_commands.receive();
 
         if let Some(output) = self.output_list.get(command.output_id as usize)
