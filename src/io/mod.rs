@@ -1,8 +1,12 @@
 
 use crate::{trace::trace_helper, core::{broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::ChannelManager}};
 use std::{sync::Arc, thread};
-use crate::core::event::DataEvent;
+use crate::core::{shareable::Shareable, event::DataEvent};
 use crate::modcaps::*;
+
+
+extern crate timer;
+extern crate chrono;
 
 #[derive(Clone)]
 pub enum InputState
@@ -112,7 +116,8 @@ struct InputEntry
 
 struct OutputEntry
 {
-    sud: u32
+    sud: u32,
+    timerGuad: Option<timer::Guard>
 }
 
 /// # The IO Manager
@@ -142,8 +147,9 @@ pub struct IoManager
     output_commands: Arc<GenericReceiver<OutputSwitch>>,
     raw_output_commands: GenericSender<RawOutputSwitch>,
     tracer: trace_helper::TraceHelper,
+    timer: timer::Timer,
     input_list: Vec<InputEntry>,
-    output_list: Vec<OutputEntry>
+    output_list: Shareable<Vec<OutputEntry>>
 
 }
 
@@ -160,8 +166,9 @@ impl IoManager
             output_commands     : chm.get_receiver(),
             raw_output_commands : chm.get_sender(),
             tracer              : trace,
+            timer               : timer::Timer::new(),
             input_list          : Vec::new(),
-            output_list         : Vec::new()
+            output_list         : Shareable::new(Vec::new())
         }
     } 
 
@@ -197,7 +204,9 @@ impl IoManager
                 {
                     for i in 0..outs
                     {
-                        self.output_list.push(OutputEntry {sud: message.module_id | i});
+                        self.output_list.lock()
+                                        .unwrap()
+                                        .push(OutputEntry {sud: message.module_id | i, timerGuad: None});
                     }
                 }
                 _ => continue
@@ -234,14 +243,38 @@ impl IoManager
         self.tracer.trace_str("Switching output.");
         let command = self.output_commands.receive();
 
-        if let Some(output) = self.output_list.get(command.output_id as usize)
+        if let Some(mut output) = self.output_list.lock().unwrap().get_mut(command.output_id as usize)
         {
             // step 2: generate actual command:
-            let raw_cmd = RawOutputSwitch{output_id: output.sud, target_state: command.target_state};
-            self.raw_output_commands.send(raw_cmd);          
+            let raw_cmd = RawOutputSwitch{output_id: output.sud, target_state: command.target_state.clone()};
+            self.raw_output_commands.send(raw_cmd);   
+            
+            // Drop the guard, preventing the timer
+            // from triggering the reset.
+            if output.timerGuad.is_some()
+            {
+                output.timerGuad = None;
+            }
+
+            if command.switch_time > 0
+            {
+                self.tracer.trace(format!("Schedule switchback in {} ms", command.switch_time));
+                let sender = self.output_commands.create_sender();
+                
+                let g = self.timer.schedule_with_delay(chrono::Duration::milliseconds(command.switch_time as i64), move || {                    
+                    let mut cmd = command.clone();
+                    match cmd.target_state
+                    {                        
+                        OutputState::High => cmd.target_state = OutputState::Low,
+                        OutputState::Low => cmd.target_state = OutputState::High
+                    }
+                    sender.send(cmd);
+                });
+                output.timerGuad = Some(g);
+            }
         }
 
-        // step 3: store the switchtime
+
     }
     
     fn dispatch_raw_input_event(&self)

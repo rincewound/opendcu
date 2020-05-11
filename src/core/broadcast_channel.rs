@@ -1,6 +1,6 @@
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Weak};
 use std::cell::*;
-use super::{event::DataEvent, atomic_queue::AtomicQueue};
+use super::{event::DataEvent, atomic_queue::AtomicQueue, shareable::Shareable};
 
 
 
@@ -58,7 +58,7 @@ impl <T: Clone> ChannelImpl<T>
     }
 }
 
-pub fn make_receiver<T: Clone>(owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>) -> Arc<GenericReceiver<T>>
+pub fn make_receiver<T: Clone>(owner: Shareable<RefCell<ChannelImpl<T>>>) -> Arc<GenericReceiver<T>>
 {
     let rec = Arc::new(GenericReceiver::<T>::new(owner.clone()));
     let weak = Arc::downgrade(&rec.clone());
@@ -68,14 +68,14 @@ pub fn make_receiver<T: Clone>(owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>) -> Ar
     rec
 }
 
-pub fn make_sender<T: Clone>(owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>) -> GenericSender<T>
+pub fn make_sender<T: Clone>(owner: Shareable<RefCell<ChannelImpl<T>>>) -> GenericSender<T>
 {
     GenericSender::<T>::new(owner)
 }
 
 pub fn make_chan<T: Clone>() -> (GenericSender<T>, Arc<GenericReceiver<T>>)
 {
-    let chan = Arc::new(Mutex::new(RefCell::new(ChannelImpl::<T>::new())));
+    let chan = Shareable::new(RefCell::new(ChannelImpl::<T>::new()));
     let receiver = make_receiver(chan.clone());
     let sender = make_sender(chan);        
     (sender, receiver)
@@ -83,19 +83,24 @@ pub fn make_chan<T: Clone>() -> (GenericSender<T>, Arc<GenericReceiver<T>>)
 
 pub struct GenericReceiver<T: Clone>
 {
-    owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>,
+    owner: Shareable<RefCell<ChannelImpl<T>>>,
     data: AtomicQueue<T>
 }
 
 impl <T: Clone> GenericReceiver<T>
 {
-    pub fn new(owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>) -> Self
+    pub fn new(owner: Shareable<RefCell<ChannelImpl<T>>>) -> Self
     {
         GenericReceiver
         {
             owner: owner,
             data: AtomicQueue::<T>::new()
         }
+    }
+
+    pub fn create_sender(&self) -> GenericSender<T>
+    {
+        return make_sender(self.owner.clone());
     }
 
     pub fn clone_receiver(&self) -> Arc<Self>
@@ -153,12 +158,12 @@ impl <T: Clone> GenericReceiver<T>
 
 pub struct GenericSender<T: Clone>
 {
-    source: Arc<Mutex<RefCell<ChannelImpl<T> >>>
+    source: Shareable<RefCell<ChannelImpl<T> >>
 }
 
 impl <T: Clone> GenericSender<T>
 {
-    pub fn new(owner: Arc<Mutex<RefCell<ChannelImpl<T> >>>) -> Self{
+    pub fn new(owner: Shareable<RefCell<ChannelImpl<T> >>) -> Self{
         GenericSender {
             source: owner.clone()
         }
