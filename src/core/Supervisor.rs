@@ -12,7 +12,7 @@ use crate::trace::*;
 use std::sync::Arc;
 
 pub struct Supervisor{
-    sysrec: Arc<crate::core::broadcast_channel::GenericReceiver<SystemMessage>>,
+    sysrec: Arc<GenericReceiver<SystemMessage>>,
     tracer: trace_helper::TraceHelper,
     chm: crate::core::channel_manager::ChannelManager,
     num_threads: u32
@@ -22,7 +22,7 @@ impl Supervisor
 {
     pub fn new() -> Self{
         let mut chanmgr = crate::core::channel_manager::ChannelManager::new();
-        let syschan = chanmgr.get_receiver::<SystemMessage>();
+        let syschan = chanmgr.get_receiver();
 
         Supervisor
         { 

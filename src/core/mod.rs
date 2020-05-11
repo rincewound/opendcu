@@ -16,6 +16,7 @@ pub mod event;
 pub mod atomic_queue;
 pub mod supervisor;
 pub mod bootstage_helper;
+pub mod shareable;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum BootStage

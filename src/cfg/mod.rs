@@ -1,4 +1,5 @@
 use std::sync::{Mutex, Arc};
+use crate::core::shareable::Shareable;
 
 pub mod REST;
 
@@ -25,7 +26,7 @@ pub mod cfgholder;
 #[derive(Clone)]
 pub enum ConfigMessage
 {
-    RegisterHandlers(Arc<Mutex<cfgholder::CfgHolder>>)
+    RegisterHandlers(Shareable<cfgholder::CfgHolder>)
 }
 
 

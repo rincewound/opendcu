@@ -1,4 +1,5 @@
-use std::{sync::{Mutex, Arc}, collections::HashMap};
+use std::{collections::HashMap};
+use crate::core::shareable::Shareable;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
 pub enum FunctionType
@@ -18,7 +19,7 @@ struct RouteKey
 
 pub struct CfgHolder
 {
-    put_funcs: Arc<Mutex<HashMap<RouteKey, Box<dyn FnMut(Vec<u8>) ->() + Send>>>>
+    put_funcs: Shareable<HashMap<RouteKey, Box<dyn FnMut(Vec<u8>) ->() + Send>>>
 }
 
 impl CfgHolder
@@ -26,7 +27,7 @@ impl CfgHolder
     pub fn new() -> Self
     {
         CfgHolder{
-            put_funcs: Arc::new(Mutex::new(HashMap::new()))
+            put_funcs: Shareable::new(HashMap::new())
         }
     }
 

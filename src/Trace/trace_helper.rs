@@ -14,7 +14,7 @@ impl TraceHelper
         TraceHelper
         {
             source_mod: module_name,
-            trace_tx: channel_manager.get_sender::<TraceMessage>()
+            trace_tx: channel_manager.get_sender()
         }
     }
 
