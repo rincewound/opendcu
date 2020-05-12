@@ -3,9 +3,8 @@ use crate::{trace::trace_helper, core::{broadcast_channel::{GenericReceiver, Gen
 use std::{sync::Arc, thread};
 use crate::core::{shareable::Shareable, event::DataEvent};
 use crate::modcaps::*;
+use crate::core::timer::*;
 
-
-extern crate timer;
 extern crate chrono;
 
 #[derive(Clone)]
@@ -60,7 +59,7 @@ pub struct InputSetting
     debounce_off: u64
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum OutputState
 {
     Low,
@@ -117,7 +116,7 @@ struct InputEntry
 struct OutputEntry
 {
     sud: u32,
-    timerGuad: Option<timer::Guard>
+    timer_guard: Option<Arc<bool>>
 }
 
 /// # The IO Manager
@@ -147,7 +146,7 @@ pub struct IoManager
     output_commands: Arc<GenericReceiver<OutputSwitch>>,
     raw_output_commands: GenericSender<RawOutputSwitch>,
     tracer: trace_helper::TraceHelper,
-    timer: timer::Timer,
+    timer: Arc<Timer>,
     input_list: Vec<InputEntry>,
     output_list: Shareable<Vec<OutputEntry>>
 
@@ -166,7 +165,7 @@ impl IoManager
             output_commands     : chm.get_receiver(),
             raw_output_commands : chm.get_sender(),
             tracer              : trace,
-            timer               : timer::Timer::new(),
+            timer               : Timer::new(),
             input_list          : Vec::new(),
             output_list         : Shareable::new(Vec::new())
         }
@@ -206,7 +205,7 @@ impl IoManager
                     {
                         self.output_list.lock()
                                         .unwrap()
-                                        .push(OutputEntry {sud: message.module_id | i, timerGuad: None});
+                                        .push(OutputEntry {sud: message.module_id | i, timer_guard: None});
                     }
                 }
                 _ => continue
@@ -221,19 +220,22 @@ impl IoManager
         // all pending debounce events.
 
         // wait for either new raw events or the timeout
-        let chanid = select_chan!(self.raw_input_events, self.output_commands, self.modcaps_rx);
-
-        match chanid
+        self.tracer.trace_str("Waiting for commands");
+        let ch = select_chan_with_timeout!(1000, self.raw_input_events, self.output_commands, self.modcaps_rx);
+        if let Some(chanid) = ch 
         {
-            0 => self.dispatch_raw_input_event(),
-            1 => self.dispatch_output_command(),            
-            2 => {
-                // Note: This should actually be done during HLI, however, if the
-                // other modules advertise only during LLI this should work just as
-                // well.
-                self.do_all_modcap_messages();
-            },
-            _ => return true
+            match chanid
+            {
+                0 => self.dispatch_raw_input_event(),
+                1 => self.dispatch_output_command(),            
+                2 => {
+                    // Note: This should actually be done during HLI, however, if the
+                    // other modules advertise only during LLI this should work just as
+                    // well.
+                    self.do_all_modcap_messages();
+                },
+                _ => return true
+            }
         }
         return true
     }
@@ -251,26 +253,28 @@ impl IoManager
             
             // Drop the guard, preventing the timer
             // from triggering the reset.
-            if output.timerGuad.is_some()
+            if output.timer_guard.is_some()
             {
-                output.timerGuad = None;
+                output.timer_guard = None;
             }
 
             if command.switch_time > 0
             {
                 self.tracer.trace(format!("Schedule switchback in {} ms", command.switch_time));
                 let sender = self.output_commands.create_sender();
-                
-                let g = self.timer.schedule_with_delay(chrono::Duration::milliseconds(command.switch_time as i64), move || {                    
+                let switch_time = command.switch_time;
+                let g = self.timer.schedule(Box::new(move || {                    
                     let mut cmd = command.clone();
                     match cmd.target_state
                     {                        
                         OutputState::High => cmd.target_state = OutputState::Low,
                         OutputState::Low => cmd.target_state = OutputState::High
                     }
+                    // permanent switchback;
+                    cmd.switch_time = 0;
                     sender.send(cmd);
-                });
-                output.timerGuad = Some(g);
+                }), switch_time);
+                output.timer_guard = Some(g);
             }
         }
 
@@ -300,11 +304,11 @@ impl IoManager
         })
     }
 
-    pub fn handle_put_input_setting(setting: InputSetting)
-    {}
+    // pub fn handle_put_input_setting(setting: InputSetting)
+    // {}
 
-    pub fn handle_put_output_setting(setting: OutputSetting)
-    {}
+    // pub fn handle_put_output_setting(setting: OutputSetting)
+    // {}
 
     // pub fn handle_get_inputs() -> Vec<InputSetting>
     // {}
@@ -325,6 +329,7 @@ mod tests {
     use crate::core::*;
     use crate::io::*;
     use crate::modcaps::{ModuleCapabilityAdvertisement, ModuleCapability};
+    use std::time::Duration;
 
 
     fn make_mod() -> (IoManager, GenericSender<crate::io::RawInputEvent>, 
@@ -396,6 +401,26 @@ mod tests {
 
         assert_eq!(recv.output_id, make_sud(10, 0, 1))
     }
+
+    #[test]
+    pub fn output_command_sends_switchback()
+    {
+        let mut md = make_mod();
+        let s = md.3;
+        let evt = OutputSwitch {output_id: 1, target_state: OutputState::High, switch_time: 100};
+        s.send(evt);
+        md.0.run();
+        let recv = md.4.receive_with_timeout(1).unwrap();
+        assert_eq!(recv.output_id, make_sud(10, 0, 1));
+        // The internal timer will trigger the switchback after 100 ms, we'll wait
+        // some more time to avoid a volatile test.
+        thread::sleep(Duration::from_millis(150));
+        md.0.run();
+        let recv = md.4.receive_with_timeout(1).unwrap();
+        assert_eq!(recv.output_id, make_sud(10, 0, 1));
+        assert!(OutputState::Low == recv.target_state)
+    }
+
 
     #[test]
     pub fn output_command_with_unkown_target_is_ignored()

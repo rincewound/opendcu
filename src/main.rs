@@ -1,3 +1,4 @@
+#![feature(fn_traits)]
 
 #[macro_use]
 extern crate rouille;
@@ -20,6 +21,9 @@ mod dcm;
 mod modcaps;
 mod io;
 
+// Platform specific
+mod platform;
+
 
 
 fn main() {
@@ -29,6 +33,7 @@ fn main() {
             crate::acm::generic_whitelist::launch::<acm::generic_whitelist::whitelist::JsonEntryProvider>,
             crate::arm::console_input::launch,
             crate::io::launch,
-            crate::dcm::trivial::launch)
+            crate::dcm::trivial::launch,
+            crate::platform::win64::launch)
             ;
 }

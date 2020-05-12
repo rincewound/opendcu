@@ -105,7 +105,7 @@ mod tests {
      #[test]
      fn returns_trigger_data()
      {        
-        let mut q  = AtomicQueue::new();    
+        let q  = AtomicQueue::new();    
         let e = Arc::new(DataEvent::<u32>::new()); 
 
         q.set_data_trigger(e.clone(), 7);

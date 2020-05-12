@@ -4,6 +4,9 @@ The barracuda core services module contains the infrastructure
 for the rest of the appliaction, most notably
 
 * The implementation of the channel manager
+* queues
+* the supervisor
+* a timer service (I cannot believe I have to write my own timer!)
 
 */
 
@@ -17,6 +20,7 @@ pub mod atomic_queue;
 pub mod supervisor;
 pub mod bootstage_helper;
 pub mod shareable;
+pub mod timer;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum BootStage
