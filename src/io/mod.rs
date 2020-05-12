@@ -216,24 +216,21 @@ impl IoManager
 
     pub fn run(&mut self) -> bool
     {
-        // get minimum timeout of all pending switch commands and
-        // all pending debounce events.
-
-        // wait for either new raw events or the timeout
         self.tracer.trace_str("Waiting for commands");
-        let ch = select_chan_with_timeout!(1000, self.raw_input_events, self.output_commands, self.modcaps_rx);
+        let ch = select_chan_with_timeout!(1000, self.modcaps_rx, self.raw_input_events, self.output_commands);
         if let Some(chanid) = ch 
         {
             match chanid
-            {
-                0 => self.dispatch_raw_input_event(),
-                1 => self.dispatch_output_command(),            
-                2 => {
+            {                
+                0 => {
                     // Note: This should actually be done during HLI, however, if the
                     // other modules advertise only during LLI this should work just as
                     // well.
                     self.do_all_modcap_messages();
                 },
+                1 => self.dispatch_raw_input_event(),
+                2 => self.dispatch_output_command(),            
+
                 _ => return true
             }
         }

@@ -110,27 +110,15 @@ macro_rules! launch_impl {
 macro_rules! wait_for {
     ($evt: ident, $id: expr, $head: expr) => (
         {
-             if $head.has_data() { 
-                 ($id)
-             }
-             else
-             {
-                $head.set_data_trigger($evt.clone(), $id);
-                ($evt.wait())
-            }
+            $head.set_data_trigger($evt.clone(), $id);
+            ($evt.wait())
         }
     );
     ($evt: ident, $id: expr, $head: expr, $($tail: expr),+) =>(
         {
-             if $head.has_data()
-             {
-                 ($id)
-             }
-             else
-             {
-                $head.set_data_trigger($evt.clone(), $id);
-                (wait_for!($evt,$id+1, $($tail),+))
-            }
+
+            $head.set_data_trigger($evt.clone(), $id);
+            (wait_for!($evt,$id+1, $($tail),+))
         }
     )
 }
