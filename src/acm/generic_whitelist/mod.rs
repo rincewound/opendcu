@@ -2,10 +2,10 @@ use crate::core::broadcast_channel::*;
 use crate::core::{channel_manager::*};
 use crate::trace::*;
 use crate::{sig::*, acm::*};
-use std::{sync::{Mutex, Arc}, thread};
+use std::{sync::{Arc}, thread};
 use crate::cfg;
 use crate::cfg::cfgholder::*;
-use crate::core::bootstage_helper::*;
+use crate::core::{shareable::Shareable, bootstage_helper::*};
 
 pub mod whitelist;
 
@@ -39,7 +39,7 @@ struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
     system_events_tx: GenericSender<crate::core::SystemMessage>,
     sig_tx: GenericSender<crate::sig::SigCommand>,
     door_tx: GenericSender<crate::dcm::DoorOpenRequest>,
-    whitelist: Arc<Mutex<WhitelistProvider>>
+    whitelist: Shareable<WhitelistProvider>
 }
 
 impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> GenericWhitelist<WhitelistProvider>
@@ -49,13 +49,13 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
         GenericWhitelist
         {
             tracer              : trace,
-            access_request_rx   : chm.get_receiver::<crate::acm::WhitelistAccessRequest>(),
-            cfg_rx              : chm.get_receiver::<crate::cfg::ConfigMessage>(), 
-            system_events_rx    : chm.get_receiver::<crate::core::SystemMessage>(),
-            system_events_tx    : chm.get_sender::<crate::core::SystemMessage>(),
-            sig_tx              : chm.get_sender::<crate::sig::SigCommand>(),
-            door_tx             : chm.get_sender::<crate::dcm::DoorOpenRequest>(),
-            whitelist           : Arc::new(Mutex::new(whitelist))
+            access_request_rx   : chm.get_receiver(),
+            cfg_rx              : chm.get_receiver(), 
+            system_events_rx    : chm.get_receiver(),
+            system_events_tx    : chm.get_sender(),
+            sig_tx              : chm.get_sender(),
+            door_tx             : chm.get_sender(),
+            whitelist           : Shareable::new(whitelist)
         }
     }
 
@@ -137,14 +137,14 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
     }
 
 
-    fn process_put_req(wl: Arc<Mutex<WhitelistProvider>>, entry: whitelist::WhitelistEntry)
+    fn process_put_req(wl: Shareable<WhitelistProvider>, entry: whitelist::WhitelistEntry)
     {
         println!("PUT into whitelist.");
         let mut thewhitelist = wl.lock().unwrap();
         thewhitelist.put_entry(entry);
     }
 
-    fn process_delete_req(wl: Arc<Mutex<WhitelistProvider>>, entry: whitelist::WhitelistEntry)
+    fn process_delete_req(wl: Shareable<WhitelistProvider>, entry: whitelist::WhitelistEntry)
     {
         println!("DELETE from whitelist.");
         let mut thewhitelist = wl.lock().unwrap();

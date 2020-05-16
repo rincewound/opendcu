@@ -1,11 +1,12 @@
 import {
+  greet,
   tada,
 	default as init
-} from '../wasm/ui.js';
+} from './wasm/ui.js';
 
 // this function is needed to initiate the wasm lib
 async function run() {
-  await init('../wasm/ui_bg.wasm');
+  await init('./wasm/ui_bg.wasm');
 }
 run();
 

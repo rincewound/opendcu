@@ -28,5 +28,5 @@ extern "C"
 #[wasm_bindgen]
 pub fn tada()
 {
-    log("hello from rust")
+    log("hello me rust")
 }

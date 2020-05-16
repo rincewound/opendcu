@@ -19,6 +19,7 @@ mod sig;
 mod dcm;
 mod modcaps;
 mod webserver;
+mod io;
 
 fn main() {
     // Note: Launch never returns!
@@ -26,6 +27,7 @@ fn main() {
             crate::cfg::REST::launch,
             crate::acm::generic_whitelist::launch::<acm::generic_whitelist::whitelist::JsonEntryProvider>,
             crate::arm::console_input::launch,
-            crate::webserver::launch)
-            ;
+            crate::webserver::launch,
+            crate::io::launch,
+            crate::dcm::trivial::launch);
 }

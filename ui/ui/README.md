@@ -1,21 +1,5 @@
 <div align="center">
 
-  <h1><code>Install dependencies</code></h1>
-
-  ```
-  npm install
-  ```
-  <h1><code>Build</code></h1>
-
-  ```
-  ./run_scripts.ps1
-  ```
-
-  <h1><code>start electron app</code></h1>
-
-  ```
-  npm start
-  ```
   <h1><code>wasm-pack-template</code></h1>
 
   <strong>A template for kick starting a Rust and WebAssembly project using <a href="https://github.com/rustwasm/wasm-pack">wasm-pack</a>.</strong>

@@ -1,4 +1,5 @@
-use std::{sync::{Mutex, Arc}, collections::HashMap};
+use std::{collections::HashMap};
+use crate::core::shareable::Shareable;
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
 pub enum FunctionType
@@ -18,7 +19,7 @@ struct RouteKey
 
 pub struct CfgHolder
 {
-    put_funcs: Arc<Mutex<HashMap<RouteKey, Box<dyn FnMut(Vec<u8>) ->() + Send>>>>
+    put_funcs: Shareable<HashMap<RouteKey, Box<dyn FnMut(Vec<u8>) ->() + Send>>>
 }
 
 impl CfgHolder
@@ -26,7 +27,7 @@ impl CfgHolder
     pub fn new() -> Self
     {
         CfgHolder{
-            put_funcs: Arc::new(Mutex::new(HashMap::new()))
+            put_funcs: Shareable::new(HashMap::new())
         }
     }
 
@@ -105,8 +106,8 @@ mod tests {
          let tmp = Arc::new(Mutex::new(RefCell::new(false)));
          let tmpclone = tmp.clone();
          hdl.register_handler(FunctionType::Put, "cfg/foo".to_string(), move |_t: Vec<u8>| {
-             let mut m2 = tmpclone.clone().lock().unwrap().borrow_mut();
-             *m2 = true;
+             let m2 = tmpclone.clone();
+             *(m2.lock().unwrap().borrow_mut()) = true;
              drop(m2);
          });
          hdl.do_put("cfg/foo".to_string(), Vec::from("{val:true}".as_bytes()));
@@ -122,8 +123,8 @@ mod tests {
          let tmp = Arc::new(Mutex::new(RefCell::new(false)));
          let tmpclone = tmp.clone();
          hdl.register_handler(FunctionType::Post, "cfg/foo".to_string(), move |_t: Vec<u8>| {
-            let mut m2 = tmpclone.clone().lock().unwrap().borrow_mut();
-             *m2 = true;
+            let m2 = tmpclone.clone();
+            *(m2.lock().unwrap().borrow_mut()) = true;
              drop(m2);
          });
          hdl.do_put("cfg/foo".to_string(), Vec::from("{val:true}".as_bytes()));
@@ -139,15 +140,15 @@ mod tests {
          let tmp =  Arc::new(Mutex::new(RefCell::new(1)));
          let tmpclone = tmp.clone();
          hdl.register_handler(FunctionType::Put, "cfg/foo".to_string(), move |_t: Vec<u8>| {
-             let mut m2 =  tmpclone.clone().lock().unwrap().borrow_mut();
-             *m2 = 2;
+            let m2 = tmpclone.clone();
+            *(m2.lock().unwrap().borrow_mut()) = 2;
              drop(m2);
          });
 
          let secondclone = tmp.clone();
          hdl.register_handler(FunctionType::Post, "cfg/foo".to_string(), move |_t: Vec<u8>| {
-            let mut m2 = secondclone.clone().lock().unwrap().borrow_mut();
-            *m2 = 3;
+            let m2 = secondclone.clone();
+            *(m2.lock().unwrap().borrow_mut()) = 3;
             drop(m2);
         });
 

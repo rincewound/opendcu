@@ -11,3 +11,5 @@ pub enum DoorControlCommands
     BarDoorRequest,
     PermanentReleaseRequest
 }
+
+pub mod trivial;

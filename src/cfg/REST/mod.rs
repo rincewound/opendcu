@@ -3,9 +3,9 @@ use rouille::*;
 use crate::core::broadcast_channel::*;
 use crate::core::{channel_manager::*};
 use crate::trace::*;
-use std::{sync::{Mutex, Arc}, thread};
+use std::{sync::{Arc}, thread};
 use std::io::Read;
-use crate::core::bootstage_helper::*;
+use crate::core::{shareable::Shareable, bootstage_helper::*};
 use crate::cfg::cfgholder::*;
 
 
@@ -55,7 +55,7 @@ struct ConfigRest
     system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
     system_events_tx: GenericSender<crate::core::SystemMessage>,
     cfg_publish_tx: GenericSender<crate::cfg::ConfigMessage>,
-    cfg: Arc<Mutex<crate::cfg::cfgholder::CfgHolder>>,
+    cfg: Shareable<crate::cfg::cfgholder::CfgHolder>,
     
 }
 
@@ -66,10 +66,10 @@ impl ConfigRest //<'a>
         ConfigRest
         {
             tracer: trace,            
-            system_events_rx: chm.get_receiver::<crate::core::SystemMessage>(),
-            system_events_tx: chm.get_sender::<crate::core::SystemMessage>(),
-            cfg_publish_tx: chm.get_sender::<crate::cfg::ConfigMessage>(),
-            cfg: Arc::new(Mutex::new(CfgHolder::new()))
+            system_events_rx: chm.get_receiver(),
+            system_events_tx: chm.get_sender(),
+            cfg_publish_tx: chm.get_sender(),
+            cfg: Shareable::new(CfgHolder::new())
         }
 
     }
