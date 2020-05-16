@@ -52,7 +52,7 @@ impl Webserver
             // located.
             // In order to avoid potential security threats, `match_assets` will never return any
             // file outside of this directory even if the URL is for example `/../../foo.txt`.
-            let response = rouille::match_assets(&request, "ui/www");
+            let response = rouille::match_assets(&request, "src/ui");
 
             // If a file is found, the `match_assets` function will return a response with a 200
             // status code and the content of the file. If no file is found, it will instead return
