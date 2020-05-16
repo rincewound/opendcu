@@ -89,7 +89,7 @@ impl CfgHolder
 #[cfg(test)]
 mod tests {
     use crate::cfg::cfgholder::*;
-    use std::{sync::Arc, cell::{RefCell}};
+    use std::{sync::{Arc, Mutex}, cell::{RefCell}};
     
     #[macro_use]
     use crate::cfg;
