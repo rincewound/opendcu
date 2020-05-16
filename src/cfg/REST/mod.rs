@@ -16,8 +16,7 @@ pub fn launch(chm: &mut ChannelManager)
     let tracer = trace_helper::TraceHelper::new("CFG/Rest".to_string(), chm);
     let mut cr = ConfigRest::new(tracer, chm);      
     thread::spawn(move|| {
-        cr.init();  
-        cr.run();         
+        cr.start();
     });
 }
 
@@ -154,6 +153,14 @@ impl ConfigRest //<'a>
         )
     });    
     }      
+
+    // to simplify the call inside the launch function
+    // which depend on the which is used to be started
+    pub fn start(mut self)
+    {
+        self.init();
+        self.run();
+    }
 }
 
 #[cfg(test)]

@@ -171,3 +171,16 @@ macro_rules! wait_for_with_timeout {
 macro_rules! select_chan_with_timeout {
     ($timeout: expr, $($channels: expr),+) => (wait_for_with_timeout!(Arc::new(DataEvent::<u32>::new()), $timeout, 0, $($channels),+));
 }
+
+
+// start thread using it's struct name
+macro_rules! launch_thread {
+    ($chm: expr, $owner:ident) =>
+    {
+        let tracer = trace_helper::TraceHelper::new("CFG/Rest".to_string(), chm);
+        let mut o = $owner::new(tracer, chm);
+        thread::spawn(move || {
+            o.do()
+        })
+    }
+}
