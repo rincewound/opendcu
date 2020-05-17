@@ -210,7 +210,6 @@ impl IoManager
                     for i in 0..outs
                     {
                         self.output_list.lock()
-                                        .unwrap()
                                         .push(OutputEntry {sud: message.module_id | i, timer_guard: None});
                     }
                 }
@@ -222,31 +221,25 @@ impl IoManager
 
     pub fn run(&mut self) -> bool
     {
-        self.tracer.trace_str("Waiting for commands");
-        //let evt = Arc::new(DataEvent::new());
+        self.tracer.trace_str("Waiting for commands");        
         self.modcaps_rx.set_data_trigger(self.dataevent.clone(), 0);
         self.raw_input_events.set_data_trigger(self.dataevent.clone(), 1);
         self.output_commands.set_data_trigger(self.dataevent.clone(), 2);
-
-        //let ch = select_chan_with_timeout!(1000, self.modcaps_rx, self.raw_input_events, self.output_commands);
-        let ch = self.dataevent.wait_with_timeout(1000);
-        if let Some(chanid) = ch 
-        {
-            print!("CHANID {}", chanid);
-            match chanid
-            {                
-                0 => {
-                    // Note: This should actually be done during HLI, however, if the
-                    // other modules advertise only during LLI this should work just as
-                    // well.
-                    self.do_all_modcap_messages();
-                },
-                1 => self.dispatch_raw_input_event(),
-                2 => self.dispatch_output_command(),            
-
-                _ => return true
-            }
+        let chanid = self.dataevent.wait();
+        
+        match chanid
+        {                
+            0 => {
+                // Note: This should actually be done during HLI, however, if the
+                // other modules advertise only during LLI this should work just as
+                // well.
+                self.do_all_modcap_messages();
+            },
+            1 => self.dispatch_raw_input_event(),
+            2 => self.dispatch_output_command(),            
+            _ => return true
         }
+
         return true
     }
 
@@ -255,7 +248,7 @@ impl IoManager
         self.tracer.trace_str("Switching output.");
         let command = self.output_commands.receive();
 
-        if let Some(mut output) = self.output_list.lock().unwrap().get_mut(command.output_id as usize)
+        if let Some(mut output) = self.output_list.lock().get_mut(command.output_id as usize)
         {
             // step 2: generate actual command:
             let raw_cmd = RawOutputSwitch{output_id: output.sud, target_state: command.target_state.clone()};

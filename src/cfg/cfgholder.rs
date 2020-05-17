@@ -44,7 +44,6 @@ impl CfgHolder
     {
         let key = self.make_key(functy, route);
         self.put_funcs.lock()
-                      .unwrap()
                       .insert(key , Box::new(Func));
     }
 
@@ -53,9 +52,8 @@ impl CfgHolder
         // The trouble: func in this form is not copyable, so we have to first move it out of
         // the dict   
         let theKey = self.make_key(action, route);
-        let item = self.put_funcs.lock()
-                                                             .unwrap()
-                                                             .remove_entry(&theKey); //.unwrap().1;
+        let item = self.put_funcs.lock()                                                             
+                                                             .remove_entry(&theKey); 
         if item.is_none()
         {
             return;
@@ -64,7 +62,6 @@ impl CfgHolder
         func(data);
         // and put it back afterwards    
         self.put_funcs.lock()
-                      .unwrap()
                       .insert(theKey, func);
         // Crappily it seems to be impossible to use an Arc here, as calling the damn function would
         // require moving it out of the Arc as well.

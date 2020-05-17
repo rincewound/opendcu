@@ -62,7 +62,7 @@ pub fn make_receiver<T: Clone>(owner: Shareable<RefCell<ChannelImpl<T>>>) -> Arc
 {
     let rec = Arc::new(GenericReceiver::<T>::new(owner.clone()));
     let weak = Arc::downgrade(&rec.clone());
-    let mut rec_queue = owner.lock().unwrap();
+    let mut rec_queue = owner.lock();
     let m = rec_queue.get_mut();
     m.receiver_queues.get_mut().push(weak);
     rec
@@ -166,7 +166,7 @@ impl <T: Clone> GenericSender<T>
 
     pub fn send(&self, data: T)
     {
-        self.source.lock().unwrap().get_mut().push_message(data.clone());
+        self.source.lock().get_mut().push_message(data.clone());
     }
 
     pub fn clone(&self) -> Self

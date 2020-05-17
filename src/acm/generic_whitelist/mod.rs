@@ -70,7 +70,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
 
             let res = the_receiver.receive();
             let crate::cfg::ConfigMessage::RegisterHandlers(cfg_holder) = res;
-            let mut holder = cfg_holder.lock().unwrap();
+            let mut holder = cfg_holder.lock();
             let wl1 = the_whitelist.clone();
             let wl2 = the_whitelist.clone();
 
@@ -122,7 +122,6 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
     {
         // Pull Whitelist Entry
         let entry = self.whitelist.lock()
-                                                          .unwrap()
                                                           .get_entry(req.identity_token_number);
 
         // Found? If so, check access profile, otherwise emit AccessDenied Sig
@@ -145,14 +144,14 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
     fn process_put_req(wl: Shareable<WhitelistProvider>, entry: whitelist::WhitelistEntry)
     {
         println!("PUT into whitelist.");
-        let mut thewhitelist = wl.lock().unwrap();
+        let mut thewhitelist = wl.lock();
         thewhitelist.put_entry(entry);
     }
 
     fn process_delete_req(wl: Shareable<WhitelistProvider>, entry: whitelist::WhitelistEntry)
     {
         println!("DELETE from whitelist.");
-        let mut thewhitelist = wl.lock().unwrap();
+        let mut thewhitelist = wl.lock();
         thewhitelist.delete_entry(entry.access_token_id);
     }
 

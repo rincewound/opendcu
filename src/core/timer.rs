@@ -42,14 +42,14 @@ impl Timer
 
     pub fn stop(&self)
     {
-        let mut term = self.terminate.lock().unwrap();
+        let mut term = self.terminate.lock();
         *term = true;
         self.wait_event.trigger();
     }
 
     pub fn schedule(&self, callback: Box<dyn FnOnce() -> () + Send>, delay: u64) -> Arc<bool>
     {
-        let mut calls = self.scheduled_calls.lock().unwrap();
+        let mut calls = self.scheduled_calls.lock();
         let due_time = Instant::now() + Duration::from_millis(delay);
         let guard = Arc::new(false);
         calls.push(TimerEntry{
@@ -63,7 +63,7 @@ impl Timer
 
     fn get_min_remaining_timeout(&self) -> Instant
     {
-        let calls = self.scheduled_calls.lock().unwrap();
+        let calls = self.scheduled_calls.lock();
         let min_remaining = calls.iter()
                                                          .min_by_key(|x| x.due_time);
 
@@ -90,7 +90,7 @@ impl Timer
 
     fn trigger_active_entries(&self)
     {
-        let mut calls = self.scheduled_calls.lock().unwrap();
+        let mut calls = self.scheduled_calls.lock();
 
         calls.iter_mut().for_each(|elem|{
             let now = Instant::now();
@@ -135,7 +135,7 @@ impl Timer
                 // event was triggered -> this means someone has either
                 // added a new element to the remaining calls or
                 // the d'tor was called.
-                let term = self.terminate.lock().unwrap();
+                let term = self.terminate.lock();
                 if *term == true
                 {
                     return;
@@ -172,13 +172,13 @@ mod tests {
         let t = Timer::new();
         let movable_clone = flag.clone();
         let guard = t.schedule(Box::new(move || {
-            let mut flagAccess = movable_clone.lock().unwrap();
+            let mut flagAccess = movable_clone.lock();
             *flagAccess = true;
         }), 50);
 
         sleep(Duration::from_millis(100));
         drop(guard);
-        assert!(*flag.lock().unwrap() == true); 
+        assert!(*flag.lock() == true); 
     }
 
     #[test]
@@ -188,7 +188,7 @@ mod tests {
         let t = Timer::new();
         let movable_clone = flag.clone();
         let guard = t.schedule(Box::new(move || {
-            let mut flagAccess = movable_clone.lock().unwrap();
+            let mut flagAccess = movable_clone.lock();
             *flagAccess = true;
         }), 50);
         
@@ -196,6 +196,6 @@ mod tests {
 
         sleep(Duration::from_millis(100));
 
-        assert!(*flag.lock().unwrap() == false); 
+        assert!(*flag.lock() == false); 
     }
 }

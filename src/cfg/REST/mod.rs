@@ -94,7 +94,6 @@ impl ConfigRest //<'a>
         let mut d = req.data().unwrap();
         d.read_to_end(&mut reqdata);
         self.cfg.lock()
-                .unwrap()
                 .do_put(_module, reqdata);
         rouille::Response::text("All is bad.")
     }
