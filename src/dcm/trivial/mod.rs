@@ -67,6 +67,6 @@ impl TrivialDoorControl
         let cmd = crate::io::OutputSwitch{output_id: request.access_point_id, target_state: crate::io::OutputState::High, switch_time: 5000};
         self.output_cmd_tx.send(cmd);
 
-        return false;
+        return true;
     }
 }

@@ -368,6 +368,19 @@ The module exposes the endpoint api/dcm which accepts PUT and DELETE requests, t
 Any changes to the configuration will require a restart of the module to be activated.
 
 
+
+## I/O (IO)
+The I/O Module provides a generic interface to all I/O modules of the concrete hardware.
+
+### Configuration Interface
+ * The module will publish the API endpoint api/io/input which accepts input settings using PUT and DELETE queries.
+ * The module will publish the API endpoint api/io/ouput which accapts output settings using PUT and DELETE queries.
+ * The module will publish the API endpoint api/io/cmd which accepts output commands.
+
+### Configuration Behavior
+The configuration is immediately relayed to the concrete I/O implementations. Depending on these
+modules a restart might be required
+
 # Licensing
 Barracuda is free to use for private non-commercial use.
 
