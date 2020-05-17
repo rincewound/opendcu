@@ -27,50 +27,74 @@ impl<T: Clone> AtomicQueue<T> {
         let mut d = self.data.lock().unwrap();
         d.get_mut().push_back(data);
         self.evt.trigger();
+        self.do_data_trigger();
+    }
+
+    fn do_data_trigger(&self)
+    {
         let mut trg = self.data_trigger
                                                             .lock()
                                                             .unwrap();
         let dat = trg.get_mut();
-        if let Some(e) = &dat.0
-        {
+
+        let evt = dat.0.take();
+        if let Some(e) = evt
+        {  
+            //println!("Trigger event {}", e.name);  
             e.trigger(dat.1);
-        }
+            dat.0 = Some(e);
+        }        
     }
 
     pub fn wait_data(&self)
     {        
         if self.len() != 0
         {
+            self.evt.reset();
             return;
         }
         self.evt.wait();
     }
 
     pub fn wait_with_timeout(&self, milliseconds: u64) -> bool
-    {   
+    {          
         if self.len() != 0
         {
+            self.evt.reset();
             return true;
-        }
+        } 
         return self.evt.wait_with_timeout(milliseconds);       
     }
 
     pub fn set_data_trigger(&self, evt: Arc<DataEvent<u32>>, trigger_data: u32)
     {
-        if self.len() != 0
-        {
-            evt.trigger(trigger_data)            
-        }
         let mut trg = self.data_trigger
                                                         .lock()
                                                         .unwrap();
         let dat = trg.get_mut();
+
+        // let mut prev_name = String::from("None");
+        // if dat.0.is_some()
+        // {
+        //     let tmp = dat.0.take().unwrap();
+        //     prev_name = tmp.name.clone();
+        //     dat.0 = Some(tmp);
+        // }
+
+        //println!("Dataevent set to {}, was {}", evt.name, prev_name);
         dat.0 = Some(evt);
         dat.1 = trigger_data;
+        drop(trg);
+        
+        if self.len() != 0
+        {
+            self.do_data_trigger();
+        }
     }
 
     pub fn pop(&self) -> Option<T>
     {
+        // Rubbish: This never resets the data event, so 
         return self.data.lock().unwrap().get_mut().pop_front();
     }
 
@@ -106,12 +130,28 @@ mod tests {
      fn returns_trigger_data()
      {        
         let q  = AtomicQueue::new();    
-        let e = Arc::new(DataEvent::<u32>::new()); 
+        let e = Arc::new(DataEvent::<u32>::new("Foo".to_string())); 
 
         q.set_data_trigger(e.clone(), 7);
         q.push(10);   
         let trig_data = e.wait();
         assert_eq!(7, trig_data);
+     }
+
+     #[test]
+     fn can_trigger_twice()
+     {
+        let q  = AtomicQueue::new();    
+        let e = Arc::new(DataEvent::<u32>::new("Foo".to_string())); 
+
+        q.set_data_trigger(e.clone(), 7);
+        q.push(10);   
+        let trig_data = e.wait();
+        assert_eq!(7, trig_data);  
+        let e2 = Arc::new(DataEvent::<u32>::new("Foo".to_string())); 
+        q.set_data_trigger(e2.clone(), 5);   
+        let trig_data = e2.wait();
+        assert_eq!(5, trig_data);  
      }
     
 }

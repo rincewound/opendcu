@@ -139,11 +139,6 @@ impl <T: Clone> GenericReceiver<T>
 
     pub fn receive_with_timeout(&self, milliseconds: u64) -> Option<T>
     {
-        if self.data.len() != 0
-        {
-            return self.data.pop();
-        }
-
         self.data.wait_with_timeout(milliseconds);
         return self.data.pop();
     }

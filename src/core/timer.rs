@@ -24,9 +24,9 @@ impl Timer
     {
         //let mut chm = ChannelManager::new();
         let result = Arc::new(Timer {
-            scheduled_calls: Shareable::new(Vec::new()),
-            wait_event: Event::new(),
-            terminate: Shareable::new(false)         
+            scheduled_calls:    Shareable::new(Vec::new()),
+            wait_event:         Event::new(),
+            terminate:          Shareable::new(false)         
         });
         Timer::start(result.clone());
         return result;
@@ -44,6 +44,7 @@ impl Timer
     {
         let mut term = self.terminate.lock().unwrap();
         *term = true;
+        self.wait_event.trigger();
     }
 
     pub fn schedule(&self, callback: Box<dyn FnOnce() -> () + Send>, delay: u64) -> Arc<bool>

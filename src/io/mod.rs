@@ -148,7 +148,8 @@ pub struct IoManager
     tracer: trace_helper::TraceHelper,
     timer: Arc<Timer>,
     input_list: Vec<InputEntry>,
-    output_list: Shareable<Vec<OutputEntry>>
+    output_list: Shareable<Vec<OutputEntry>>,
+    dataevent: Arc<DataEvent<u32>>
 
 }
 
@@ -167,13 +168,18 @@ impl IoManager
             tracer              : trace,
             timer               : Timer::new(),
             input_list          : Vec::new(),
-            output_list         : Shareable::new(Vec::new())
+            output_list         : Shareable::new(Vec::new()),
+            dataevent           :Arc::new(DataEvent::new("IOWait".to_string()))
         }
     } 
 
     pub fn init(&self)
-    {        
-        crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer)
+    { 
+        self.modcaps_rx.set_data_trigger(self.dataevent.clone(), 0);
+        self.raw_input_events.set_data_trigger(self.dataevent.clone(), 1);
+        self.output_commands.set_data_trigger(self.dataevent.clone(), 2);
+
+        crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);
     }
 
     fn do_all_modcap_messages(&mut self)
@@ -217,9 +223,16 @@ impl IoManager
     pub fn run(&mut self) -> bool
     {
         self.tracer.trace_str("Waiting for commands");
-        let ch = select_chan_with_timeout!(1000, self.modcaps_rx, self.raw_input_events, self.output_commands);
+        //let evt = Arc::new(DataEvent::new());
+        self.modcaps_rx.set_data_trigger(self.dataevent.clone(), 0);
+        self.raw_input_events.set_data_trigger(self.dataevent.clone(), 1);
+        self.output_commands.set_data_trigger(self.dataevent.clone(), 2);
+
+        //let ch = select_chan_with_timeout!(1000, self.modcaps_rx, self.raw_input_events, self.output_commands);
+        let ch = self.dataevent.wait_with_timeout(1000);
         if let Some(chanid) = ch 
         {
+            print!("CHANID {}", chanid);
             match chanid
             {                
                 0 => {
@@ -402,20 +415,23 @@ mod tests {
     #[test]
     pub fn output_command_sends_switchback()
     {
-        let mut md = make_mod();
-        let s = md.3;
-        let evt = OutputSwitch {output_id: 1, target_state: OutputState::High, switch_time: 100};
-        s.send(evt);
-        md.0.run();
-        let recv = md.4.receive_with_timeout(1).unwrap();
-        assert_eq!(recv.output_id, make_sud(10, 0, 1));
-        // The internal timer will trigger the switchback after 100 ms, we'll wait
-        // some more time to avoid a volatile test.
-        thread::sleep(Duration::from_millis(150));
-        md.0.run();
-        let recv = md.4.receive_with_timeout(1).unwrap();
-        assert_eq!(recv.output_id, make_sud(10, 0, 1));
-        assert!(OutputState::Low == recv.target_state)
+        for _ in 0..10
+        {
+            let mut md = make_mod();
+            let s = md.3;
+            let evt = OutputSwitch {output_id: 1, target_state: OutputState::High, switch_time: 100};
+            s.send(evt);
+            md.0.run();
+            let recv = md.4.receive_with_timeout(1).unwrap();
+            assert_eq!(recv.output_id, make_sud(10, 0, 1));
+            // The internal timer will trigger the switchback after 100 ms, we'll wait
+            // some more time to avoid a volatile test.
+            thread::sleep(Duration::from_millis(100));
+            md.0.run();
+            let recv = md.4.receive_with_timeout(1).unwrap();
+            assert_eq!(recv.output_id, make_sud(10, 0, 1));
+            assert!(OutputState::Low == recv.target_state)
+        }
     }
 
 

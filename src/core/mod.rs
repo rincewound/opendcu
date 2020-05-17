@@ -126,7 +126,7 @@ macro_rules! wait_for {
 macro_rules! select_chan {
     ($($channels: expr),+) => (
         {
-            let evt = Arc::new(DataEvent::<u32>::new());
+            let evt = Arc::new(DataEvent::<u32>::new("<unnamed>".to_string()));
             (wait_for!(evt, 0, $($channels),+))
         }
     );

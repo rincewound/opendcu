@@ -34,6 +34,6 @@ fn main() {
             crate::arm::console_input::launch,
             crate::io::launch,
             crate::dcm::trivial::launch,
-            crate::platform::win64::launch)
-            ;
+            crate::platform::win64::launch
+            );
 }

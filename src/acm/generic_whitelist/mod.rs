@@ -32,14 +32,14 @@ pub fn launch<T: 'static>(chm: &mut ChannelManager)
 
 struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
 {
-    tracer: trace_helper::TraceHelper,
-    access_request_rx: Arc<GenericReceiver<crate::acm::WhitelistAccessRequest>>,
-    cfg_rx: Arc<GenericReceiver<crate::cfg::ConfigMessage>>,
-    system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
-    system_events_tx: GenericSender<crate::core::SystemMessage>,
-    sig_tx: GenericSender<crate::sig::SigCommand>,
-    door_tx: GenericSender<crate::dcm::DoorOpenRequest>,
-    whitelist: Shareable<WhitelistProvider>
+    tracer              : trace_helper::TraceHelper,
+    access_request_rx   : Arc<GenericReceiver<crate::acm::WhitelistAccessRequest>>,
+    cfg_rx              : Arc<GenericReceiver<crate::cfg::ConfigMessage>>,
+    system_events_rx    : Arc<GenericReceiver<crate::core::SystemMessage>>,
+    system_events_tx    : GenericSender<crate::core::SystemMessage>,
+    sig_tx              : GenericSender<crate::sig::SigCommand>,
+    door_tx             : GenericSender<crate::dcm::DoorOpenRequest>,
+    whitelist           : Shareable<WhitelistProvider>    
 }
 
 impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> GenericWhitelist<WhitelistProvider>
@@ -86,7 +86,12 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
             
         })];
 
-        boot(MODULE_ID, cbs, 
+        // boot(MODULE_ID, cbs, 
+        //     self.system_events_tx.clone(), 
+        //     self.system_events_rx.clone(), 
+        //     &self.tracer);
+        
+        plain_boot(MODULE_ID,
             self.system_events_tx.clone(), 
             self.system_events_rx.clone(), 
             &self.tracer);
@@ -131,7 +136,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
         }
         else
         {
-            self.tracer.trace_str("Access Denied; Unknown identifiaction token.");
+            self.tracer.trace_str("Access Denied; Unknown identification token.");
             self.send_signal_command(req.access_point_id, SigType::AccessDenied, 1000);
         }
     }
@@ -257,6 +262,42 @@ mod tests {
         else
         {
             assert!(false)
+        }
+     }
+
+     #[test]
+     fn generate_multiple_door_open_requests()
+     {
+        let mut chm = ChannelManager::new();
+        let mut wl = DummyWhitelist::new();
+        wl.entry = Some(WhitelistEntry{
+            access_token_id: Vec::new(),
+            //access_profiles: Vec::new()
+
+        });
+        let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
+        let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl);
+
+        let dcm_rx = chm.get_receiver::<crate::dcm::DoorOpenRequest>();
+        let access_tx = chm.get_sender::<WhitelistAccessRequest>();
+
+        for _ in 0..20
+        {
+            let req = WhitelistAccessRequest {
+                access_point_id: 47,
+                identity_token_number: vec![1,2,3,4],
+            };
+
+            access_tx.send(req);
+            md.do_request();
+            let res = dcm_rx.receive_with_timeout(1);
+            if let Some(x) = res {
+            assert!(x.access_point_id == 47)
+            }
+            else
+            {
+                assert!(false)
+            }
         }
      }
 }
