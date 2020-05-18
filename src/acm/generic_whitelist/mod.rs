@@ -125,7 +125,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
         {
             
             // Good? If so, emit DoorOpenRequest, otherwise emit AccessDenied Sig 
-            self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.access_token_id));
+            self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.identification_token_id));
             let openreq = crate::dcm::DoorOpenRequest {access_point_id: req.access_point_id};
             self.door_tx.send(openreq);
         }
@@ -148,7 +148,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
     {
         println!("DELETE from whitelist.");
         let mut thewhitelist = wl.lock();
-        thewhitelist.delete_entry(entry.access_token_id);
+        thewhitelist.delete_entry(entry.identification_token_id);
     }
 
 }
@@ -233,7 +233,7 @@ mod tests {
         let mut chm = ChannelManager::new();
         let mut wl = DummyWhitelist::new();
         wl.entry = Some(WhitelistEntry{
-            access_token_id: Vec::new(),
+            identification_token_id: Vec::new(),
             //access_profiles: Vec::new()
 
         });
@@ -266,7 +266,7 @@ mod tests {
         let mut chm = ChannelManager::new();
         let mut wl = DummyWhitelist::new();
         wl.entry = Some(WhitelistEntry{
-            access_token_id: Vec::new(),
+            identification_token_id: Vec::new(),
             //access_profiles: Vec::new()
 
         });
