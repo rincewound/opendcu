@@ -1,6 +1,8 @@
 # Open DCU "Barracuda"
-[![Build Status](https://dev.azure.com/opendcu/barracuda/_apis/build/status/rincewound.opendcu?branchName=master)](https://dev.azure.com/opendcu/barracuda/_build/latest?definitionId=1&branchName=master)
 An open source door controller
+[![Build Status](https://dev.azure.com/opendcu/barracuda/_apis/build/status/rincewound.opendcu?branchName=master)](https://dev.azure.com/opendcu/barracuda/_build/latest?definitionId=1&branchName=master)]
+
+
 
 ## Motivation
 Having worked in access control for nearly ten years I've come in contact with a multitude of access control devices, most of which share similar properties with regard to their firmware:
