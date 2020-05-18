@@ -24,4 +24,7 @@ steps:
   condition: not(eq(variables['Agent.OS'], 'Windows_NT'))
 
 - bash: cargo build
-  displayName: Run cargo build with defined flags 
+  displayName: Run cargo build
+
+- bash: cargo test
+  displayName: Run cargo test
