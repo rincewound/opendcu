@@ -6,7 +6,7 @@ const MODULE_ID: u32 = 0x09000000;
 pub fn launch(chm: &mut ChannelManager)   
 {    
     let tracer = trace_helper::TraceHelper::new("Plattform/Win32Io".to_string(), chm);
-    let mut ioman = w32Io::new(tracer, chm);
+    let ioman = w32Io::new(tracer, chm);
     thread::spawn(move || {  
         ioman.init();   
         // loop 

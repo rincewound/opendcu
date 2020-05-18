@@ -2,7 +2,7 @@ use crate::core::broadcast_channel::*;
 use crate::core::{channel_manager::*};
 use crate::trace::*;
 use crate::{sig::*, acm::*};
-use std::{sync::{Arc}, thread};
+use std::{sync::Arc, thread};
 use crate::cfg;
 use crate::cfg::cfgholder::*;
 use crate::core::{shareable::Shareable, bootstage_helper::*};
@@ -86,15 +86,11 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
             
         })];
 
-        // boot(MODULE_ID, cbs, 
-        //     self.system_events_tx.clone(), 
-        //     self.system_events_rx.clone(), 
-        //     &self.tracer);
-        
-        plain_boot(MODULE_ID,
+        boot(MODULE_ID, cbs, 
             self.system_events_tx.clone(), 
             self.system_events_rx.clone(), 
             &self.tracer);
+
     }
 
     pub fn do_request(&mut self) -> bool

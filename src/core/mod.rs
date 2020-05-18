@@ -10,8 +10,6 @@ for the rest of the appliaction, most notably
 
 */
 
-use std::sync::{Arc, Mutex};
-use crate::modcaps::*;
 
 pub mod broadcast_channel;
 pub mod channel_manager;
@@ -37,9 +35,9 @@ pub enum SystemMessage
 {
     Shutdown,
     StageComplete(BootStage, u32),
-    _Advertisement(ModuleCapability),
     RunStage(BootStage),
-    _RegisterConfigInterface(Arc<Mutex<i32>>)        // Note that we might not actually need this, if CFG is just another module.
+    Heartbeat,
+    HeartbeatResponse(u32)
 }
 
 
@@ -69,6 +67,34 @@ pub fn objectindex_from_sud(sud: u32) -> u32
     return sud & 0x0000FFFF;
 }
 
+// ToDo
+// pub fn launch_mod_impl<T: 'static>(chm: &mut ChannelManager)
+//     where T: Launchable+Send
+// {
+//     let obj = T::new(chm);   
+//     thread::spawn(move || {  
+//         obj.init();
+//         loop 
+//         {
+//             if !obj.run()
+//             {
+//                 break;
+//             }
+//         }   
+        
+//     });
+// }
+
+// macro_rules! launch_func {
+//     ($launch_impl: expr) => (
+//         fn launch_fn(chm: &mut ChannelManager)
+//         {
+//             crate::core::launch_mod_impl::<$launch_impl>(chm)
+//         }
+//     )
+
+// }
+
 /**
 Launch expects a list of functions. Launch will call all
 functions and walk through the bootup sequence, expecting
@@ -95,7 +121,6 @@ macro_rules! launch {
 macro_rules! launch_impl {
     ($supervisor: expr, $head: expr, $($threadlist: expr),+) => (
         {
-            //core::Supervisor::start_thread($head);
             $supervisor.start_thread($head);
             launch_impl!($supervisor, $($threadlist),+)                    
         }

@@ -36,7 +36,7 @@ impl Timer
     {
         let timer = tm.clone();
         thread::spawn(move|| {             
-           timer.ThreadFunc();              
+           timer.thread_func();              
         });
     }
 
@@ -112,7 +112,7 @@ impl Timer
 
     }
 
-    fn ThreadFunc(&self)
+    fn thread_func(&self)
     {
         loop {
             let min_remaining = self.get_min_remaining_timeout();            
@@ -172,8 +172,8 @@ mod tests {
         let t = Timer::new();
         let movable_clone = flag.clone();
         let guard = t.schedule(Box::new(move || {
-            let mut flagAccess = movable_clone.lock();
-            *flagAccess = true;
+            let mut flag_access = movable_clone.lock();
+            *flag_access = true;
         }), 50);
 
         sleep(Duration::from_millis(100));
@@ -188,8 +188,8 @@ mod tests {
         let t = Timer::new();
         let movable_clone = flag.clone();
         let guard = t.schedule(Box::new(move || {
-            let mut flagAccess = movable_clone.lock();
-            *flagAccess = true;
+            let mut flag_access = movable_clone.lock();
+            *flag_access = true;
         }), 50);
         
         drop(guard);

@@ -4,14 +4,7 @@ use super::{event::DataEvent, atomic_queue::AtomicQueue, shareable::Shareable};
 
 
 
-const Garbage_Threshold: u32 = 10;
-
-/*
-ToDo:
-
-* Channels should occiasionally clean the rec_queue of any 
-* died references.
-*/
+const GARBAGE_THRESHOLD: u32 = 10;
 
 pub struct ChannelImpl<T: Clone>
 {
@@ -49,7 +42,7 @@ impl <T: Clone> ChannelImpl<T>
         // use memory and slow down processing of this function
         // we will collect the garbage, whenever it passes a 
         // threshold
-        if garbage > Garbage_Threshold
+        if garbage > GARBAGE_THRESHOLD
         {
             the_vec.retain(|x| x.upgrade().is_some());
         }

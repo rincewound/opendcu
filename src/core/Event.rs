@@ -16,7 +16,7 @@ impl Event
 
     pub fn reset(&self)
     {
-        let &(ref mtx, ref cnd) = &*self.state;
+        let &(ref mtx, ref _cnd) = &*self.state;
         let mut guard = mtx.lock().unwrap();
         *guard = false;
     }

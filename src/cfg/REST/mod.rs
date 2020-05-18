@@ -76,17 +76,17 @@ impl ConfigRest //<'a>
 
     pub fn init(&mut self)
     {
-        let theSender = self.cfg_publish_tx.clone();
-        let theCfg = self.cfg.clone();
+        let the_sender = self.cfg_publish_tx.clone();
+        let the_cfg = self.cfg.clone();
         let cbs = [None, Some(move|| {
-            theSender.send(super::ConfigMessage::RegisterHandlers(theCfg))
+            the_sender.send(super::ConfigMessage::RegisterHandlers(the_cfg))
         })];
 
         boot(MODULE_ID, cbs, 
             self.system_events_tx.clone(), 
             self.system_events_rx.clone(), 
             &self.tracer);
-    }
+    }    
 
     fn do_put(&self, req: &rouille::Request, _module: String) -> rouille::Response
     {
@@ -101,6 +101,11 @@ impl ConfigRest //<'a>
     fn do_post(&self, req: &rouille::Request, _module: String) -> rouille::Response
     {
         print!("{}", req.url());
+        let mut reqdata = Vec::new();
+        let mut d = req.data().unwrap();
+        d.read_to_end(&mut reqdata);
+        self.cfg.lock()
+                .do_post(_module, reqdata);        
         rouille::Response::text("All is bad.")
     }
 
@@ -113,6 +118,11 @@ impl ConfigRest //<'a>
     fn do_delete(&self, req: &rouille::Request, _module: String) -> rouille::Response
     {
         print!("{}", req.url());
+        let mut reqdata = Vec::new();
+        let mut d = req.data().unwrap();
+        d.read_to_end(&mut reqdata);
+        self.cfg.lock()
+                .do_delete(_module, reqdata);
         rouille::Response::text("All is bad.")
     }
 

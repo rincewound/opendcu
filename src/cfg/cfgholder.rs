@@ -13,7 +13,7 @@ pub enum FunctionType
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 struct RouteKey
 {
-    funcTy: FunctionType,
+    func_ty: FunctionType,
     route: String
 }
 
@@ -34,26 +34,26 @@ impl CfgHolder
     fn make_key(&self, func: FunctionType, route: String) -> RouteKey
     {
         RouteKey {
-            funcTy: func,
+            func_ty: func,
             route
         }
     }
 
-    pub fn register_handler<F: 'static>(&mut self, functy: FunctionType, route: String, Func: F )
+    pub fn register_handler<F: 'static>(&mut self, functy: FunctionType, route: String, func: F )
     where F: FnMut(Vec<u8>) ->() + Send
     {
         let key = self.make_key(functy, route);
         self.put_funcs.lock()
-                      .insert(key , Box::new(Func));
+                      .insert(key , Box::new(func));
     }
 
     fn do_action(&mut self, action: FunctionType, route: String, data: Vec<u8>)
     {
         // The trouble: func in this form is not copyable, so we have to first move it out of
         // the dict   
-        let theKey = self.make_key(action, route);
+        let the_key = self.make_key(action, route);
         let item = self.put_funcs.lock()                                                             
-                                                             .remove_entry(&theKey); 
+                                                             .remove_entry(&the_key); 
         if item.is_none()
         {
             return;
@@ -62,7 +62,7 @@ impl CfgHolder
         func(data);
         // and put it back afterwards    
         self.put_funcs.lock()
-                      .insert(theKey, func);
+                      .insert(the_key, func);
         // Crappily it seems to be impossible to use an Arc here, as calling the damn function would
         // require moving it out of the Arc as well.
     }
@@ -88,14 +88,6 @@ mod tests {
     use crate::cfg::cfgholder::*;
     use std::{sync::{Mutex, Arc}, cell::{RefCell}};
     
-    #[macro_use]
-    use crate::cfg;
-     
-     struct TestStruct
-     {
-         pub val: bool
-     }
-
      #[test]
      fn put_triggers_correct_function()
      {
