@@ -1,4 +1,5 @@
 # Open DCU "Barracuda"
+[![Build Status](https://dev.azure.com/opendcu/barracuda/_apis/build/status/rincewound.opendcu?branchName=master)](https://dev.azure.com/opendcu/barracuda/_build/latest?definitionId=1&branchName=master)
 An open source door controller
 
 ## Motivation
