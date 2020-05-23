@@ -1,5 +1,3 @@
-
-
 use super::{shareable::Shareable, event::Event};
 use std::{time::{Instant, Duration}, thread, sync::{Weak, Arc}};
 

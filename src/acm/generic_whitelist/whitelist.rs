@@ -70,7 +70,7 @@ impl JsonEntryProvider
     fn update_storage(&self)
     {
         let writer = File::create("whitelist.txt").unwrap();
-        serde_json::to_writer_pretty(writer, &self.entries);
+        let _ = serde_json::to_writer_pretty(writer, &self.entries);
     }
 
 }

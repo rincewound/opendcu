@@ -1,7 +1,7 @@
 
 use crate::core::shareable::Shareable;
 
-pub mod REST;
+pub mod rest;
 
 // use serde::{Serialize, Deserialize};
 // use serde_json::{Result, Value};

@@ -29,7 +29,7 @@ mod platform;
 fn main() {
     // Note: Launch never returns!
     launch!(trace::launch,
-            crate::cfg::REST::launch,
+            crate::cfg::rest::launch,
             crate::acm::generic_whitelist::launch::<acm::generic_whitelist::whitelist::JsonEntryProvider>,
             crate::arm::console_input::launch,
             crate::io::launch,

@@ -59,7 +59,7 @@ struct ConfigRest
     
 }
 
-impl ConfigRest //<'a>
+impl ConfigRest
 {
     fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager) -> Self
     {
@@ -92,7 +92,7 @@ impl ConfigRest //<'a>
     {
         let mut reqdata = Vec::new();
         let mut d = req.data().unwrap();
-        d.read_to_end(&mut reqdata);
+        let _ = d.read_to_end(&mut reqdata);
         self.cfg.lock()
                 .do_put(_module, reqdata);
         rouille::Response::text("All is bad.")
@@ -103,7 +103,7 @@ impl ConfigRest //<'a>
         print!("{}", req.url());
         let mut reqdata = Vec::new();
         let mut d = req.data().unwrap();
-        d.read_to_end(&mut reqdata);
+        let _ = d.read_to_end(&mut reqdata);
         self.cfg.lock()
                 .do_post(_module, reqdata);        
         rouille::Response::text("All is bad.")
@@ -120,7 +120,7 @@ impl ConfigRest //<'a>
         print!("{}", req.url());
         let mut reqdata = Vec::new();
         let mut d = req.data().unwrap();
-        d.read_to_end(&mut reqdata);
+        let _ = d.read_to_end(&mut reqdata);
         self.cfg.lock()
                 .do_delete(_module, reqdata);
         rouille::Response::text("All is bad.")
@@ -142,7 +142,7 @@ impl ConfigRest //<'a>
             },
 
             (PUT) (/api/{module: String}/{submodule: String}) => {
-                self.do_put(&request, module)
+                self.do_put(&request, format!("{}/{}", module, submodule))
             },
 
             (POST) (/api/{module: String}) => {
@@ -155,6 +155,10 @@ impl ConfigRest //<'a>
 
             (DELETE) (/api/{module: String}) => {
                 self.do_delete(&request, module)
+            },
+
+            (DELETE) (/api/{module: String}/{submodule: String}) => {
+                self.do_delete(&request, format!("{}/{}", module, submodule))
             },
 
             // The code block is called if none of the other blocks matches the request.
