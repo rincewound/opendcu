@@ -333,14 +333,20 @@ To delete an entry DELETE the entry formatted as previously shown to the API end
 
 
 #### Adding/Removing profiles
-
-:information_source: Not Implemented
-
 The module will publish the API endpoint api/wl/profile, which accepts "PUT" and "DELETE" operations, containing profiles as JSON formatted data. A profile typically has the following layout:
 ```
     "id": <int>,
-    "APs": [list_of_ap_ids],
-    "TimeSlots": [list_of_timeslots]
+    "access_points": [list_of_ap_ids],
+    "time_pro": [list_of_timeslots]
+```
+
+Example:
+```
+{
+    "id": 1,
+    "access_points":[1],
+    "time_pro":[{"day":"Monday""from":1000,"to":1600}]
+}
 ```
 
 Where:
@@ -348,22 +354,13 @@ Where:
 * Timeslots contains a list of timeslot structs with the following layout :
 ```
 {
-    "DayFlags": u8,
-    "From": u32,
-    "To": u32,    
+    "day": Anyof: Monday, Tuesday, Wednesday...,
+    "From": u16,
+    "To": u16,    
 }
 ```
 
-The layout of the DayFlags Field is:
-0x01: Monday
-0x02: Tuesday
-0x04: Wednesday
-0x08: Thursday
-0x10: Friday
-0x20: Saturday
-0x40: Sunday
-0x80: Unused
-
+:warning: Deprecated:
 So, a timeslot giving 10 AM to 9 PM access on Sundays and Mondays would be:
 ```
 {

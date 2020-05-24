@@ -2,40 +2,46 @@
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering, fs::File};
 
+#[derive(Clone, Deserialize, Serialize, Debug)]
+pub enum Weekday
+{
+    Monday,
+    Tuesday,
+    Wednesday,
+    Thursday,
+    Friday,
+    Saturday,
+    Sunday
+}
+
+#[derive(Clone, Deserialize, Serialize, Debug)]
+pub struct TimeSlot
+{
+    pub day: Weekday,
+    pub from: u16,
+    pub to: u16
+}
+
 // pub enum AccessFlags
 // {
 //     Access,
 //     Pin
 // }
 
-// #[derive(Clone)]
-// pub struct TimePair
-// {
-//     from: u16,
-//     to: u16,
-//     access_flags: u16
-// }
-
-// #[derive(Clone)]
-// pub struct TimeProfile
-// {
-//     dayflags: u16,
-//     time_pairs: Vec<TimePair>
-// }
-
-// #[derive(Clone)]
-// pub struct AccessProfile
-// {
-//     // All access points, for which this profile is valid
-//     access_points: Vec<u32>,
-//     time_pro: TimeProfile
-// }
+#[derive(Clone, Deserialize, Serialize, Debug)]
+pub struct AccessProfile
+{
+    pub id: u16,
+    // All access points, for which this profile is valid
+    pub access_points: Vec<u32>,
+    pub time_pro: Vec<TimeSlot>
+}
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct WhitelistEntry
 {
     pub identification_token_id: Vec<u8>,
-    //pub access_profiles: Vec<AccessProfile> // Note: This should be a ref to another table or similar
+    //pub access_profiles: Vec<u16> // Note: This should be a ref to another table or similar
 }
 
 pub trait WhitelistEntryProvider
@@ -58,7 +64,7 @@ pub trait WhitelistEntryProvider
 ///     storage for each change
 /// 
 ///  This behavior makes the implementation suboptimal
-///  for all but the simplest and most statig production
+///  for all but the simplest and most static production
 ///  uses.
  pub struct JsonEntryProvider
 {

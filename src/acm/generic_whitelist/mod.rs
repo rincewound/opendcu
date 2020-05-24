@@ -2,10 +2,11 @@ use crate::core::broadcast_channel::*;
 use crate::core::{channel_manager::*};
 use crate::trace::*;
 use crate::{sig::*, acm::*};
-use std::{sync::Arc, thread};
+use std::{sync::Arc, thread, fs::File};
 use crate::cfg;
 use crate::cfg::cfgholder::*;
 use crate::core::{shareable::Shareable, bootstage_helper::*};
+use whitelist::AccessProfile;
 
 pub mod whitelist;
 
@@ -39,13 +40,17 @@ struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
     system_events_tx    : GenericSender<crate::core::SystemMessage>,
     sig_tx              : GenericSender<crate::sig::SigCommand>,
     door_tx             : GenericSender<crate::dcm::DoorOpenRequest>,
-    whitelist           : Shareable<WhitelistProvider>    
+    whitelist           : Shareable<WhitelistProvider>,
+    profiles            : Shareable<Vec<AccessProfile>>    
 }
 
 impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> GenericWhitelist<WhitelistProvider>
 {
     fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager, whitelist: WhitelistProvider) -> Self
     {
+        let profiles : Shareable<Vec<AccessProfile>> =  Shareable::new(Vec::new());
+        GenericWhitelist::<WhitelistProvider>::load_profiles(&profiles);
+
         GenericWhitelist
         {
             tracer              : trace,
@@ -55,14 +60,36 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
             system_events_tx    : chm.get_sender(),
             sig_tx              : chm.get_sender(),
             door_tx             : chm.get_sender(),
-            whitelist           : Shareable::new(whitelist)
+            whitelist           : Shareable::new(whitelist),
+            profiles            : profiles
         }
+    }
+
+    fn load_profiles(dest: &Shareable<Vec<AccessProfile>>)
+    {
+        let reader = File::open("profiles.txt");
+
+        if let Ok(file) = reader
+        {
+            let mut tmp : Vec<AccessProfile> = serde_json::from_reader(file).unwrap_or_else(|_| Vec::new());
+            let mut existing_profiles = dest.lock();
+            existing_profiles.clear();
+            existing_profiles.append(&mut tmp);
+        }
+    }
+
+    fn store_profiles(source: &Shareable<Vec<AccessProfile>>)
+    {
+        let writer = File::create("profiles.txt").unwrap();
+        let existing_profiles = source.lock();
+        let _ = serde_json::to_writer_pretty(writer, &*existing_profiles);
     }
 
     pub fn init(&mut self)
     {    
         let the_receiver = self.cfg_rx.clone();  
         let the_whitelist = self.whitelist.clone();
+        let the_profiles = self.profiles.clone();
         let cbs= [None, Some(move|| {
             /*
                 This is executed during HLI
@@ -74,14 +101,27 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
             let wl1 = the_whitelist.clone();
             let wl2 = the_whitelist.clone();
 
-            holder.register_handler(FunctionType::Put, "wl".to_string(), Handler!(|r: whitelist::WhitelistEntry|
+            let prof1 = the_profiles.clone();
+            let prof2 = the_profiles.clone();
+
+            holder.register_handler(FunctionType::Put, "wl/entry".to_string(), Handler!(|r: whitelist::WhitelistEntry|
                 {
-                    GenericWhitelist::<WhitelistProvider>::process_put_req(wl1.clone(), r);
+                    GenericWhitelist::<WhitelistProvider>::process_put_entry_req(wl1.clone(), r);
                 }));
 
-            holder.register_handler(FunctionType::Delete, "wl".to_string(), Handler!(|r: whitelist::WhitelistEntry|
+            holder.register_handler(FunctionType::Delete, "wl/entry".to_string(), Handler!(|r: whitelist::WhitelistEntry|
                 {
-                    GenericWhitelist::<WhitelistProvider>::process_delete_req(wl2.clone(), r);
+                    GenericWhitelist::<WhitelistProvider>::process_delete_entry_req(wl2.clone(), r);
+                }));
+
+            holder.register_handler(FunctionType::Put, "wl/profile".to_string(), Handler!(|newprofile: AccessProfile|
+                {
+                    GenericWhitelist::<WhitelistProvider>::process_put_profile_req(prof1.clone(), newprofile)
+                }));
+            
+            holder.register_handler(FunctionType::Delete, "wl/profile".to_string(), Handler!(|profile_to_delete: AccessProfile|
+                {
+                    GenericWhitelist::<WhitelistProvider>::process_delete_profile_req(prof2.clone(), profile_to_delete);
                 }))
             
         })];
@@ -137,26 +177,47 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
     }
 
 
-    fn process_put_req(wl: Shareable<WhitelistProvider>, entry: whitelist::WhitelistEntry)
+    fn process_put_entry_req(wl: Shareable<WhitelistProvider>, entry: whitelist::WhitelistEntry)
     {
-        println!("PUT into whitelist.");
         let mut thewhitelist = wl.lock();
         thewhitelist.put_entry(entry);
     }
 
-    fn process_delete_req(wl: Shareable<WhitelistProvider>, entry: whitelist::WhitelistEntry)
+    fn process_delete_entry_req(wl: Shareable<WhitelistProvider>, entry: whitelist::WhitelistEntry)
     {
-        println!("DELETE from whitelist.");
         let mut thewhitelist = wl.lock();
         thewhitelist.delete_entry(entry.identification_token_id);
     }
 
+    fn process_put_profile_req(current_profiles: Shareable<Vec<AccessProfile>>, profile: AccessProfile)
+    {
+        let json = serde_json::to_string(&profile).unwrap();        
+        println!("Add profile: {}", json);
+
+        let mut profiles = current_profiles.lock();
+        
+        // remove any existing profile with the same id:
+        profiles.drain_filter(|x| x.id == profile.id );
+
+        profiles.push(profile);        
+        drop(profiles);
+        GenericWhitelist::<WhitelistProvider>::store_profiles(&current_profiles);
+
+    }
+
+    fn process_delete_profile_req(current_profiles: Shareable<Vec<AccessProfile>>, profile: AccessProfile)
+    {        
+        println!("Delete profile with id: {}", profile.id)
+    }
+
 }
+
+
 
 #[cfg(test)]
 mod tests {
      use crate::{core::channel_manager::ChannelManager, acm::*, trace::*, sig::SigCommand};
-     use generic_whitelist::whitelist::WhitelistEntry;
+     use generic_whitelist::whitelist::{AccessProfile, WhitelistEntry, TimeSlot, Weekday};
      use crate::acm::generic_whitelist::whitelist::WhitelistEntryProvider;
      use crate::sig::*;
 
@@ -223,10 +284,18 @@ mod tests {
      #[test]
      fn will_generate_door_open_request_if_access_rights_are_good()
      {
+        // let mut ap = AccessProfile { 
+        //     access_points: Vec::new(), time_pro: Vec::new()
+        // };
+
+        // ap.time_pro.push(TimeSlot{day: Weekday::Monday, from: 1000, to: 1600 });
+
+        // let json = serde_json::to_string(&ap).unwrap();
+        // print!("{}", json);
+
         assert_eq!(true, false)
      }
-
-     
+    
      #[test]
      fn will_generate_door_open_request_if_token_is_known()
      {

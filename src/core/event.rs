@@ -39,7 +39,6 @@ impl Event
         
         if *started == true
         {
-            println!("started is TRUE");
             *started = false;
             return true;
         }

@@ -1,4 +1,4 @@
-//#![feature(fn_traits)]
+#![feature(drain_filter)]
 
 #[macro_use]
 extern crate rouille;
