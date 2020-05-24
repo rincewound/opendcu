@@ -20,9 +20,9 @@ impl<T> Shareable<T>
         }
     }
 
-    pub fn lock(&self) -> LockResult<MutexGuard<'_, T>>
+    pub fn lock(&self) -> MutexGuard<'_, T>
     {
-        return self.data.lock();
+        return self.data.lock().unwrap();
     }
 
 }

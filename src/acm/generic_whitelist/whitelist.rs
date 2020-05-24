@@ -34,7 +34,7 @@ use std::{cmp::Ordering, fs::File};
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub struct WhitelistEntry
 {
-    pub access_token_id: Vec<u8>,
+    pub identification_token_id: Vec<u8>,
     //pub access_profiles: Vec<AccessProfile> // Note: This should be a ref to another table or similar
 }
 
@@ -101,7 +101,7 @@ impl WhitelistEntryProvider for JsonEntryProvider
     { 
         for e in self.entries.iter()
         {
-            if e.access_token_id.cmp(&identity_token_id) == Ordering::Equal
+            if e.identification_token_id.cmp(&identity_token_id) == Ordering::Equal
             {
                 return Some(e.clone());
             }
@@ -111,14 +111,14 @@ impl WhitelistEntryProvider for JsonEntryProvider
 
     fn put_entry(&mut self, entry: WhitelistEntry) 
     { 
-        self.entries.retain(|x| x.access_token_id.cmp(&entry.access_token_id) != Ordering::Equal);
+        self.entries.retain(|x| x.identification_token_id.cmp(&entry.identification_token_id) != Ordering::Equal);
         self.entries.push(entry);
         self.update_storage();
     }
 
     fn delete_entry(&mut self, identity_token_id: Vec<u8>) 
     { 
-        self.entries.retain(|x| x.access_token_id.cmp(&identity_token_id) != Ordering::Equal);
+        self.entries.retain(|x| x.identification_token_id.cmp(&identity_token_id) != Ordering::Equal);
         self.update_storage();
     }
 }

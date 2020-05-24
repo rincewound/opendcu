@@ -2,7 +2,7 @@ use crate::core::broadcast_channel::*;
 use crate::core::{channel_manager::*};
 use crate::trace::*;
 use crate::{sig::*, acm::*};
-use std::{sync::{Arc}, thread};
+use std::{sync::Arc, thread};
 use crate::cfg;
 use crate::cfg::cfgholder::*;
 use crate::core::{shareable::Shareable, bootstage_helper::*};
@@ -32,14 +32,14 @@ pub fn launch<T: 'static>(chm: &mut ChannelManager)
 
 struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
 {
-    tracer: trace_helper::TraceHelper,
-    access_request_rx: Arc<GenericReceiver<crate::acm::WhitelistAccessRequest>>,
-    cfg_rx: Arc<GenericReceiver<crate::cfg::ConfigMessage>>,
-    system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
-    system_events_tx: GenericSender<crate::core::SystemMessage>,
-    sig_tx: GenericSender<crate::sig::SigCommand>,
-    door_tx: GenericSender<crate::dcm::DoorOpenRequest>,
-    whitelist: Shareable<WhitelistProvider>
+    tracer              : trace_helper::TraceHelper,
+    access_request_rx   : Arc<GenericReceiver<crate::acm::WhitelistAccessRequest>>,
+    cfg_rx              : Arc<GenericReceiver<crate::cfg::ConfigMessage>>,
+    system_events_rx    : Arc<GenericReceiver<crate::core::SystemMessage>>,
+    system_events_tx    : GenericSender<crate::core::SystemMessage>,
+    sig_tx              : GenericSender<crate::sig::SigCommand>,
+    door_tx             : GenericSender<crate::dcm::DoorOpenRequest>,
+    whitelist           : Shareable<WhitelistProvider>    
 }
 
 impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> GenericWhitelist<WhitelistProvider>
@@ -70,7 +70,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
 
             let res = the_receiver.receive();
             let crate::cfg::ConfigMessage::RegisterHandlers(cfg_holder) = res;
-            let mut holder = cfg_holder.lock().unwrap();
+            let mut holder = cfg_holder.lock();
             let wl1 = the_whitelist.clone();
             let wl2 = the_whitelist.clone();
 
@@ -90,6 +90,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
             self.system_events_tx.clone(), 
             self.system_events_rx.clone(), 
             &self.tracer);
+
     }
 
     pub fn do_request(&mut self) -> bool
@@ -117,7 +118,6 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
     {
         // Pull Whitelist Entry
         let entry = self.whitelist.lock()
-                                                          .unwrap()
                                                           .get_entry(req.identity_token_number);
 
         // Found? If so, check access profile, otherwise emit AccessDenied Sig
@@ -125,13 +125,13 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
         {
             
             // Good? If so, emit DoorOpenRequest, otherwise emit AccessDenied Sig 
-            self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.access_token_id));
+            self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.identification_token_id));
             let openreq = crate::dcm::DoorOpenRequest {access_point_id: req.access_point_id};
             self.door_tx.send(openreq);
         }
         else
         {
-            self.tracer.trace_str("Access Denied; Unknown identifiaction token.");
+            self.tracer.trace_str("Access Denied; Unknown identification token.");
             self.send_signal_command(req.access_point_id, SigType::AccessDenied, 1000);
         }
     }
@@ -140,15 +140,15 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
     fn process_put_req(wl: Shareable<WhitelistProvider>, entry: whitelist::WhitelistEntry)
     {
         println!("PUT into whitelist.");
-        let mut thewhitelist = wl.lock().unwrap();
+        let mut thewhitelist = wl.lock();
         thewhitelist.put_entry(entry);
     }
 
     fn process_delete_req(wl: Shareable<WhitelistProvider>, entry: whitelist::WhitelistEntry)
     {
         println!("DELETE from whitelist.");
-        let mut thewhitelist = wl.lock().unwrap();
-        thewhitelist.delete_entry(entry.access_token_id);
+        let mut thewhitelist = wl.lock();
+        thewhitelist.delete_entry(entry.identification_token_id);
     }
 
 }
@@ -233,7 +233,7 @@ mod tests {
         let mut chm = ChannelManager::new();
         let mut wl = DummyWhitelist::new();
         wl.entry = Some(WhitelistEntry{
-            access_token_id: Vec::new(),
+            identification_token_id: Vec::new(),
             //access_profiles: Vec::new()
 
         });
@@ -257,6 +257,42 @@ mod tests {
         else
         {
             assert!(false)
+        }
+     }
+
+     #[test]
+     fn generate_multiple_door_open_requests()
+     {
+        let mut chm = ChannelManager::new();
+        let mut wl = DummyWhitelist::new();
+        wl.entry = Some(WhitelistEntry{
+            identification_token_id: Vec::new(),
+            //access_profiles: Vec::new()
+
+        });
+        let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
+        let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl);
+
+        let dcm_rx = chm.get_receiver::<crate::dcm::DoorOpenRequest>();
+        let access_tx = chm.get_sender::<WhitelistAccessRequest>();
+
+        for _ in 0..20
+        {
+            let req = WhitelistAccessRequest {
+                access_point_id: 47,
+                identity_token_number: vec![1,2,3,4],
+            };
+
+            access_tx.send(req);
+            md.do_request();
+            let res = dcm_rx.receive_with_timeout(1);
+            if let Some(x) = res {
+            assert!(x.access_point_id == 47)
+            }
+            else
+            {
+                assert!(false)
+            }
         }
      }
 }

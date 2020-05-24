@@ -45,11 +45,22 @@ impl Supervisor
         self.tracer.trace_str("Starting system.");
         self.do_startup();        
         loop {
-            let event = self.sysrec.receive();
-            match event
+            let event = self.sysrec.receive_with_timeout(5000);
+            if let Some(e) = event
             {
-                SystemMessage::Shutdown => break,
-                _ => continue
+                match e
+                {
+                    SystemMessage::Shutdown => break,
+                    _ => continue
+                }
+            }
+            else
+            {
+                // Nothing happened. Send a heartbeat message to make sure
+                // all modules are still alive:
+                // Note: Disabled for now
+                //let sender = self.chm.get_sender::<SystemMessage>();
+                //sender.send(SystemMessage::Heartbeat);
             }
         }
     }

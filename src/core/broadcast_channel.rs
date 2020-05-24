@@ -1,17 +1,10 @@
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Weak};
 use std::cell::*;
-use super::{event::DataEvent, atomic_queue::AtomicQueue};
+use super::{event::DataEvent, atomic_queue::AtomicQueue, shareable::Shareable};
 
 
 
-const Garbage_Threshold: u32 = 10;
-
-/*
-ToDo:
-
-* Channels should occiasionally clean the rec_queue of any 
-* died references.
-*/
+const GARBAGE_THRESHOLD: u32 = 10;
 
 pub struct ChannelImpl<T: Clone>
 {
@@ -49,7 +42,7 @@ impl <T: Clone> ChannelImpl<T>
         // use memory and slow down processing of this function
         // we will collect the garbage, whenever it passes a 
         // threshold
-        if garbage > Garbage_Threshold
+        if garbage > GARBAGE_THRESHOLD
         {
             the_vec.retain(|x| x.upgrade().is_some());
         }
@@ -58,24 +51,24 @@ impl <T: Clone> ChannelImpl<T>
     }
 }
 
-pub fn make_receiver<T: Clone>(owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>) -> Arc<GenericReceiver<T>>
+pub fn make_receiver<T: Clone>(owner: Shareable<RefCell<ChannelImpl<T>>>) -> Arc<GenericReceiver<T>>
 {
     let rec = Arc::new(GenericReceiver::<T>::new(owner.clone()));
     let weak = Arc::downgrade(&rec.clone());
-    let mut rec_queue = owner.lock().unwrap();
+    let mut rec_queue = owner.lock();
     let m = rec_queue.get_mut();
     m.receiver_queues.get_mut().push(weak);
     rec
 }
 
-pub fn make_sender<T: Clone>(owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>) -> GenericSender<T>
+pub fn make_sender<T: Clone>(owner: Shareable<RefCell<ChannelImpl<T>>>) -> GenericSender<T>
 {
     GenericSender::<T>::new(owner)
 }
 
 pub fn make_chan<T: Clone>() -> (GenericSender<T>, Arc<GenericReceiver<T>>)
 {
-    let chan = Arc::new(Mutex::new(RefCell::new(ChannelImpl::<T>::new())));
+    let chan = Shareable::new(RefCell::new(ChannelImpl::<T>::new()));
     let receiver = make_receiver(chan.clone());
     let sender = make_sender(chan);        
     (sender, receiver)
@@ -83,19 +76,24 @@ pub fn make_chan<T: Clone>() -> (GenericSender<T>, Arc<GenericReceiver<T>>)
 
 pub struct GenericReceiver<T: Clone>
 {
-    owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>,
+    owner: Shareable<RefCell<ChannelImpl<T>>>,
     data: AtomicQueue<T>
 }
 
 impl <T: Clone> GenericReceiver<T>
 {
-    pub fn new(owner: Arc<Mutex<RefCell<ChannelImpl<T>>>>) -> Self
+    pub fn new(owner: Shareable<RefCell<ChannelImpl<T>>>) -> Self
     {
         GenericReceiver
         {
             owner: owner,
             data: AtomicQueue::<T>::new()
         }
+    }
+
+    pub fn create_sender(&self) -> GenericSender<T>
+    {
+        return make_sender(self.owner.clone());
     }
 
     pub fn clone_receiver(&self) -> Arc<Self>
@@ -134,11 +132,6 @@ impl <T: Clone> GenericReceiver<T>
 
     pub fn receive_with_timeout(&self, milliseconds: u64) -> Option<T>
     {
-        if self.data.len() != 0
-        {
-            return self.data.pop();
-        }
-
         self.data.wait_with_timeout(milliseconds);
         return self.data.pop();
     }
@@ -153,12 +146,12 @@ impl <T: Clone> GenericReceiver<T>
 
 pub struct GenericSender<T: Clone>
 {
-    source: Arc<Mutex<RefCell<ChannelImpl<T> >>>
+    source: Shareable<RefCell<ChannelImpl<T> >>
 }
 
 impl <T: Clone> GenericSender<T>
 {
-    pub fn new(owner: Arc<Mutex<RefCell<ChannelImpl<T> >>>) -> Self{
+    pub fn new(owner: Shareable<RefCell<ChannelImpl<T> >>) -> Self{
         GenericSender {
             source: owner.clone()
         }
@@ -166,7 +159,7 @@ impl <T: Clone> GenericSender<T>
 
     pub fn send(&self, data: T)
     {
-        self.source.lock().unwrap().get_mut().push_message(data.clone());
+        self.source.lock().get_mut().push_message(data.clone());
     }
 
     pub fn clone(&self) -> Self

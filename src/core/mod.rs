@@ -4,11 +4,12 @@ The barracuda core services module contains the infrastructure
 for the rest of the appliaction, most notably
 
 * The implementation of the channel manager
+* queues
+* the supervisor
+* a timer service (I cannot believe I have to write my own timer!)
 
 */
 
-use std::sync::{Arc, Mutex};
-use crate::modcaps::*;
 
 pub mod broadcast_channel;
 pub mod channel_manager;
@@ -17,6 +18,7 @@ pub mod atomic_queue;
 pub mod supervisor;
 pub mod bootstage_helper;
 pub mod shareable;
+pub mod timer;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum BootStage
@@ -33,9 +35,9 @@ pub enum SystemMessage
 {
     Shutdown,
     StageComplete(BootStage, u32),
-    _Advertisement(ModuleCapability),
     RunStage(BootStage),
-    _RegisterConfigInterface(Arc<Mutex<i32>>)        // Note that we might not actually need this, if CFG is just another module.
+    Heartbeat,
+    HeartbeatResponse(u32)
 }
 
 
@@ -65,6 +67,34 @@ pub fn objectindex_from_sud(sud: u32) -> u32
     return sud & 0x0000FFFF;
 }
 
+// ToDo
+// pub fn launch_mod_impl<T: 'static>(chm: &mut ChannelManager)
+//     where T: Launchable+Send
+// {
+//     let obj = T::new(chm);   
+//     thread::spawn(move || {  
+//         obj.init();
+//         loop 
+//         {
+//             if !obj.run()
+//             {
+//                 break;
+//             }
+//         }   
+        
+//     });
+// }
+
+// macro_rules! launch_func {
+//     ($launch_impl: expr) => (
+//         fn launch_fn(chm: &mut ChannelManager)
+//         {
+//             crate::core::launch_mod_impl::<$launch_impl>(chm)
+//         }
+//     )
+
+// }
+
 /**
 Launch expects a list of functions. Launch will call all
 functions and walk through the bootup sequence, expecting
@@ -91,7 +121,6 @@ macro_rules! launch {
 macro_rules! launch_impl {
     ($supervisor: expr, $head: expr, $($threadlist: expr),+) => (
         {
-            //core::Supervisor::start_thread($head);
             $supervisor.start_thread($head);
             launch_impl!($supervisor, $($threadlist),+)                    
         }
@@ -106,27 +135,15 @@ macro_rules! launch_impl {
 macro_rules! wait_for {
     ($evt: ident, $id: expr, $head: expr) => (
         {
-             if $head.has_data() { 
-                 ($id)
-             }
-             else
-             {
-                $head.set_data_trigger($evt.clone(), $id);
-                ($evt.wait())
-            }
+            $head.set_data_trigger($evt.clone(), $id);
+            ($evt.wait())
         }
     );
     ($evt: ident, $id: expr, $head: expr, $($tail: expr),+) =>(
         {
-             if $head.has_data()
-             {
-                 ($id)
-             }
-             else
-             {
-                $head.set_data_trigger($evt.clone(), $id);
-                (wait_for!($evt,$id+1, $($tail),+))
-            }
+
+            $head.set_data_trigger($evt.clone(), $id);
+            (wait_for!($evt,$id+1, $($tail),+))
         }
     )
 }
@@ -134,7 +151,7 @@ macro_rules! wait_for {
 macro_rules! select_chan {
     ($($channels: expr),+) => (
         {
-            let evt = Arc::new(DataEvent::<u32>::new());
+            let evt = Arc::new(DataEvent::<u32>::new("<unnamed>".to_string()));
             (wait_for!(evt, 0, $($channels),+))
         }
     );
@@ -177,10 +194,27 @@ macro_rules! select_chan_with_timeout {
 macro_rules! launch_thread {
     ($chm: expr, $owner:ident) =>
     {
-        let tracer = trace_helper::TraceHelper::new("CFG/Rest".to_string(), chm);
+        let tracer = trace_helper::TraceHelper::new(identifer.to_string(), chm);
         let mut o = $owner::new(tracer, chm);
         thread::spawn(move || {
             o.do()
         })
+    }
+}
+
+// could be used to initiate structs
+macro_rules! test
+{
+    ($head:ident, $($test1: ident),+) =>
+    {
+        let tracer = "tracer";
+        let test = $head::new();
+        test.run();
+        test!($($test1),+);
+    };
+    ($head:ident) =>
+    {
+        let test = $head::new();
+        test.run();
     }
 }

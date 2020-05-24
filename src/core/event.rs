@@ -14,6 +14,13 @@ impl Event
         }
     }
 
+    pub fn reset(&self)
+    {
+        let &(ref mtx, ref _cnd) = &*self.state;
+        let mut guard = mtx.lock().unwrap();
+        *guard = false;
+    }
+
     pub fn wait(&self)
     {
         let &(ref mtx, ref cnd) = &*self.state;
@@ -28,9 +35,23 @@ impl Event
     pub fn wait_with_timeout(&self, millis: u64) -> bool
     {
         let &(ref lock, ref cvar) = &*self.state.clone();
-        let mut started = lock.lock().unwrap();    
+        let mut started = lock.lock().unwrap();  
+        
+        if *started == true
+        {
+            println!("started is TRUE");
+            *started = false;
+            return true;
+        }
+        
         loop 
         {
+            /*
+                Trouble: This implementation will fail, if cvar was triggered beforehand. In this case we
+                always use up the t/o, although we might actually still return "not timed out" afterwards,
+                (if started was set to true bevor wait_timeout was entered.)
+            */
+
             // Let's put a timeout on the condvar's wait.
             let result = cvar.wait_timeout(started, Duration::from_millis(millis)).unwrap();
             
@@ -61,16 +82,18 @@ impl Event
 
 pub struct DataEvent <T: Copy+Sync>{
     evt: Event,
-    data: Mutex<Cell<Option<T>>>
+    data: Mutex<Cell<Option<T>>>,
+    pub name: String
 }
 
 impl<T: Copy+Sync> DataEvent<T>
 {
-    pub fn new() -> Self
+    pub fn new(name: String) -> Self
     {
         DataEvent{
             evt: Event::new(),
-            data: Mutex::new(Cell::new(None))
+            data: Mutex::new(Cell::new(None)),
+            name
         }
     }
 
@@ -103,17 +126,18 @@ impl<T: Copy+Sync> DataEvent<T>
 #[cfg(test)]
 mod tests {
      use crate::core::event::*;
+     use std::time::Instant;
 
      #[test]
      fn can_create_data_event()
      {
-         let e = DataEvent::<u32>::new();      
+         let _ = DataEvent::<u32>::new("Foo".to_string());      
      }
 
      #[test]
      fn wait_yields_data_when_triggered()
      {
-         let e = DataEvent::<u32>::new();      
+         let e = DataEvent::<u32>::new("Foo".to_string());      
          e.trigger(1048);
          assert_eq!(1048, e.wait())
      }
@@ -137,5 +161,22 @@ mod tests {
          assert!(e.wait_with_timeout(10));
      }
 
+     #[test]
+     fn even_yield_failure_on_timeout()
+     {
+        let e =  Event::new();
+        assert!(false == e.wait_with_timeout(10));        
+     }
+
+     #[test]
+     fn trigger_before_wait_returns_immediately()
+     {
+        let e =  Event::new();
+        e.trigger();        
+        // This should return immediately!
+        let now = Instant::now();
+        assert!(e.wait_with_timeout(2000)); 
+        assert!(now.elapsed().as_millis() < 1000);
+     }
 }
 

@@ -1,8 +1,11 @@
 
 use crate::{trace::trace_helper, core::{broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::ChannelManager}};
 use std::{sync::Arc, thread};
-use crate::core::event::DataEvent;
+use crate::core::{shareable::Shareable, event::DataEvent};
 use crate::modcaps::*;
+use crate::core::timer::*;
+
+extern crate chrono;
 
 #[derive(Clone)]
 pub enum InputState
@@ -56,7 +59,7 @@ pub struct InputSetting
     debounce_off: u64
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum OutputState
 {
     Low,
@@ -112,7 +115,8 @@ struct InputEntry
 
 struct OutputEntry
 {
-    sud: u32
+    sud: u32,
+    timer_guard: Option<Arc<bool>>
 }
 
 /// # The IO Manager
@@ -142,8 +146,10 @@ pub struct IoManager
     output_commands: Arc<GenericReceiver<OutputSwitch>>,
     raw_output_commands: GenericSender<RawOutputSwitch>,
     tracer: trace_helper::TraceHelper,
+    timer: Arc<Timer>,
     input_list: Vec<InputEntry>,
-    output_list: Vec<OutputEntry>
+    output_list: Shareable<Vec<OutputEntry>>,
+    dataevent: Arc<DataEvent<u32>>
 
 }
 
@@ -160,14 +166,20 @@ impl IoManager
             output_commands     : chm.get_receiver(),
             raw_output_commands : chm.get_sender(),
             tracer              : trace,
+            timer               : Timer::new(),
             input_list          : Vec::new(),
-            output_list         : Vec::new()
+            output_list         : Shareable::new(Vec::new()),
+            dataevent           :Arc::new(DataEvent::new("IOWait".to_string()))
         }
     } 
 
     pub fn init(&self)
-    {        
-        crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer)
+    { 
+        self.modcaps_rx.set_data_trigger(self.dataevent.clone(), 0);
+        self.raw_input_events.set_data_trigger(self.dataevent.clone(), 1);
+        self.output_commands.set_data_trigger(self.dataevent.clone(), 2);
+
+        crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);
     }
 
     fn do_all_modcap_messages(&mut self)
@@ -197,7 +209,8 @@ impl IoManager
                 {
                     for i in 0..outs
                     {
-                        self.output_list.push(OutputEntry {sud: message.module_id | i});
+                        self.output_list.lock()
+                                        .push(OutputEntry {sud: message.module_id | i, timer_guard: None});
                     }
                 }
                 _ => continue
@@ -208,24 +221,25 @@ impl IoManager
 
     pub fn run(&mut self) -> bool
     {
-        // get minimum timeout of all pending switch commands and
-        // all pending debounce events.
-
-        // wait for either new raw events or the timeout
-        let chanid = select_chan!(self.raw_input_events, self.output_commands, self.modcaps_rx);
-
+        self.tracer.trace_str("Waiting for commands");        
+        self.modcaps_rx.set_data_trigger(self.dataevent.clone(), 0);
+        self.raw_input_events.set_data_trigger(self.dataevent.clone(), 1);
+        self.output_commands.set_data_trigger(self.dataevent.clone(), 2);
+        let chanid = self.dataevent.wait();
+        
         match chanid
-        {
-            0 => self.dispatch_raw_input_event(),
-            1 => self.dispatch_output_command(),            
-            2 => {
+        {                
+            0 => {
                 // Note: This should actually be done during HLI, however, if the
                 // other modules advertise only during LLI this should work just as
                 // well.
                 self.do_all_modcap_messages();
             },
+            1 => self.dispatch_raw_input_event(),
+            2 => self.dispatch_output_command(),            
             _ => return true
         }
+
         return true
     }
 
@@ -234,14 +248,40 @@ impl IoManager
         self.tracer.trace_str("Switching output.");
         let command = self.output_commands.receive();
 
-        if let Some(output) = self.output_list.get(command.output_id as usize)
+        if let Some(mut output) = self.output_list.lock().get_mut(command.output_id as usize)
         {
             // step 2: generate actual command:
-            let raw_cmd = RawOutputSwitch{output_id: output.sud, target_state: command.target_state};
-            self.raw_output_commands.send(raw_cmd);          
+            let raw_cmd = RawOutputSwitch{output_id: output.sud, target_state: command.target_state.clone()};
+            self.raw_output_commands.send(raw_cmd);   
+            
+            // Drop the guard, preventing the timer
+            // from triggering the reset.
+            if output.timer_guard.is_some()
+            {
+                output.timer_guard = None;
+            }
+
+            if command.switch_time > 0
+            {
+                self.tracer.trace(format!("Schedule switchback in {} ms", command.switch_time));
+                let sender = self.output_commands.create_sender();
+                let switch_time = command.switch_time;
+                let g = self.timer.schedule(Box::new(move || {                    
+                    let mut cmd = command.clone();
+                    match cmd.target_state
+                    {                        
+                        OutputState::High => cmd.target_state = OutputState::Low,
+                        OutputState::Low => cmd.target_state = OutputState::High
+                    }
+                    // permanent switchback;
+                    cmd.switch_time = 0;
+                    sender.send(cmd);
+                }), switch_time);
+                output.timer_guard = Some(g);
+            }
         }
 
-        // step 3: store the switchtime
+
     }
     
     fn dispatch_raw_input_event(&self)
@@ -267,11 +307,11 @@ impl IoManager
         })
     }
 
-    pub fn handle_put_input_setting(setting: InputSetting)
-    {}
+    // pub fn handle_put_input_setting(setting: InputSetting)
+    // {}
 
-    pub fn handle_put_output_setting(setting: OutputSetting)
-    {}
+    // pub fn handle_put_output_setting(setting: OutputSetting)
+    // {}
 
     // pub fn handle_get_inputs() -> Vec<InputSetting>
     // {}
@@ -292,6 +332,7 @@ mod tests {
     use crate::core::*;
     use crate::io::*;
     use crate::modcaps::{ModuleCapabilityAdvertisement, ModuleCapability};
+    use std::time::Duration;
 
 
     fn make_mod() -> (IoManager, GenericSender<crate::io::RawInputEvent>, 
@@ -363,6 +404,29 @@ mod tests {
 
         assert_eq!(recv.output_id, make_sud(10, 0, 1))
     }
+
+    #[test]
+    pub fn output_command_sends_switchback()
+    {
+        for _ in 0..10
+        {
+            let mut md = make_mod();
+            let s = md.3;
+            let evt = OutputSwitch {output_id: 1, target_state: OutputState::High, switch_time: 100};
+            s.send(evt);
+            md.0.run();
+            let recv = md.4.receive_with_timeout(1).unwrap();
+            assert_eq!(recv.output_id, make_sud(10, 0, 1));
+            // The internal timer will trigger the switchback after 100 ms, we'll wait
+            // some more time to avoid a volatile test.
+            thread::sleep(Duration::from_millis(100));
+            md.0.run();
+            let recv = md.4.receive_with_timeout(1).unwrap();
+            assert_eq!(recv.output_id, make_sud(10, 0, 1));
+            assert!(OutputState::Low == recv.target_state)
+        }
+    }
+
 
     #[test]
     pub fn output_command_with_unkown_target_is_ignored()

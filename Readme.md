@@ -1,5 +1,8 @@
 # Open DCU "Barracuda"
 An open source door controller
+[![Build Status](https://dev.azure.com/opendcu/barracuda/_apis/build/status/rincewound.opendcu?branchName=master)](https://dev.azure.com/opendcu/barracuda/_build/latest?definitionId=1&branchName=master)
+
+
 
 ## Motivation
 Having worked in access control for nearly ten years I've come in contact with a multitude of access control devices, most of which share similar properties with regard to their firmware:
@@ -59,12 +62,31 @@ An ACM processes ARs. Based on the module's strategy for processing it might:
 * Grant access based on characteristics of an identification token. In this case the token contains the access rights of the token's owner (AKA Virtual Network).
 
 Note that these two strategies represent fundamentally different approaches to access control and should be implemented by means of different ACMs. This is especially true as the Virtual Network approach is usually specific to vendors of different pro systems (e.g. Salto VN, dormakaba AoC/Cardlink). At any given time a multitude of ACMs may be active and cater to different types of ARs
+
 ## Door Control Module (DCM)
+The DCM controls the behavior of a given door with respects to:
+* Permanent door releases
+* Blocking a door
+* Remote open requests
+
 ## Door (DO)
+The Door  represents an actual door, with it different peripherals such as:
+* Frame Contacts, that check if the door was opened
+* Electric Openers, (aka Buzzers), that open the door
+* Special Function I/Os, e.g. for controlling alarm systems
+* Blocking Contacts, that hardblock a door regardless of a granted access.
+
 ## Input (INP)
+An input is a digital input, that is used to sense the state of the environment (e.g. is a door open or closed)
+
 ## Output (OUT)
-## User Input(INP)
+An output is a digital output (usually a relay) that is used to interact with an external system (e.g. a door opener)
+
 ## Feedback(FDB)
+
+## Signaling(SIG)
+
+## User Input(INP)
 
 # Runtime View
 ```mermaid
@@ -158,8 +180,6 @@ This leaves us with a total of 256 Moduletypes, where each type can have up to 2
 ## Concrete Adressing
 Adressing of resources takes two logical layers and at least one physical layer. The physical layer basically denotes how the physical component (e.g. an output) is adressed by the component controling it. This might be a GPIO Pin on the controller. The first logical layer assigns each physical resource a logical number. Each resourcetype is numbered by itself, so that we can have multiple resources with logical id 1. Combined with the module id the id of the resource of the first physical layer forms a systemwide unique ID for the resource in question.
 
-TBD: Do we actually need another layer that maps AA.B formed adress to uniform addresses?
-
 # Module Startup
 Each module is started by the core service. The coreservice will inject common dependencies into the module. The module is expected to behave as follows:
 Upon a Call to "launch":
@@ -167,11 +187,7 @@ Upon a Call to "launch":
 * Register for any message that it is interested in.
 
 Upon entering the SYNC stage:
-* The module advertises its role
-
-
-_This is not implemented yet!_
-Note that the core service will take care of starting a thread for the module. The module will only have to provide a launch method.
+* The module advertises its capabilities using a MODCAP message.
 
 
 ## Module advertisement:
@@ -216,6 +232,10 @@ graph TD
   F --> Exit
 
 ```
+
+:zap: At this point profiles are not implemented yet. The module will grant access to any known identification token.
+
+:zap: Signaling is controlled by a dedicated module that is not implemented yet. 
 
 #### Access Profiles
 An access profile describes a group of access rights by means of mapping an access point to a set of timeslots during which the profile shall grant access.
@@ -313,6 +333,9 @@ To delete an entry DELETE the entry formatted as previously shown to the API end
 
 
 #### Adding/Removing profiles
+
+:information_source: Not Implemented
+
 The module will publish the API endpoint api/wl/profile, which accepts "PUT" and "DELETE" operations, containing profiles as JSON formatted data. A profile typically has the following layout:
 ```
     "id": <int>,
@@ -366,6 +389,33 @@ The module exposes the endpoint api/dcm which accepts PUT and DELETE requests, t
 
 #### Configuration behavior
 Any changes to the configuration will require a restart of the module to be activated.
+
+
+
+## I/O (IO)
+The I/O Module provides a generic interface to all I/O modules of the concrete hardware.
+
+### Configuration Interface
+ * The module will publish the API endpoint api/io/input which accepts input settings using PUT and DELETE queries.
+ * The module will publish the API endpoint api/io/ouput which accapts output settings using PUT and DELETE queries.
+ * The module will publish the API endpoint api/io/cmd which accepts output commands.
+
+### Configuration Behavior
+The configuration is immediately relayed to the concrete I/O implementations. Depending on these
+modules a restart might be required
+
+# The Reference Device
+As stated before the reference device is a Raspberry Pi with a PiFace extension board an a generic RFID reader.
+
+## Standard Modules on the reference device
+The reference devices uses 
+* CFG/REST
+* DCM/Trivial
+* IO
+* ACM/generic_whitelist
+
+## Configuring the reference device
+As DCM/Trivial allows no configuration whatsoever the only configuration at this point is the content of the whitelist, with the associated API functions.
 
 
 # Licensing
