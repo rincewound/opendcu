@@ -1,14 +1,14 @@
 use crate::core::broadcast_channel::*;
 use crate::core::{channel_manager::*};
-use crate::trace::*;
-use crate::{sig::*, acm::*};
-use std::{sync::Arc, thread};
+use crate::core::{shareable::Shareable, bootstage_helper::*};
 use crate::cfg;
 use crate::cfg::cfgholder::*;
-use crate::core::{shareable::Shareable, bootstage_helper::*};
-use whitelist::AccessProfile;
+use crate::trace::*;
+use crate::{sig::*, acm::*};
 use crate::util::json_storage;
 use crate::util::ObjectStorage;
+use std::{sync::Arc, thread};
+use whitelist::AccessProfile;
 
 pub mod whitelist;
 
@@ -134,6 +134,33 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
         self.sig_tx.send(sig); 
     }
 
+    fn check_profile(&self, ap_id: u32, entry: &whitelist::WhitelistEntry) -> bool
+    {
+        let profile = self.profiles.lock().get_entry(|x| x.id == entry.access_profiles[0]);
+        if let Some(the_profile) = profile
+        {   
+            if the_profile.access_points.iter().find(|&&x| x == ap_id).is_some()
+            {
+                // the ap is contained in the profile. Check the time_pro
+                // and be done with it.
+                for tp in the_profile.time_pro.iter()
+                {
+                    if tp.is_active()
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+        else
+        {
+            self.tracer.trace_str("Access Denied; Unknown profile.");
+            self.send_signal_command(ap_id as u32, SigType::AccessDenied, 1000);                   
+            return false;
+        }
+        true
+    }
+
     fn process_access_request(&self, req: WhitelistAccessRequest)
     {
         // Pull Whitelist Entry
@@ -142,11 +169,14 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
         // Found? If so, check access profile, otherwise emit AccessDenied Sig
         if let Some(entry) = entry 
         {
+            if self.check_profile(req.access_point_id, &entry)
+            {
+                // Good? If so, emit DoorOpenRequest, otherwise emit AccessDenied Sig 
+                self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.identification_token_id));
+                let openreq = crate::dcm::DoorOpenRequest {access_point_id: req.access_point_id};
+                self.door_tx.send(openreq);
+            }
             
-            // Good? If so, emit DoorOpenRequest, otherwise emit AccessDenied Sig 
-            self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.identification_token_id));
-            let openreq = crate::dcm::DoorOpenRequest {access_point_id: req.access_point_id};
-            self.door_tx.send(openreq);
         }
         else
         {
@@ -276,7 +306,7 @@ mod tests {
         let mut wl = DummyWhitelist::new();
         wl.entry = Some(WhitelistEntry{
             identification_token_id: Vec::new(),
-            //access_profiles: Vec::new()
+            access_profiles: Vec::new()
 
         });
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
@@ -309,7 +339,7 @@ mod tests {
         let mut wl = DummyWhitelist::new();
         wl.entry = Some(WhitelistEntry{
             identification_token_id: Vec::new(),
-            //access_profiles: Vec::new()
+            access_profiles: Vec::new()
 
         });
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);

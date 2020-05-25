@@ -45,7 +45,7 @@ pub struct AccessProfile
 pub struct WhitelistEntry
 {
     pub identification_token_id: Vec<u8>,
-    //pub access_profiles: Vec<u16> // Note: This should be a ref to another table or similar
+    pub access_profiles: Vec<u16> // Note: This should be a ref to another table or similar
 }
 
 pub trait WhitelistEntryProvider
@@ -105,4 +105,10 @@ impl WhitelistEntryProvider for JsonEntryProvider
     }
 }
 
-
+impl TimeSlot
+{
+    pub fn is_active(&self) -> bool
+    {
+        return true;
+    }
+}
