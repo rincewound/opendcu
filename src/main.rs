@@ -20,6 +20,7 @@ mod sig;
 mod dcm;
 mod modcaps;
 mod io;
+mod util;
 
 // Platform specific
 mod platform;

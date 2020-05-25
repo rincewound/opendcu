@@ -1,6 +1,10 @@
 
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, fs::File};
+use std::{cmp::Ordering};
+
+use crate::util::json_storage;
+use crate::util::ObjectStorage;
+
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
 pub enum Weekday
@@ -68,64 +72,36 @@ pub trait WhitelistEntryProvider
 ///  uses.
  pub struct JsonEntryProvider
 {
-    entries: Vec<WhitelistEntry>
-}
-
-impl JsonEntryProvider
-{
-    fn update_storage(&self)
-    {
-        let writer = File::create("whitelist.txt").unwrap();
-        let _ = serde_json::to_writer_pretty(writer, &self.entries);
-    }
-
+    entries: json_storage<WhitelistEntry>
 }
 
 impl WhitelistEntryProvider for JsonEntryProvider
 {    
     fn new() -> Self
     {
-        let reader = File::open("whitelist.txt");
-        if let Ok(file) = reader
+        return JsonEntryProvider
         {
-            return JsonEntryProvider
-                    {
-                    entries : serde_json::from_reader(file).unwrap_or_else(|_| Vec::new())
-                    }
-
-        }
-        else
-        {
-            return JsonEntryProvider
-            {
-                entries: Vec::new()
-            }
+            entries: json_storage::new("whitelist.txt".to_string())
         }
     }
     
     fn get_entry(&self, identity_token_id: Vec<u8>) -> Option<WhitelistEntry> 
     { 
-        for e in self.entries.iter()
-        {
-            if e.identification_token_id.cmp(&identity_token_id) == Ordering::Equal
-            {
-                return Some(e.clone());
-            }
-        }
-        return None;
+        return self.entries.get_entry(|x| x.identification_token_id.cmp(&identity_token_id) == Ordering::Equal);
     }
 
     fn put_entry(&mut self, entry: WhitelistEntry) 
     { 
-        self.entries.retain(|x| x.identification_token_id.cmp(&entry.identification_token_id) != Ordering::Equal);
-        self.entries.push(entry);
-        self.update_storage();
+        // delete entry if already existing..
+        self.entries.delete_entry(|x| x.identification_token_id.cmp(&entry.identification_token_id) == Ordering::Equal);
+        self.entries.put_entry(entry);
+        self.entries.update_storage();
     }
 
     fn delete_entry(&mut self, identity_token_id: Vec<u8>) 
     { 
-        self.entries.retain(|x| x.identification_token_id.cmp(&identity_token_id) != Ordering::Equal);
-        self.update_storage();
+        self.entries.delete_entry(|x| x.identification_token_id.cmp(&identity_token_id) != Ordering::Equal);
+        self.entries.update_storage();
     }
 }
 
