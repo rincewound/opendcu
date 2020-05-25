@@ -2,8 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering};
 
-use crate::util::json_storage;
-use crate::util::ObjectStorage;
+use crate::util::{JsonStorage, ObjectStorage};
 
 
 #[derive(Clone, Deserialize, Serialize, Debug)]
@@ -56,6 +55,60 @@ pub trait WhitelistEntryProvider
     fn new() -> Self;
 }
 
+pub trait ProfileChecker
+{
+    fn check_profile(&self, ap_id: u32, entry: &WhitelistEntry) -> bool;
+    fn add_profile(&mut self, profile: AccessProfile);
+    fn get_profile(&self, profile_id_: u32) -> Option<AccessProfile>;
+    fn delete_profile(&mut self, profile_id: u32);
+}
+
+pub struct JsonProfileChecker{
+    profiles: JsonStorage<AccessProfile>
+}
+
+impl ProfileChecker for JsonProfileChecker
+{
+    fn check_profile(&self, ap_id: u32, entry: &WhitelistEntry) -> bool 
+    {
+        for profile_id in entry.access_profiles.iter()
+        {
+            let profile = self.profiles.get_entry(|x| x.id == *profile_id);
+            if let Some(the_profile) = profile
+            {   
+                if the_profile.access_points.iter().find(|&&x| x == ap_id).is_none() { break; }
+                
+                // the ap is contained in the profile. Check the time_pro
+                // and be done with it.
+                for tp in the_profile.time_pro.iter()
+                {
+                    if tp.is_active()
+                    {
+                        return true;
+                    }
+                }
+                
+            }
+        }
+        return false;
+    }
+    fn add_profile(&mut self, profile: AccessProfile) {
+        self.profiles.delete_entry(|x| x.id == profile.id as u16);
+        self.profiles.put_entry(profile);
+        self.profiles.update_storage();
+    }
+
+    fn get_profile(&self, profile_id: u32) -> Option<AccessProfile> {
+        self.profiles.get_entry(|x| x.id == profile_id as u16)
+    }
+    
+    fn delete_profile(&mut self, profile_id: u32) {
+        self.profiles.delete_entry(|x| x.id == profile_id as u16);
+        self.profiles.update_storage();
+    }
+    
+}
+
 ///   # The JsonEntry Provider
 ///   This is a decidedly simple way of storing whitelist
 ///   entries. It will just serialize the entry to a plain
@@ -72,7 +125,7 @@ pub trait WhitelistEntryProvider
 ///  uses.
  pub struct JsonEntryProvider
 {
-    entries: json_storage<WhitelistEntry>
+    entries: JsonStorage<WhitelistEntry>
 }
 
 impl WhitelistEntryProvider for JsonEntryProvider
@@ -81,7 +134,7 @@ impl WhitelistEntryProvider for JsonEntryProvider
     {
         return JsonEntryProvider
         {
-            entries: json_storage::new("whitelist.txt".to_string())
+            entries: JsonStorage::new("whitelist.txt".to_string())
         }
     }
     

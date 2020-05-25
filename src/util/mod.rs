@@ -1,6 +1,6 @@
 use serde::{Serialize};
 use serde::de::DeserializeOwned;
-use std::{fs::File};
+use std::fs::File;
 
 pub trait ObjectStorage<T>
 {
@@ -10,18 +10,18 @@ pub trait ObjectStorage<T>
     fn update_storage(&self);
 }
 
-pub struct json_storage<ValueType>
+pub struct JsonStorage<ValueType>
 {
     data: Vec<ValueType>,
     file_name: String
 }
 
-impl <ValueType> json_storage<ValueType> where
+impl <ValueType> JsonStorage<ValueType> where
     ValueType: Clone + Serialize + DeserializeOwned
 {
     pub fn new(file_name: String) -> Self
     {
-        let mut ret_val = json_storage
+        let mut ret_val = JsonStorage
         {
             data: Vec::new(),
             file_name
@@ -41,7 +41,7 @@ impl <ValueType> json_storage<ValueType> where
     }
 }
 
-impl <ValueType> ObjectStorage<ValueType> for json_storage<ValueType> where
+impl <ValueType> ObjectStorage<ValueType> for JsonStorage<ValueType> where
     ValueType: Clone + Serialize + DeserializeOwned
 {
     fn get_entry<P>(&self, mut filter: P) -> Option<ValueType>  where
