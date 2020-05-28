@@ -221,26 +221,4 @@ mod tests {
         tx.send(24);
         assert!(Some(24) == rx.receive_with_timeout(50))
     }
-
-    // #[test]
-    // fn can_use_select_macro()
-    // {
-    //     let (tx, rx) = make_chan();
-    //     tx.send(1);
-    //     let chanid = select_chan!(rx);
-    //     assert_eq!(0, chanid);
-    // }
-
-    // #[test]
-    // fn can_use_select_macro_for_multiple_channels()
-    // {
-    //     let (tx1, rx1) = make_chan();
-    //     let (tx2, rx2) = make_chan();
-    //     let (tx3, rx3) = make_chan();
-    //     tx2.send(11.2);
-    //     let chanid = select_chan!(rx1, rx2, rx3);
-    //     assert_eq!(1, chanid);
-    //     tx1.send(10);
-    //     tx3.send("foo".to_string());
-    // }
 }

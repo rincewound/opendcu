@@ -1,4 +1,4 @@
-#![feature(fn_traits)]
+//#![feature(fn_traits)]
 
 #[macro_use]
 extern crate rouille;
@@ -30,7 +30,7 @@ mod platform;
 fn main() {
     // Note: Launch never returns!
     launch!(trace::launch,
-            crate::cfg::REST::launch,
+            crate::cfg::rest::launch,
             crate::acm::generic_whitelist::launch::<acm::generic_whitelist::whitelist::JsonEntryProvider>,
             crate::arm::console_input::launch,
             // websocket must be instantiated before webserver

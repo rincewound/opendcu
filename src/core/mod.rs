@@ -24,7 +24,6 @@ pub mod timer;
 pub enum BootStage
 {
     Sync,
-    _Advertise,
     LowLevelInit,
     HighLevelInit,
     Application
@@ -66,34 +65,6 @@ pub fn objectindex_from_sud(sud: u32) -> u32
 {
     return sud & 0x0000FFFF;
 }
-
-// ToDo
-// pub fn launch_mod_impl<T: 'static>(chm: &mut ChannelManager)
-//     where T: Launchable+Send
-// {
-//     let obj = T::new(chm);   
-//     thread::spawn(move || {  
-//         obj.init();
-//         loop 
-//         {
-//             if !obj.run()
-//             {
-//                 break;
-//             }
-//         }   
-        
-//     });
-// }
-
-// macro_rules! launch_func {
-//     ($launch_impl: expr) => (
-//         fn launch_fn(chm: &mut ChannelManager)
-//         {
-//             crate::core::launch_mod_impl::<$launch_impl>(chm)
-//         }
-//     )
-
-// }
 
 /**
 Launch expects a list of functions. Launch will call all

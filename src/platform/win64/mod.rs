@@ -8,15 +8,7 @@ pub fn launch(chm: &mut ChannelManager)
     let tracer = trace_helper::TraceHelper::new("Plattform/Win32Io".to_string(), chm);
     let ioman = w32Io::new(tracer, chm);
     thread::spawn(move || {  
-        ioman.init();   
-        // loop 
-        // {
-        //     if !ioman.run()
-        //     {
-        //         break;
-        //     }
-        // }   
-        
+        ioman.init();           
     });
 }
 

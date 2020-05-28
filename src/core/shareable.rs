@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex, LockResult, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 /// # A piece of shareable state
 /// This struct wraps the common
