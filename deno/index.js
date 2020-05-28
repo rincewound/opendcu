@@ -45,7 +45,7 @@ async function run() {
   // module can be instantiated multiple times
   const other_instance = await WebAssembly.instantiate(module)
 
-  // not sure if this is a clean way to return instance exports
+  // not sure if this is a clean way to return the promise
   return instance.exports
 }
 let instance = run()

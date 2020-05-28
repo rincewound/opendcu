@@ -5,9 +5,11 @@ use crate::core::{shareable::Shareable, event::DataEvent};
 use crate::modcaps::*;
 use crate::core::timer::*;
 
+use std::fmt;
+
 extern crate chrono;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum InputState
 {
     Unknown,
@@ -23,8 +25,16 @@ pub enum InputState
 #[derive(Clone)]
 pub struct RawInputEvent
 {
-    input_id: u32,      // SUD!
-    state: InputState
+    pub input_id: u32,      // SUD!
+    pub state: InputState
+}
+
+impl fmt::Display for InputState
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+    {
+        write!(f, "state {:?}", self)
+    }
 }
 
 
@@ -59,11 +69,19 @@ pub struct InputSetting
     debounce_off: u64
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum OutputState
 {
     Low,
     High
+}
+
+impl fmt::Display for OutputState
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
+    {
+        write!(f, "output state {:?}", self)
+    }
 }
 
 pub struct OutputSetting
@@ -75,8 +93,8 @@ pub struct OutputSetting
 #[derive(Clone)]
 pub struct RawOutputSwitch
 {
-    output_id: u32,     // SUD!
-    target_state: OutputState   // physical!
+    pub output_id: u32,     // SUD!
+    pub target_state: OutputState   // physical!
 }
 
 #[derive(Clone)]
@@ -169,7 +187,7 @@ impl IoManager
             timer               : Timer::new(),
             input_list          : Vec::new(),
             output_list         : Shareable::new(Vec::new()),
-            dataevent           :Arc::new(DataEvent::new("IOWait".to_string()))
+            dataevent           : Arc::new(DataEvent::new("IOWait".to_string()))
         }
     } 
 
