@@ -38,6 +38,7 @@ impl Timer
         });
     }
 
+    #[allow(dead_code)]
     pub fn stop(&self)
     {
         let mut term = self.terminate.lock();

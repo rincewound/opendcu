@@ -5,11 +5,11 @@ pub struct DoorOpenRequest
     pub access_point_id: u32
 }
 
-pub enum DoorControlCommands
-{
-    DoorOpenRequest,
-    BarDoorRequest,
-    PermanentReleaseRequest
-}
+// pub enum DoorControlCommands
+// {
+//     DoorOpenRequest,
+//     BarDoorRequest,
+//     PermanentReleaseRequest
+// }
 
 pub mod trivial;

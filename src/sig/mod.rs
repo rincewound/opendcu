@@ -2,8 +2,8 @@
 #[derive(Copy, Clone, PartialEq)]
 pub enum SigType
 {
-    Default,
-    AccessGranted,
+    _Default,
+    _AccessGranted,
     AccessDenied
 }
 

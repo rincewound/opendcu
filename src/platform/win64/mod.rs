@@ -6,13 +6,13 @@ const MODULE_ID: u32 = 0x09000000;
 pub fn launch(chm: &mut ChannelManager)   
 {    
     let tracer = trace_helper::TraceHelper::new("Plattform/Win32Io".to_string(), chm);
-    let ioman = w32Io::new(tracer, chm);
+    let ioman = W32Io::new(tracer, chm);
     thread::spawn(move || {  
         ioman.init();           
     });
 }
 
-struct w32Io
+struct W32Io
 {
     system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
     system_events_tx: GenericSender<crate::core::SystemMessage>,
@@ -21,11 +21,11 @@ struct w32Io
 }
 
 
-impl w32Io
+impl W32Io
 {
     pub fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager) -> Self
     {
-        w32Io {        
+        W32Io {        
          system_events_rx: chm.get_receiver(),
          system_events_tx: chm.get_sender(),
          modcaps_tx: chm.get_sender(),

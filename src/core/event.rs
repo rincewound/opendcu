@@ -105,6 +105,7 @@ impl<T: Copy+Sync> DataEvent<T>
                         .unwrap();
     }
 
+    #[allow(dead_code)]
     pub fn wait_with_timeout(&self, millis: u64) -> Option<T>
     {
         if self.evt.wait_with_timeout(millis)

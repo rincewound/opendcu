@@ -79,7 +79,7 @@ impl ProfileChecker for JsonProfileChecker
             if let Some(the_profile) = profile
             {   
                 let datetime = Local::now();
-                return check_profile_impl(ap_id, entry, &the_profile, datetime)              
+                return check_profile_impl(ap_id, &the_profile, datetime)              
             }
         }
         return Err(ProfileCheckResult::InvalidProfile);
@@ -102,7 +102,7 @@ impl ProfileChecker for JsonProfileChecker
 }
 
 
-fn check_profile_impl<T>(ap_id: u32, entry: &WhitelistEntry, profile: &AccessProfile, now: DateTime<T>) -> Result<(),ProfileCheckResult> 
+fn check_profile_impl<T>(ap_id: u32, profile: &AccessProfile, now: DateTime<T>) -> Result<(),ProfileCheckResult> 
     where T: chrono::TimeZone
 {
     // ToDo: All Profiles assume "local time", whatever that means. We should be timezone aware.
@@ -128,57 +128,52 @@ fn check_profile_impl<T>(ap_id: u32, entry: &WhitelistEntry, profile: &AccessPro
 }
 
 #[cfg(test)]
-mod tests {
-
-    use crate::acm::generic_whitelist::whitelist::WhitelistEntry;
+mod tests
+{
     use super::{TimeSlot, AccessProfile, check_profile_impl};
     use chrono::{DateTime};
 
     #[test]
     fn check_profile_yields_true_if_valid_profile()
-    {
-        let entry = WhitelistEntry{identification_token_id: vec![], access_profiles: vec![1]};
+    {        
         let profile = AccessProfile {id: 0, access_points: vec![1,2], time_pro: vec![
             TimeSlot{day: super::Weekday::Monday, from: 700, to: 1000}
         ]};
 
         let dt = DateTime::parse_from_rfc3339("2020-05-25T08:00:57-08:00").unwrap();
-        assert!(check_profile_impl(1, &entry, &profile, dt).is_ok());
+        assert!(check_profile_impl(1, &profile, dt).is_ok());
     }
 
     #[test]
     fn check_profile_yields_false_if_bad_day()
-    {
-        let entry = WhitelistEntry{identification_token_id: vec![], access_profiles: vec![1]};
+    {        
         let profile = AccessProfile {id: 0, access_points: vec![1,2], time_pro: vec![
             TimeSlot{day: super::Weekday::Monday, from: 700, to: 1000}
         ]};
         // Tue, 26.5.2020, 8:00 AM
         let dt = DateTime::parse_from_rfc3339("2020-05-26T08:00:57-08:00").unwrap();
-        assert!(check_profile_impl(1, &entry, &profile, dt).is_err());
+        assert!(check_profile_impl(1, &profile, dt).is_err());
     }
 
     #[test]
     fn check_profile_yields_false_if_bad_time_slot()
-    {
-        let entry = WhitelistEntry{identification_token_id: vec![], access_profiles: vec![1]};
+    {        
         let profile = AccessProfile {id: 0, access_points: vec![1,2], time_pro: vec![
             TimeSlot{day: super::Weekday::Monday, from: 700, to: 1000}
         ]};
         // Mon, 25.5.2020, 11:00 AM
         let dt = DateTime::parse_from_rfc3339("2020-05-25T11:00:57-08:00").unwrap();
-        assert!(check_profile_impl(1, &entry, &profile, dt).is_err());
+        assert!(check_profile_impl(1, &profile, dt).is_err());
     }
 
     #[test]
     fn check_profile_yields_false_if_bad_access_point()
-    {
-        let entry = WhitelistEntry{identification_token_id: vec![], access_profiles: vec![1]};
+    {        
         let profile = AccessProfile {id: 0, access_points: vec![1,2], time_pro: vec![
             TimeSlot{day: super::Weekday::Monday, from: 700, to: 1000}
         ]};
         // Mon, 25.5.2020, 8:00 AM
         let dt = DateTime::parse_from_rfc3339("2020-05-25T08:00:57-08:00").unwrap();
-        assert!(true, check_profile_impl(5, &entry, &profile, dt).is_err());
+        assert!(true, check_profile_impl(5, &profile, dt).is_err());
     }
 }

@@ -32,11 +32,11 @@ pub enum BootStage
 #[derive(Clone)]
 pub enum SystemMessage
 {
-    Shutdown,
+    _Shutdown,
     StageComplete(BootStage, u32),
     RunStage(BootStage),
-    Heartbeat,
-    HeartbeatResponse(u32)
+    _Heartbeat,
+    _HeartbeatResponse(u32)
 }
 
 
@@ -49,6 +49,7 @@ pub enum SystemMessage
 // the index of the component within the module:
 // AAAA AAAA BBBB BBBB CCCC CCCC CCCC CCCC
 // C: Used to uniquely identify a given component of a module
+#[allow(dead_code)]
 pub fn make_sud(module_id: u8, module_instance: u8, object_index: u16) -> u32
 {
     let m = (module_id as u32) << 24;
@@ -56,12 +57,12 @@ pub fn make_sud(module_id: u8, module_instance: u8, object_index: u16) -> u32
     return m | i | (object_index as u32);
 }
 
-pub fn modid_from_sud(sud: u32) -> u32
+pub fn _modid_from_sud(sud: u32) -> u32
 {
     return sud >> 16;
 }
 
-pub fn objectindex_from_sud(sud: u32) -> u32
+pub fn _objectindex_from_sud(sud: u32) -> u32
 {
     return sud & 0x0000FFFF;
 }
@@ -128,6 +129,7 @@ macro_rules! select_chan {
     );
 }
 
+#[allow(unused_macros)]
 macro_rules! wait_for_with_timeout {
     ($evt: expr, $timeout: expr, $id: expr, $head: expr) => (
         {
@@ -156,6 +158,7 @@ macro_rules! wait_for_with_timeout {
     )
 }
 
+#[allow(unused_macros)]
 macro_rules! select_chan_with_timeout {
     ($timeout: expr, $($channels: expr),+) => (wait_for_with_timeout!(Arc::new(DataEvent::<u32>::new()), $timeout, 0, $($channels),+));
 }

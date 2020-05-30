@@ -106,6 +106,7 @@ impl <T: Clone> GenericReceiver<T>
         self.data.push(data);
     }
 
+    #[allow(dead_code)]
     pub fn has_data(&self) -> bool
     {
         return self.data.len() != 0;

@@ -10,11 +10,11 @@ extern crate chrono;
 #[derive(Clone)]
 pub enum InputState
 {
-    Unknown,
-    Low,
-    High,
-    Short,
-    Cutout
+    _Unknown,
+    _Low,
+    _High,
+    _Short,
+    _Cutout
 }
 
 // The interface of Input providing modules towards
@@ -51,13 +51,13 @@ pub struct InputEvent
 ///             "Low" will be inverted to "High"
 ///             and vice versa
 /// * The debouncetimes (in ms) control how long a given signal must not change, before an InputEvent is triggered.
-pub struct InputSetting
-{
-    input_id: u32,              //Logical!
-    inverted_polarity: bool,
-    debounce_on: u64,
-    debounce_off: u64
-}
+// pub struct InputSetting
+// {
+//     input_id: u32,              //Logical!
+//     inverted_polarity: bool,
+//     debounce_on: u64,
+//     debounce_off: u64
+// }
 
 #[derive(Clone, PartialEq)]
 pub enum OutputState
@@ -66,11 +66,11 @@ pub enum OutputState
     High
 }
 
-pub struct OutputSetting
-{
-    output_id: u32, // Logical!
-    inverted_polarity: bool
-}
+// pub struct OutputSetting
+// {
+//     output_id: u32, // Logical!
+//     inverted_polarity: bool
+// }
 
 #[derive(Clone)]
 pub struct RawOutputSwitch
@@ -358,7 +358,7 @@ mod tests {
     {
         let mut md = make_mod();
         let s = md.1;
-        let evt = RawInputEvent {input_id: make_sud(10, 0, 1), state: InputState::High};
+        let evt = RawInputEvent {input_id: make_sud(10, 0, 1), state: InputState::_High};
         s.send(evt);
         md.0.run();
         let recv = md.2.receive_with_timeout(1).unwrap();
@@ -371,7 +371,7 @@ mod tests {
     {
         let mut md = make_mod();
         let s = md.1;
-        let evt = RawInputEvent {input_id: make_sud(12, 0, 1), state: InputState::High};
+        let evt = RawInputEvent {input_id: make_sud(12, 0, 1), state: InputState::_High};
         s.send(evt);
         md.0.run();
         let recv = md.2.receive_with_timeout(1).unwrap();
@@ -384,7 +384,7 @@ mod tests {
     {
         let mut md = make_mod();
         let s = md.1;
-        let evt = RawInputEvent {input_id: make_sud(14, 0, 1), state: InputState::High};
+        let evt = RawInputEvent {input_id: make_sud(14, 0, 1), state: InputState::_High};
         s.send(evt);
         md.0.run();
         let recv = md.2.receive_with_timeout(1);

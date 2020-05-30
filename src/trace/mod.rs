@@ -26,6 +26,7 @@ impl TraceMessage
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_str(msg: &str) -> Self
     {
         TraceMessage {
