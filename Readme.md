@@ -167,8 +167,20 @@ Given a module with ID 12 and a component with number 4, the address would be 12
 A module ID is a 16 Bit integer consisting of the acutal id and the instancenumber of the module:
 AAAA AAAA BBBB BBBB, where:
 A: Identifies the actual implementation of the module, this is a value that should be unique to each moduleimplementation (i.e. two different kinds of ARM shall have different IDs!)
-B: Identifies the instancenumber of the module (if a module is started multiple times, this number shall count up!).
+B: Identifies the instancenumber of the module (if a module is started multiple times, this number shall count up!). Note that it is admissible to use instance 0 as first instance!
 
+### Used Module IDs:
+* 0x01: \<implicit, supervisor\>
+* 0x02: Trace
+* 0x03: ACM/Whitelist
+* 0x04: ARM/ConsoleInput
+* 0x05: __unused__
+* 0x06: CFG/Rest
+* 0x07: IO
+* 0x08: DCM/Trivial
+* 0x09: Plattform/Win32Io
+
+## Component ID
 A component ID is a 32 bit int, that consists of the ID of the module owning the component and 16 bits containing,
 the index of the component within the module:
 AAAA AAAA BBBB BBBB CCCC CCCC CCCC CCCC
