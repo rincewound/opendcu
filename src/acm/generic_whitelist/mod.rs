@@ -138,33 +138,19 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
 
     fn check_profile(&self, ap_id: u32, entry: &whitelist::WhitelistEntry) -> bool
     {
-        // for profile_id in entry.access_profiles.iter()
-        // {
-            
-            // let profile = self.profiles.lock().get_entry(|x| x.id == *profile_id);
-            // if let Some(the_profile) = profile
-            // {   
-            //     if the_profile.access_points.iter().find(|&&x| x == ap_id).is_none() { break; }
-                
-            //     // the ap is contained in the profile. Check the time_pro
-            //     // and be done with it.
-            //     for tp in the_profile.time_pro.iter()
-            //     {
-            //         if tp.is_active()
-            //         {
-            //             return true;
-            //         }
-            //     }
-                
-        //     }
-        // }
-        if !self.profiles.lock().check_profile(ap_id, entry)
+        let profile_result = self.profiles.lock().check_profile(ap_id, entry);
+        match profile_result
         {
-            self.tracer.trace_str("Access Denied; No matching profile");
-            self.send_signal_command(ap_id as u32, SigType::AccessDenied, 1000);                   
-            return false;
+            Ok(_) => {
+                return true;
+            },
+            Err(reason) =>
+            {
+                self.tracer.trace(format!("Access Denied, Reason: {}", reason));
+                self.send_signal_command(ap_id as u32, SigType::AccessDenied, 1000);                   
+                return false;             
+            }
         }
-        return true;
     }
 
     fn process_access_request(&self, req: WhitelistAccessRequest)
@@ -229,7 +215,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
 #[cfg(test)]
 mod tests {
      use crate::{core::channel_manager::ChannelManager, acm::*, trace::*, sig::SigCommand};
-     use generic_whitelist::{profiles::{AccessProfile, ProfileChecker}, whitelist::{WhitelistEntry}};
+     use generic_whitelist::{profiles::{AccessProfile, ProfileChecker, ProfileCheckResult}, whitelist::{WhitelistEntry}};
      use crate::acm::generic_whitelist::whitelist::WhitelistEntryProvider;
      use crate::{sig::*};
 
@@ -261,12 +247,13 @@ mod tests {
 
      struct DummyProfileChecker
      {
-         pub check_result: bool
+         pub check_result: Result<(), ProfileCheckResult>
      }
 
      impl ProfileChecker for DummyProfileChecker
      {
-        fn check_profile(&self, _ap_id: u32, _entry: &WhitelistEntry) -> bool {
+        fn check_profile(&self, _ap_id: u32, _entry: &WhitelistEntry)  -> Result<(), ProfileCheckResult>
+        {
             return self.check_result;
         }
 
@@ -278,7 +265,7 @@ mod tests {
      fn make_whitelist(chm: &mut ChannelManager) -> generic_whitelist::GenericWhitelist<DummyWhitelist, DummyProfileChecker>
      {
         let wl = DummyWhitelist::new();
-        let prof = DummyProfileChecker {check_result: true};
+        let prof = DummyProfileChecker {check_result: Ok(())};
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), chm);
         let md = generic_whitelist::GenericWhitelist::new(tracer, chm, wl, prof);
         return md;
@@ -321,7 +308,7 @@ mod tests {
 
         });
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
-        let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl, DummyProfileChecker {check_result: true});
+        let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl, DummyProfileChecker {check_result: Ok(())});
 
         let dcm_rx = chm.get_receiver::<crate::dcm::DoorOpenRequest>();
         let access_tx = chm.get_sender::<WhitelistAccessRequest>();
@@ -354,7 +341,7 @@ mod tests {
 
         });
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
-        let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl,DummyProfileChecker {check_result: true});
+        let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl,DummyProfileChecker {check_result: Ok(())});
 
         let dcm_rx = chm.get_receiver::<crate::dcm::DoorOpenRequest>();
         let access_tx = chm.get_sender::<WhitelistAccessRequest>();
