@@ -1,0 +1,15 @@
+[
+  {
+    "id": 1,
+    "access_points": [
+      0, 1
+    ],
+    "time_pro": [
+      {
+        "day": "Monday",
+        "from": 1000,
+        "to": 1600
+      }
+    ]
+  }
+]
