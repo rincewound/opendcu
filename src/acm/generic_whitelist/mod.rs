@@ -6,12 +6,15 @@ use crate::cfg;
 use crate::cfg::cfgholder::*;
 use crate::trace::*;
 use crate::{sig::*, acm::*};
-use crate::{util::JsonStorage, dcm::DoorOpenRequest, util::ObjectStorage};
+use crate::{dcm::DoorOpenRequest};
 use std::{sync::Arc, thread};
-use whitelist::AccessProfile;
+
 use cfg::ConfigMessage;
+use profiles::{ProfileChecker, JsonProfileChecker, AccessProfile};
 
 pub mod whitelist;
+
+mod profiles;
 
 const MODULE_ID: u32 = 0x03000000;
 
@@ -19,7 +22,7 @@ pub fn launch<T: 'static>(chm: &mut ChannelManager)
     where T: whitelist::WhitelistEntryProvider + std::marker::Send
 {    
     let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), chm);
-    let mut wl = GenericWhitelist::new(tracer, chm, T::new());
+    let mut wl = GenericWhitelist::new(tracer, chm, T::new(), JsonProfileChecker::new("profiles.txt".to_string()));
     thread::spawn(move || {  
         wl.init();   
         loop 
@@ -34,7 +37,7 @@ pub fn launch<T: 'static>(chm: &mut ChannelManager)
 }
 
 
-struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
+struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider, ProfileStorage: ProfileChecker>
 {
     tracer              : trace_helper::TraceHelper,
     access_request_rx   : Arc<GenericReceiver<WhitelistAccessRequest>>,
@@ -44,12 +47,12 @@ struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider>
     sig_tx              : GenericSender<SigCommand>,
     door_tx             : GenericSender<DoorOpenRequest>,
     whitelist           : Shareable<WhitelistProvider>,
-    profiles            : Shareable<JsonStorage<AccessProfile>>    
+    profiles            : Shareable<ProfileStorage>    
 }
 
-impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> GenericWhitelist<WhitelistProvider>
+impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, ProfileStorage:ProfileChecker + Send +'static> GenericWhitelist<WhitelistProvider, ProfileStorage>
 {
-    fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager, whitelist: WhitelistProvider) -> Self
+    fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager, whitelist: WhitelistProvider, profile_source: ProfileStorage) -> Self
     { 
         GenericWhitelist
         {
@@ -61,7 +64,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
             sig_tx              : chm.get_sender(),
             door_tx             : chm.get_sender(),
             whitelist           : Shareable::new(whitelist),
-            profiles            : Shareable::new(JsonStorage::new("profiles.txt".to_string()))
+            profiles            : Shareable::new(profile_source)
         }
     }
 
@@ -84,22 +87,23 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
 
             holder.register_handler(FunctionType::Put, "wl/entry".to_string(), Handler!(|r: whitelist::WhitelistEntry|
                 {
-                    GenericWhitelist::<WhitelistProvider>::process_put_entry_req(&wl1, r);
+                    Self::process_put_entry_req(&wl1, r);
                 }));
 
             holder.register_handler(FunctionType::Delete, "wl/entry".to_string(), Handler!(|r: whitelist::WhitelistEntry|
                 {
-                    GenericWhitelist::<WhitelistProvider>::process_delete_entry_req(&wl2, r);
+                    Self::process_delete_entry_req(&wl2, r);
                 }));
 
             holder.register_handler(FunctionType::Put, "wl/profile".to_string(), Handler!(|newprofile: AccessProfile|
                 {
-                    GenericWhitelist::<WhitelistProvider>::process_put_profile_req(&prof1, newprofile)
+                    Self::process_put_profile_req(&prof1, newprofile)
                 }));
             
             holder.register_handler(FunctionType::Delete, "wl/profile".to_string(), Handler!(|profile_to_delete: AccessProfile|
                 {
-                    GenericWhitelist::<WhitelistProvider>::process_delete_profile_req(&prof2, profile_to_delete);
+                    Self::process_delete_profile_req(&prof2, profile_to_delete);
+                    
                 }))
             
         })];
@@ -134,28 +138,33 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
 
     fn check_profile(&self, ap_id: u32, entry: &whitelist::WhitelistEntry) -> bool
     {
-        for profile_id in entry.access_profiles.iter()
+        // for profile_id in entry.access_profiles.iter()
+        // {
+            
+            // let profile = self.profiles.lock().get_entry(|x| x.id == *profile_id);
+            // if let Some(the_profile) = profile
+            // {   
+            //     if the_profile.access_points.iter().find(|&&x| x == ap_id).is_none() { break; }
+                
+            //     // the ap is contained in the profile. Check the time_pro
+            //     // and be done with it.
+            //     for tp in the_profile.time_pro.iter()
+            //     {
+            //         if tp.is_active()
+            //         {
+            //             return true;
+            //         }
+            //     }
+                
+        //     }
+        // }
+        if !self.profiles.lock().check_profile(ap_id, entry)
         {
-            let profile = self.profiles.lock().get_entry(|x| x.id == *profile_id);
-            if let Some(the_profile) = profile
-            {   
-                if the_profile.access_points.iter().find(|&&x| x == ap_id).is_none() { break; }
-                
-                // the ap is contained in the profile. Check the time_pro
-                // and be done with it.
-                for tp in the_profile.time_pro.iter()
-                {
-                    if tp.is_active()
-                    {
-                        return true;
-                    }
-                }
-                
-            }
+            self.tracer.trace_str("Access Denied; No matching profile");
+            self.send_signal_command(ap_id as u32, SigType::AccessDenied, 1000);                   
+            return false;
         }
-        self.tracer.trace_str("Access Denied; No matching profile");
-        self.send_signal_command(ap_id as u32, SigType::AccessDenied, 1000);                   
-        return false;
+        return true;
     }
 
     fn process_access_request(&self, req: WhitelistAccessRequest)
@@ -194,28 +203,23 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
         thewhitelist.delete_entry(entry.identification_token_id);
     }
 
-    fn process_put_profile_req(current_profiles: &Shareable<JsonStorage<AccessProfile>>, profile: AccessProfile)
+    fn process_put_profile_req(current_profiles: &Shareable<ProfileStorage>, profile: AccessProfile)
     {
         let json = serde_json::to_string(&profile).unwrap();        
         println!("Add profile: {}", json);
-
-        let mut profiles = current_profiles.lock();
-        
+        let mut profiles = current_profiles.lock();        
         // remove any existing profile with the same id:
-        profiles.delete_entry(|x| x.id == profile.id );
-
-        profiles.put_entry(profile);        
-        profiles.update_storage();
+        profiles.delete_profile(profile.id as u32);
+        profiles.add_profile(profile);        
     }
 
-    fn process_delete_profile_req(current_profiles: &Shareable<JsonStorage<AccessProfile>>, profile: AccessProfile)
+    fn process_delete_profile_req(current_profiles: &Shareable<ProfileStorage>, profile: AccessProfile)
     {        
         println!("Delete profile with id: {}", profile.id);
         let mut profiles = current_profiles.lock();
         
         // remove any existing profile with the same id:
-        profiles.delete_entry(|x| x.id == profile.id );
-        profiles.update_storage();
+        profiles.delete_profile(profile.id as u32 );
     }
 
 }
@@ -225,9 +229,9 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
 #[cfg(test)]
 mod tests {
      use crate::{core::channel_manager::ChannelManager, acm::*, trace::*, sig::SigCommand};
-     use generic_whitelist::whitelist::{AccessProfile, WhitelistEntry, TimeSlot, Weekday};
+     use generic_whitelist::{profiles::{AccessProfile, ProfileChecker}, whitelist::{WhitelistEntry}};
      use crate::acm::generic_whitelist::whitelist::WhitelistEntryProvider;
-     use crate::sig::*;
+     use crate::{sig::*};
 
      struct DummyWhitelist
      {
@@ -255,13 +259,36 @@ mod tests {
 
      }  
 
+     struct DummyProfileChecker
+     {
+         pub check_result: bool
+     }
+
+     impl ProfileChecker for DummyProfileChecker
+     {
+        fn check_profile(&self, _ap_id: u32, _entry: &WhitelistEntry) -> bool {
+            return self.check_result;
+        }
+
+        fn add_profile(&mut self, _profile: AccessProfile) {}
+        fn get_profile(&self, _profile_id_: u32) -> Option<AccessProfile> {None}
+        fn delete_profile(&mut self, _profile_id: u32) { }         
+     }
+
+     fn make_whitelist(chm: &mut ChannelManager) -> generic_whitelist::GenericWhitelist<DummyWhitelist, DummyProfileChecker>
+     {
+        let wl = DummyWhitelist::new();
+        let prof = DummyProfileChecker {check_result: true};
+        let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), chm);
+        let md = generic_whitelist::GenericWhitelist::new(tracer, chm, wl, prof);
+        return md;
+     }
+
      #[test]
      fn will_throw_access_denied_if_no_whitelist_entry_exists()
      {
          let mut chm = ChannelManager::new();
-         let wl = DummyWhitelist::new();
-         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
-         let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl);
+         let mut wl = make_whitelist(&mut chm);
 
          let sig_rx = chm.get_receiver::<SigCommand>();
          let access_tx = chm.get_sender::<WhitelistAccessRequest>();
@@ -272,7 +299,7 @@ mod tests {
          };
 
          access_tx.send(req);
-         md.do_request();
+         wl.do_request();
          let res = sig_rx.receive_with_timeout(1);
          if let Some(x) = res {
             assert!(x.sig_type == SigType::AccessDenied)
@@ -282,21 +309,9 @@ mod tests {
              assert!(false)
          }
      }
-
-     #[test]
-     fn will_throw_access_denied_if_no_access_rights()
-     {
-        assert_eq!(true, false)
-     }
-
-     #[test]
-     fn will_generate_door_open_request_if_access_rights_are_good()
-     {
-        assert_eq!(true, false)
-     }
     
      #[test]
-     fn will_generate_door_open_request_if_token_is_known()
+     fn will_generate_door_open_request_if_token_is_known_and_access_rights_are_good()
      {
         let mut chm = ChannelManager::new();
         let mut wl = DummyWhitelist::new();
@@ -306,7 +321,7 @@ mod tests {
 
         });
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
-        let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl);
+        let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl, DummyProfileChecker {check_result: true});
 
         let dcm_rx = chm.get_receiver::<crate::dcm::DoorOpenRequest>();
         let access_tx = chm.get_sender::<WhitelistAccessRequest>();
@@ -339,7 +354,7 @@ mod tests {
 
         });
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
-        let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl);
+        let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl,DummyProfileChecker {check_result: true});
 
         let dcm_rx = chm.get_receiver::<crate::dcm::DoorOpenRequest>();
         let access_tx = chm.get_sender::<WhitelistAccessRequest>();
