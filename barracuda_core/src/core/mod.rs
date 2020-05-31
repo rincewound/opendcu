@@ -80,6 +80,7 @@ all called functions to:
     the "Application" stage which is not expected to
     be answered.
 **/
+#[macro_export]
 macro_rules! launch {
     ($($threadlist: expr),+) => (
         {
@@ -90,6 +91,7 @@ macro_rules! launch {
     )
 }
 
+#[macro_export]
 macro_rules! launch_impl {
     ($supervisor: expr, $head: expr, $($threadlist: expr),+) => (
         {
@@ -104,6 +106,7 @@ macro_rules! launch_impl {
     )
 }
 
+#[macro_export]
 macro_rules! wait_for {
     ($evt: ident, $id: expr, $head: expr) => (
         {
@@ -120,6 +123,7 @@ macro_rules! wait_for {
     )
 }
 
+#[macro_export]
 macro_rules! select_chan {
     ($($channels: expr),+) => (
         {
@@ -130,6 +134,7 @@ macro_rules! select_chan {
 }
 
 #[allow(unused_macros)]
+#[macro_export]
 macro_rules! wait_for_with_timeout {
     ($evt: expr, $timeout: expr, $id: expr, $head: expr) => (
         {
@@ -159,6 +164,7 @@ macro_rules! wait_for_with_timeout {
 }
 
 #[allow(unused_macros)]
+#[macro_export]
 macro_rules! select_chan_with_timeout {
     ($timeout: expr, $($channels: expr),+) => (wait_for_with_timeout!(Arc::new(DataEvent::<u32>::new()), $timeout, 0, $($channels),+));
 }

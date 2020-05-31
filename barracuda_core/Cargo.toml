@@ -1,5 +1,5 @@
 [package]
-name = "barracuda"
+name = "barracuda_core"
 version = "0.1.0"
 authors = ["Rincewound <aaaargh@minddebugger.com>"]
 edition = "2018"
