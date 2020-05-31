@@ -1,12 +1,12 @@
 
 use crate::core::broadcast_channel::*;
-use crate::core::{channel_manager::*};
+use crate::core::channel_manager::*;
 use crate::core::{shareable::Shareable, bootstage_helper::*, SystemMessage};
 use crate::cfg;
 use crate::cfg::cfgholder::*;
 use crate::trace::*;
 use crate::{sig::*, acm::*};
-use crate::{dcm::DoorOpenRequest};
+use crate::dcm::DoorOpenRequest;
 use std::{sync::Arc, thread};
 
 use cfg::ConfigMessage;

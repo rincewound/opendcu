@@ -2,3 +2,4 @@
 barracuda_core/target
 target_win64/barracuda-w32/target
 target_win64/target
+target_reference/target
