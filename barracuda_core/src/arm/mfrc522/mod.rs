@@ -9,7 +9,21 @@
 *
 *   ## Usage
 *   
+*   ### Configuration
+*   The module expects to be provided with a completely configured
+*   SPI instance.
+*   A this point it only supports reading the UID of ISO 14443A tags.
+*
+*
+*   ### Behavior
+*   After the module is started it will search for media every 50 ms
+*   and generate door-open requests everytime it sees a medium.
+*
+*   ### Notes
+*   The original code does not use IRQs, but instead uses polling
+*   (stupidly!). This should be 
 */
 
 mod mfrc522;
 mod spi;
+mod interrupt;

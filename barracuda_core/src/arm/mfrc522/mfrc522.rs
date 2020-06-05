@@ -1,4 +1,5 @@
 use super::spi::SpiInterface;
+use super::interrupt::Interrupt;
 
 enum ChipCommand
 {
@@ -103,13 +104,14 @@ enum ChipRegisters
     Reserved34 = 0x3F,
 }
 
-pub struct mfrc522<T>
-    where T: SpiInterface
+pub struct mfrc522<T, Irq>
+    where T: SpiInterface, Irq: super::interrupt::Interrupt
 {
-    spi_interface: T
+    spi_interface: T,
+    tx_rdy_irq: Irq
 }
 
-impl<T: SpiInterface> mfrc522<T>
+impl<T: SpiInterface, Irq: Interrupt> mfrc522<T, Irq>
 {
 
     pub fn open(&self)
@@ -186,5 +188,42 @@ impl<T: SpiInterface> mfrc522<T>
         {
             self.clear_bit(ChipRegisters::TxControlReg as u8, 0x03);
         }
+    }
+
+    fn send_txp_command(&self, command: ChipCommand, data: &[u8])
+    {
+
+        // Step 1: Setup IRQs to wait for
+        // self.Write_MFRC522(self.CommIEnReg, irqEn | 0x80)
+        // self.ClearBitMask(self.CommIrqReg, 0x80)
+        // self.SetBitMask(self.FIFOLevelReg, 0x80)
+
+        self.do_command(ChipCommand::IDLE);
+        for d in data
+        {
+            // ToDo: Check if we can use a single transaction
+            //       here
+            self.write_byte(ChipRegisters::FIFODataReg as u8, *d)
+        }
+
+        self.do_command(command);
+
+        // Stupid: let's use an IRQ instead...
+        // i = 2000
+        // while True:
+        //     n = self.Read_MFRC522(self.CommIrqReg)
+        //     i -= 1
+        //     if ~((i != 0) and ~(n & 0x01) and ~(n & waitIRq)):
+        //         break
+        if !self.tx_rdy_irq.wait_timeout(2000)
+        {
+            // Timeout!
+            return;
+        }
+
+        self.clear_bit(ChipRegisters::BitFramingReg as u8, 0x80);
+
+        // Read error register
+
     }
 }
