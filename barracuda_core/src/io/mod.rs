@@ -280,6 +280,10 @@ impl IoManager
                 output.timer_guard = Some(g);
             }
         }
+        else
+        {
+            self.tracer.trace_str("Invalid output.");
+        }
 
 
     }

@@ -29,5 +29,7 @@ steps:
       cargo build
   displayName: Run cargo build
 
-- bash: cargo test
+- bash: |
+      cd barracuda_core
+      cargo test
   displayName: Run cargo test
