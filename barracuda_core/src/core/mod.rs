@@ -71,14 +71,14 @@ pub fn _objectindex_from_sud(sud: u32) -> u32
 Launch expects a list of functions. Launch will call all
 functions and walk through the bootup sequence, expecting
 all called functions to:
-    start a thread that implements the bootup protocol, 
-    i.e. it shall check in when a RunStage command is
-    sent.
+* start a thread that implements the bootup protocol, 
+i.e. it shall check in when a RunStage command is
+sent.
 
-    Panics if any of the stages fail to check in within
-    2.5 seconds after a run-stage command, except for
-    the "Application" stage which is not expected to
-    be answered.
+* Panics if any of the stages fail to check in within
+2.5 seconds after a run-stage command, except for
+the "Application" stage which is not expected to
+be answered.
 **/
 #[macro_export]
 macro_rules! launch {
