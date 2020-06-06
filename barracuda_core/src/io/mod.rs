@@ -75,8 +75,8 @@ pub enum OutputState
 #[derive(Clone)]
 pub struct RawOutputSwitch
 {
-    output_id: u32,     // SUD!
-    target_state: OutputState   // physical!
+    pub output_id: u32,     // SUD!
+    pub target_state: OutputState   // physical!
 }
 
 #[derive(Clone)]
