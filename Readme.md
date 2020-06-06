@@ -180,6 +180,7 @@ B: Identifies the instancenumber of the module (if a module is started multiple 
 * 0x08: DCM/Trivial
 * 0x09: Plattform/Win32Io
 * 0x0A: Plattform/ReferenceIo
+* 0x0B: ARM/MFRC522
 
 ## Component ID
 A component ID is a 32 bit int, that consists of the ID of the module owning the component and 16 bits containing,
@@ -399,6 +400,15 @@ The I/O Module provides a generic interface to all I/O modules of the concrete h
 ### Configuration Behavior
 The configuration is immediately relayed to the concrete I/O implementations. Depending on these
 modules a restart might be required
+
+## MFRC522 RFID Reader Module
+This module contains a driver for the NXP "MFRC522 Standard performance MIFARE and NTAG frontend" connected via SPI
+
+### Functionality
+The module will provide a single access point and read the UIDs off of ISO 14443A transponders such as MIFARE media. 
+
+### Configuration
+At this point no functionality beyond reading UIDs is implemented. As such the module does not need any configuration options.
 
 # The Reference Device
 As stated before the reference device is a Raspberry Pi with a PiFace extension board an a generic RFID reader.

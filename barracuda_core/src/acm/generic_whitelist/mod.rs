@@ -146,7 +146,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
             },
             Err(reason) =>
             {
-                self.tracer.trace(format!("Access Denied, Reason: {}", reason));
+                self.tracer.trace(format!("Access Denied for AP {}, Reason: {}",ap_id, reason));
                 self.send_signal_command(ap_id as u32, SigType::AccessDenied, 1000);                   
                 return false;             
             }
