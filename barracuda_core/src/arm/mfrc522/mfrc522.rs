@@ -127,6 +127,15 @@ pub struct mfrc522<T, Irq>
 impl<T, Irq> mfrc522<T, Irq>
 where T: SpiInterface, Irq: Interrupt 
 {
+    pub fn new(spi: T, irq: Irq) -> Self
+    {
+        Self 
+        {
+            spi_interface: spi,
+            tx_rdy_irq: irq
+        }
+    }
+
     pub fn open(&self)
     {
         // ToDo: Should we configure the SPI device here, or
