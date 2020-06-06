@@ -25,5 +25,3 @@
 */
 
 mod mfrc522;
-mod spi;
-mod interrupt;

@@ -1,7 +1,8 @@
-use super::spi::SpiInterface;
-use super::interrupt::Interrupt;
+use crate::lowlevel::{interrupt::Interrupt, spi::SpiInterface};
 
-enum ChipCommand
+#[allow(dead_code)]
+#[derive(Debug,PartialEq, Clone, Copy)]
+pub enum ChipCommand
 {
     IDLE             = 0x00,
     MEM              = 0x01,
@@ -10,15 +11,16 @@ enum ChipCommand
     NoCmdChange      = 0x07,
     CALCCRC          = 0x03,    
     RECEIVE          = 0x08,    
-    TRANSCEIVE       = 0x0C,
+    TRANSCEIVE       = 0x0C,        // Send OTA data to txp
     AUTHENT          = 0x0E,
     RESETPHASE       = 0x0F,
     
 }
 
-enum PicCommand
+#[allow(dead_code)]
+pub enum PicCommand
 {
-    PICC_REQIDL = 0x26,
+    PICC_REQIDL = 0x26,     // AKA REQA
     PICC_REQALL = 0x52,
     PICC_ANTICOLL = 0x93,
     //PICC_SElECTTAG = PICC_ANTICOLL,
@@ -33,6 +35,7 @@ enum PicCommand
     PICC_HALT = 0x50 
 }
 
+#[allow(dead_code)]
 enum ChipRegisters
 {
     Reserved00 = 0x00,
@@ -104,16 +107,26 @@ enum ChipRegisters
     Reserved34 = 0x3F,
 }
 
+#[allow(dead_code)]
+#[derive(Debug)]
+pub enum TxpError
+{
+    NoTxp,
+    GeneralError,
+    Timeout,
+    ChipError(u8)
+}
+
 pub struct mfrc522<T, Irq>
-    where T: SpiInterface, Irq: super::interrupt::Interrupt
+    where T: SpiInterface, Irq: Interrupt
 {
     spi_interface: T,
     tx_rdy_irq: Irq
 }
 
-impl<T: SpiInterface, Irq: Interrupt> mfrc522<T, Irq>
+impl<T, Irq> mfrc522<T, Irq>
+where T: SpiInterface, Irq: Interrupt 
 {
-
     pub fn open(&self)
     {
         // ToDo: Should we configure the SPI device here, or
@@ -190,13 +203,28 @@ impl<T: SpiInterface, Irq: Interrupt> mfrc522<T, Irq>
         }
     }
 
-    fn send_txp_command(&self, command: ChipCommand, data: &[u8])
+    fn send_chip_command(&self, command: ChipCommand, data: &[u8]) -> Result<Vec<u8>, TxpError>
     {
 
         // Step 1: Setup IRQs to wait for
-        // self.Write_MFRC522(self.CommIEnReg, irqEn | 0x80)
-        // self.ClearBitMask(self.CommIrqReg, 0x80)
-        // self.SetBitMask(self.FIFOLevelReg, 0x80)
+        let mut irq_en: u8 = 0x00;
+        let mut irq_id: u8 = 0x00;
+
+        if command == ChipCommand::AUTHENT
+        {
+            irq_en = 0x12;
+            irq_id = 0x10;
+        }
+
+        if command == ChipCommand::TRANSCEIVE
+        {
+            irq_en = 0x77;
+            irq_id = 0x30;
+        }
+
+        self.write_mfrc522(ChipRegisters::CommIEnReg as u8, &[irq_en | 0x80]);
+        self.clear_bit(ChipRegisters::CommIrqReg as u8, 0x80);
+        self.clear_bit(ChipRegisters::FIFOLevelReg as u8, 0x80);
 
         self.do_command(ChipCommand::IDLE);
         for d in data
@@ -208,6 +236,11 @@ impl<T: SpiInterface, Irq: Interrupt> mfrc522<T, Irq>
 
         self.do_command(command);
 
+        if command == ChipCommand::TRANSCEIVE
+        {
+            self.set_bit(ChipRegisters::BitFramingReg as u8, 0x80)
+        }
+
         // Stupid: let's use an IRQ instead...
         // i = 2000
         // while True:
@@ -218,12 +251,68 @@ impl<T: SpiInterface, Irq: Interrupt> mfrc522<T, Irq>
         if !self.tx_rdy_irq.wait_timeout(2000)
         {
             // Timeout!
-            return;
+            return Err(TxpError::Timeout)
+        }
+
+        let irq_no = self.read_register(ChipRegisters::CommIrqReg);
+        if irq_no != irq_id
+        {
+            // wrong IRQ triggered, abort.
+            return Err(TxpError::GeneralError);
         }
 
         self.clear_bit(ChipRegisters::BitFramingReg as u8, 0x80);
 
-        // Read error register
+        // If we're here, we saw the correct IRQ and can now check,
+        // if the command we triggered was successful by reading the
+        // error register:
+        let error = self.read_register(ChipRegisters::ErrorReg);
+        if (error & 0x1B) == 0x00
+        {
+            return Err(TxpError::ChipError(error & 0x1B))
+        }
 
+        // Check the number of bytes we received
+        let num_bytes_received = self.read_register(ChipRegisters::FIFOLevelReg);
+        let last_bits = self.read_register(ChipRegisters::ControlReg) & 0x07;
+
+        let back_len: u8;
+        if last_bits != 0
+        {
+            back_len = (num_bytes_received - 1) * 8 + last_bits
+        }
+        else
+        {
+            back_len = num_bytes_received * 8;
+        }
+        
+        let mut ret_val = Vec::<u8>::new();
+        for _ in 0..back_len
+        {
+            ret_val.push(self.read_register(ChipRegisters::FIFODataReg));
+        }
+        return Ok(ret_val);
+    }
+
+    pub fn txp_request(&self, cmd: PicCommand) -> Result<Vec<u8>, TxpError>
+    {
+        self.write_mfrc522(ChipRegisters::BitFramingReg as u8, &[0x07 as u8]);
+        self.send_chip_command(ChipCommand::TRANSCEIVE, &[cmd as u8])
+    }
+
+    pub fn txp_anticoll(&self)-> Result<Vec<u8>, TxpError>
+    {
+        self.write_mfrc522(ChipRegisters::BitFramingReg as u8, &[0x00 as u8]);
+        let res = self.send_chip_command(ChipCommand::TRANSCEIVE, &[PicCommand::PICC_ANTICOLL as u8, 0x20])?;
+
+        // we could do a CRC check here... but we omit that.
+        return Ok(res);
+    }
+
+    pub fn search_txp(&self) -> Result<Vec<u8>, TxpError>
+    {
+        self.txp_request(PicCommand::PICC_REQIDL)?;
+        let uid = self.txp_anticoll()?;
+        Ok(uid)
     }
 }

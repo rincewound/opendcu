@@ -179,6 +179,7 @@ B: Identifies the instancenumber of the module (if a module is started multiple 
 * 0x07: IO
 * 0x08: DCM/Trivial
 * 0x09: Plattform/Win32Io
+* 0x0A: Plattform/ReferenceIo
 
 ## Component ID
 A component ID is a 32 bit int, that consists of the ID of the module owning the component and 16 bits containing,
@@ -245,8 +246,6 @@ graph TD
 
 ```
 
-:zap: At this point profiles are not implemented yet. The module will grant access to any known identification token.
-
 :zap: Signaling is controlled by a dedicated module that is not implemented yet. 
 
 #### Access Profiles
@@ -268,7 +267,7 @@ Given the APs A and B we could devise an access profile, that allows access to t
 Note that we're using the concept of "industry minutes" to store the time, where 900 equals 9:00 AM and 1700 equals 5:00 PM. Industry minutes are used for the sake of readability.
 
 ##### Additional checks
-Most commercial firmwares will allow additional kinds of checks for entry (e.g. requiring the user to enter a PIN, biometry or similar). The module omits these features to keep it simple
+Most commercial firmwares will allow additional kinds of checks for entry (e.g. requiring the user to enter a PIN, biometry or similar). The module omits these features to keep it simple.
 
 ##### Public Holidays/Special Days
 The module does not support the concept of special days.
@@ -371,18 +370,6 @@ Where:
     "To": u16,    
 }
 ```
-
-:warning: Deprecated:
-So, a timeslot giving 10 AM to 9 PM access on Sundays and Mondays would be:
-```
-{
-    "DayFlags": 65,
-    "From": 1000,
-    "To": 2100,    
-}
-```
-:warning: At this point JSON does not support hex notation, so the dayflags field has to be passed in decimal!
-
 
 #### Additional parameters
 At this point no additional parameters are supported.
