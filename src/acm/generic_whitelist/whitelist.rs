@@ -83,10 +83,9 @@ impl WhitelistEntryProvider for JsonEntryProvider
         if let Ok(file) = reader
         {
             return JsonEntryProvider
-                    {
-                    entries : serde_json::from_reader(file).unwrap_or_else(|_| Vec::new())
-                    }
-
+            {
+                entries : serde_json::from_reader(file).unwrap_or_else(|_| Vec::new())
+            }
         }
         else
         {

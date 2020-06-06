@@ -116,6 +116,8 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
 
     fn process_access_request(&self, req: WhitelistAccessRequest)
     {
+        let rq = req.clone();
+        self.tracer.trace(rq.to_string());
         // Pull Whitelist Entry
         let entry = self.whitelist.lock()
                                                           .get_entry(req.identity_token_number);
@@ -123,7 +125,6 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static> Gene
         // Found? If so, check access profile, otherwise emit AccessDenied Sig
         if let Some(entry) = entry 
         {
-            
             // Good? If so, emit DoorOpenRequest, otherwise emit AccessDenied Sig 
             self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.identification_token_id));
             let openreq = crate::dcm::DoorOpenRequest {access_point_id: req.access_point_id};

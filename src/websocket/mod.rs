@@ -20,32 +20,15 @@ pub fn launch(chm: &mut ChannelManager)
     });
 }
 
-macro_rules! socket_sender {
-    ($evt: ident, $id: expr, $head: expr) => (
-        {
-            $head.set_data_trigger($evt.clone(), $id);
-            ($evt.wait())
-        }
-    );
-    ($evt: ident, $id: expr, $head: expr, $($tail: expr),+) =>(
-        {
-
-            $head.set_data_trigger($evt.clone(), $id);
-            (wait_for!($evt,$id+1, $($tail),+))
-        }
-    )
-}
 
 fn send_io(sender: Sender,
            io_rx: Arc<GenericReceiver<crate::io::RawOutputSwitch>>,
            wl_rx: Arc<GenericReceiver<crate::acm::WhitelistAccessRequest>>)
 {
-    let evt = Arc::new(DataEvent::<u32>::new("<unnamed>".to_string()));
     loop
     {
-        io_rx.set_data_trigger(evt.clone(), 0);
-        wl_rx.set_data_trigger(evt.clone(), 1);
-        match evt.wait()
+        let queue = select_chan!(io_rx, wl_rx);
+        match queue
         {
             0 => {
                 let res = io_rx.receive();
