@@ -78,11 +78,11 @@ impl ConfigRest
     {
         let the_sender = self.cfg_publish_tx.clone();
         let the_cfg = self.cfg.clone();
-        let cbs = [None, Some(move|| {
+        let hlicb = Some(move|| {
             the_sender.send(super::ConfigMessage::RegisterHandlers(the_cfg))
-        })];
+        });
 
-        boot(MODULE_ID, cbs, 
+        boot(MODULE_ID, Some(boot_noop), hlicb, 
             self.system_events_tx.clone(), 
             self.system_events_rx.clone(), 
             &self.tracer);

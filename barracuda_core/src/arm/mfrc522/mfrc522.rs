@@ -136,14 +136,6 @@ where T: SpiInterface, Irq: Interrupt
         }
     }
 
-    pub fn open(&self)
-    {
-        // ToDo: Should we configure the SPI device here, or
-        // do we expect to get it readily configured for the
-        // target?
-        //self.spi_interface
-    }
-
     fn write_mfrc522(&self, address: u8, data: &[u8])
     {
         let mut data_bytes = vec![(address << 1) & 0x7E];
@@ -196,7 +188,7 @@ where T: SpiInterface, Irq: Interrupt
         self.write_byte(address, current_value & (!mask));
     }
 
-    fn toggle_antenna(&self, enable_antenna: bool)
+    pub fn toggle_antenna(&self, enable_antenna: bool)
     {
         let tx_ctrl = self.read_register(ChipRegisters::TxControlReg);
         if enable_antenna

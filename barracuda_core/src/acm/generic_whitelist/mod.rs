@@ -71,7 +71,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
     pub fn init(&mut self)
     {    
         let the_receiver = self.cfg_rx.clone();  
-        let cbs= [None, Some(|| {
+        let hli_cb= Some(|| {
             /*
                 This is executed during HLI
             */
@@ -106,9 +106,9 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
                     
                 }))
             
-        })];
+        });
 
-        boot(MODULE_ID, cbs, 
+        boot(MODULE_ID, Some(boot_noop), hli_cb, 
             self.system_events_tx.clone(), 
             self.system_events_rx.clone(), 
             &self.tracer);

@@ -25,7 +25,7 @@
 */
 
 use crate::{core::
-            {bootstage_helper::boot, 
+            {bootstage_helper::{boot_noop, boot}, 
              channel_manager::ChannelManager, 
              broadcast_channel::{GenericSender, GenericReceiver}, SystemMessage}, 
              lowlevel::{spi::SpiInterface, interrupt::Interrupt}, 
@@ -42,15 +42,12 @@ pub fn launch<Spi, Irq>(chm: &mut ChannelManager, spi_driver: Spi, tx_ready_irq:
     where Spi: SpiInterface+Send + 'static, Irq: Interrupt+Send+ 'static
 {    
     let tracer = trace_helper::TraceHelper::new("ARM/MFRC522".to_string(), chm);
-    let rm = ReaderModule::new(tracer, chm, spi_driver, tx_ready_irq);
+    let mut rm = ReaderModule::new(tracer, chm, spi_driver, tx_ready_irq);
     thread::spawn(move || {  
         rm.init();   
         loop 
         {
-            // if !wl.do_request()
-            // {
-            //     break;
-            // }
+            rm.search_media();
         }   
         
     });
@@ -87,15 +84,15 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
     pub fn init(&self)
     {
         let modcaps_tx_clone =self.modcaps_tx.clone();
-        let cbs= [Some(move|| {
+        let hlicb= Some(move|| {
             let m = ModuleCapabilityAdvertisement {
                 caps: vec![ModuleCapability::AccessPoints(1)],
                 module_id: MODULE_ID
             };
             modcaps_tx_clone.send(m);            
-        }), None];
+        });
 
-        boot(MODULE_ID, cbs, 
+        boot(MODULE_ID, Some(boot_noop), hlicb, 
             self.system_events_tx.clone(), 
             self.system_events_rx.clone(), 
             &self.tracer);
@@ -114,15 +111,17 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
                         return true;
                     }
                 }
-            }
-            _ => {}
+            },
+            None => return true
         }
         return false;
     }
 
-    pub fn run(&mut self)
+    pub fn search_media(&mut self)
     {
+        self.rfchip.toggle_antenna(true);
         let txp = self.rfchip.search_txp();
+        self.rfchip.toggle_antenna(false);
         if let Ok(uid) = txp
         {
             // found a txp, check if we have seen this one before:
@@ -130,7 +129,8 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
             {
                 return;
             }
-            
+            self.tracer.trace_str("Found new transponder.");
+
             let req = WhitelistAccessRequest
             {
                 access_point_id: MODULE_ID & 0x01,

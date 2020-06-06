@@ -2,7 +2,6 @@ use barracuda_core::lowlevel::spi::{SpiInterface};
 use barracuda_core::lowlevel::interrupt::Interrupt;
 
 use barracuda_core::core::event::Event;
-use barracuda_core::core::shareable::Shareable;
 
 use rppal::spi::*;
 use rppal::gpio::*;
@@ -19,8 +18,8 @@ impl RfidSpi
 {
     pub fn new() -> Self
     {
-        // ToDo: Check correct spi settings for MFRC522 on RasPi/Reference
-        let spi_interface = rppal::spi::Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1000000, rppal::spi::Mode::Mode0).unwrap();
+        // ToDo: Check correct spi settings for MFRC522 on RasPi/Reference, most notably spi mode!
+        let spi_interface = Spi::new(Bus::Spi0, SlaveSelect::Ss0, 1000000, rppal::spi::Mode::Mode0).unwrap();
 
         Self
         {
