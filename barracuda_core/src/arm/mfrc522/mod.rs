@@ -32,7 +32,7 @@ use crate::{core::
              trace::trace_helper, 
              modcaps::{ModuleCapability, ModuleCapabilityAdvertisement}, acm::WhitelistAccessRequest
             };
-use std::{thread, sync::Arc};
+use std::{thread, sync::Arc, time};
 
 mod mfrc522;
 
@@ -120,8 +120,11 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
     pub fn search_media(&mut self)
     {
         self.rfchip.toggle_antenna(true);
+        thread::sleep(time::Duration::from_millis(5));
         let txp = self.rfchip.search_txp();
+
         self.rfchip.toggle_antenna(false);
+
         if let Ok(uid) = txp
         {
             // found a txp, check if we have seen this one before:
@@ -140,5 +143,8 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
             self.access_request_tx.send(req);
             self.last_txp = Some(uid);
         }
+
+        let ten_millis = time::Duration::from_millis(250);
+        thread::sleep(ten_millis);
     }
 }
