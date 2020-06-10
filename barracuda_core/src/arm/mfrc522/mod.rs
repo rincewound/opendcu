@@ -5,7 +5,16 @@
 *
 *   The code in this module is loosely based on 
 *   "Pi My Life Up's guide on setting up an RFID RC522"
-*   implementation
+*   implementation.
+*
+*   The MRFC522 is little more a PHY for ISO 14443x communication,
+*   as it does only the physical bits. The whole protocol needs
+*   to be implemented in application logic. This new and improved
+*   implementation attempts a clean protocol implementation
+*   in contrast to most implementations that are circulating around
+*   for the common breakout boards, most of which seem to have the
+*   same origin, as they all have similar design flaws.
+*
 *
 *   ## Usage
 *   
@@ -119,7 +128,7 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
 
     pub fn search_media(&mut self)
     {
-        self.rfchip.toggle_antenna(true);
+        self.rfchip.toggle_antenna(true);        
         let txp = self.rfchip.search_txp();
         self.rfchip.toggle_antenna(false);
         if let Ok(uid) = txp

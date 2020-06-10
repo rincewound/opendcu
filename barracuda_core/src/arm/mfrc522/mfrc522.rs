@@ -1,4 +1,53 @@
+
+/*
+    # The MFRC522 ISO 14443A Interface
+  
+    ## Searching a transponder
+
+    The ISO/IEC 14443 specifies that cards following the 
+    ISO/IEC 14443A shall not interfere cards following 
+    the ISO/IEC 14443B, and vice versa. In any case, 
+    the card activation procedure starts with a 
+    Request command (REQA or REQB), which is used only 
+    to check whether there is at least one card in the 
+    reader field. The REQA or REQB has to be sent after 
+    the carrier is switched on, waiting 5 ms at minimum 
+    before starting the transmission.
+
+    For NFC devices, there has to be another block between 
+    “Card Polling” and “Switch on RF”, because NFC devices 
+    need to check whether there is already a field available 
+    or not. If an external field is detected, the reader 
+    is not allowed to switch on its own RF field.
+
+    Command Order for searching a transponder (14443a only!)
+
+    * Enable RF
+        * Delay >= 5ms
+        * Send REQA/REQIDL (0x23)
+        * If not ATQA received: Terminate
+            [* Activate Card]
+            [* Perform transaction]
+            [* Halt/Deselect]
+    * RF Off
+
+
+    ### Activating a card
+    Card activation will yield the UID of a given medium,
+    procedure:
+    * Do Anticollision
+    * Check SAK Bit 6 == 1, if not: Terminate
+    * RATS + PSS if required
+    * Card is now selected
+
+
+    ### Anticollision Loop
+
+
+*/
+
 use crate::lowlevel::{interrupt::Interrupt, spi::SpiInterface};
+use std::{time, thread};
 
 #[allow(dead_code)]
 #[derive(Debug,PartialEq, Clone, Copy)]
@@ -17,22 +66,95 @@ pub enum ChipCommand
     
 }
 
-#[allow(dead_code)]
-pub enum PicCommand
+pub enum IrqSources
 {
-    PICC_REQIDL = 0x26,     // AKA REQA
-    PICC_REQALL = 0x52,
-    PICC_ANTICOLL = 0x93,
-    //PICC_SElECTTAG = PICC_ANTICOLL,
-    PICC_AUTHENT1A = 0x60,
-    PICC_AUTHENT1B = 0x61,
-    PICC_READ = 0x30,
-    PICC_WRITE = 0xA0,
-    PICC_DECREMENT = 0xC0,
-    PICC_INCREMENT = 0xC1,
-    PICC_RESTORE = 0xC2,
-    PICC_TRANSFER = 0xB0,
-    PICC_HALT = 0x50 
+    // Triggered when the internal timer overflows
+    TimerIEn    = 0x01,
+
+    // An error occured -> see error register
+    ErrIEn      = 0x02,
+
+    LoAlertIEn  = 0x04,
+    HiAlertIEn  = 0x08,
+    // Triggered when a command terminates
+    IdleIEn     = 0x10,
+    // End of receive
+    RxIEn       = 0x20,
+    // End of Transmit
+    TxIEn       = 0x40,
+
+    IRqInv      = 0x80
+}
+
+// Missing DivIrqReg 
+
+pub enum ErrorRegBits
+{    
+    ProtocolError   = 0x01,
+    ParityError     = 0x02,
+    CRCError        = 0x04, // RxModeReg RxCRCEn bit is set and the CRC calculation fails
+                            // automatically cleared to logic 0 during receiver start-up phase
+    CollisionError  = 0x08, // Generated during anticoll
+    BufferOverflow  = 0x10, // Generated on FIFO Reg overflow
+    RFU             = 0x20,
+    Temperature     = 0x30, // Chip is overheating. Antenna was turned off
+    WriteErr        = 0x40, // data is written into the FIFO buffer by the 
+                            // host during the MFAuthent command or if data 
+                            // is written into the FIFO buffer by the host 
+                            // during the time between sending the last bit 
+                            // on the RF interface and receiving the last bit 
+                            // on the RF interface
+}
+
+enum StatusRegister1Bits
+{
+    RFU2            = 0x80,
+    CrcOk           = 0x40, // Crc Result is zero
+    CrcReady        = 0x20, // CRC Calculation has finished.
+    IrqActive       = 0x10, // Set that some kind of IRQ was triggered, check ComIEnReg
+    TimerRunning    = 0x08, // Set if the timerunit is currently running
+    RFU1            = 0x04,
+    HiAlert         = 0x02,
+    LoAlert         = 0x01
+}
+
+pub enum StatusRegister2Bits
+{
+    TempSensClear   = 0x80,
+    I2CForcesHS     = 0x40,
+    RFU             = 0x30, // Bits 4 and 5
+    MFCrypto1On     = 0x08,
+    ModemState      = 0x07  // bits 0 to 2
+}
+
+pub enum ModemStates
+{
+    Receiving       = 0x06,
+    WaitForData     = 0x05,
+    RxWait          = 0x04,
+    Transmitting    = 0x03,
+    TxWait          = 0x02,
+    WaitStartSend   = 0x01,
+    Idle            = 0x00
+}
+
+#[allow(dead_code)]
+pub enum Iso1443aCommand
+{
+    REQA                = 0x26,     // AKA REQIDL
+    REQALL              = 0x52,
+    ANTICOLL_CASC1      = 0x93,     // is also select_tag in original.
+    ANTICOLL_CASC2      = 0x95,
+    ANTICOLL_CASC3      = 0x97,
+    AUTHENT1A           = 0x60,
+    AUTHENT1B           = 0x61,
+    READ                = 0x30,
+    WRITE               = 0xA0,
+    DECREMENT           = 0xC0,
+    INCREMENT           = 0xC1,
+    RESTORE             = 0xC2,
+    TRANSFER            = 0xB0,
+    HALT                = 0x50 
 }
 
 #[allow(dead_code)]
@@ -196,12 +318,20 @@ where T: SpiInterface, Irq: Interrupt
             if (tx_ctrl & 0x03) != 0x03
             {
                 self.set_bit(ChipRegisters::TxControlReg as u8, 0x03);
+                // as per spec we need to wait at least 5 ms after enabling RF,
+                // before Txps will respond to commands.
+                thread::sleep(time::Duration::from_millis(5));
             }
         }
         else
         {
             self.clear_bit(ChipRegisters::TxControlReg as u8, 0x03);
         }
+    }
+
+    fn enable_interrupt(&self, irqmask: u8)
+    {
+        self.set_bit(ChipRegisters::CommIEnReg as u8, irqmask | 0x80);
     }
 
     fn send_chip_command(&self, command: ChipCommand, data: &[u8]) -> Result<Vec<u8>, TxpError>
@@ -295,7 +425,7 @@ where T: SpiInterface, Irq: Interrupt
         return Ok(ret_val);
     }
 
-    pub fn txp_request(&self, cmd: PicCommand) -> Result<Vec<u8>, TxpError>
+    pub fn txp_request(&self, cmd: Iso1443aCommand) -> Result<Vec<u8>, TxpError>
     {
         self.write_mfrc522(ChipRegisters::BitFramingReg as u8, &[0x07 as u8]);
         self.send_chip_command(ChipCommand::TRANSCEIVE, &[cmd as u8])
@@ -304,7 +434,9 @@ where T: SpiInterface, Irq: Interrupt
     pub fn txp_anticoll(&self)-> Result<Vec<u8>, TxpError>
     {
         self.write_mfrc522(ChipRegisters::BitFramingReg as u8, &[0x00 as u8]);
-        let res = self.send_chip_command(ChipCommand::TRANSCEIVE, &[PicCommand::PICC_ANTICOLL as u8, 0x20])?;
+        let res = self.send_chip_command(ChipCommand::TRANSCEIVE, &[Iso1443aCommand::ANTICOLL_CASC1 as u8, 0x20])?;
+
+        // The anti collision loop should go here. 
 
         // we could do a CRC check here... but we omit that.
         return Ok(res);
@@ -312,7 +444,16 @@ where T: SpiInterface, Irq: Interrupt
 
     pub fn search_txp(&self) -> Result<Vec<u8>, TxpError>
     {
-        self.txp_request(PicCommand::PICC_REQIDL)?;
+        let atqa = self.txp_request(Iso1443aCommand::REQA)?;
+        // We should have received
+        // an ATQA response containing at least the UID size of a txp, if
+        // present.
+        if atqa.len() != 2
+        {
+            return  Err(TxpError::GeneralError);
+        }
+
+
         let uid = self.txp_anticoll()?;
         Ok(uid)
     }

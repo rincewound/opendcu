@@ -30,37 +30,11 @@ impl RfidSpi
 
 impl SpiInterface for RfidSpi
 {
-
-    /*
-       /// Sends and receives data at the same time.
-    ///
-    /// SPI is a full-duplex protocol that shifts out bits to the slave device
-    /// on the MOSI line while simultaneously shifting in bits it receives on
-    /// the MISO line. `transfer` stores the incoming data in `read_buffer`,
-    /// and sends the outgoing data contained in `write_buffer`.
-    ///
-    /// Because data is sent and received simultaneously, `transfer` will only
-    /// transfer as many bytes as the shortest of the two buffers contains.
-    ///
-    /// Slave Select is set to active at the start of the transfer, and inactive
-    /// when the transfer completes.
-    ///
-    /// Returns how many bytes were transferred.
-    pub fn transfer(&self, read_buffer: &mut [u8], write_buffer: &[u8]) -> Result<usize> {
-        let segment = Segment::new(read_buffer, write_buffer);
-
-        ioctl::transfer(self.spidev.as_raw_fd(), &[segment])?;
-
-        Ok(segment.len())
-    }
-    */
-
     fn send_receive(&self, data: &[u8]) -> Vec<u8> {
         let mut receive_buf = Vec::from(data);
         let _ = self.spi.transfer(&mut receive_buf.as_mut_slice(), data);
         return receive_buf;
-    }
-    
+    }    
 }
 
 pub struct RfidIrq
@@ -74,9 +48,10 @@ impl RfidIrq
     pub fn new() -> Self
     {
         let gpio = Gpio::new().unwrap();
-        let mut pin = gpio.get(23).unwrap().into_input();       // ToDo: Check appropiate pin!
+        let mut pin = gpio.get(23).unwrap().into_input_pulldown();       // ToDo: Check appropiate pin!
         let event = Arc::new(Event::new());
         let evt_clone = event.clone();
+        
         let _ = pin.set_async_interrupt(Trigger::RisingEdge, move |_arg| evt_clone.trigger());
 
         RfidIrq
