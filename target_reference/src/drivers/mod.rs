@@ -48,11 +48,13 @@ impl RfidIrq
     pub fn new() -> Self
     {
         let gpio = Gpio::new().unwrap();
-        let mut pin = gpio.get(23).unwrap().into_input_pulldown();       // ToDo: Check appropiate pin!
+        let mut pin = gpio.get(5).unwrap().into_input();       // ToDo: Check appropiate pin!
         let event = Arc::new(Event::new());
         let evt_clone = event.clone();
-        
-        let _ = pin.set_async_interrupt(Trigger::RisingEdge, move |_arg| evt_clone.trigger());
+        let _ = pin.set_async_interrupt(Trigger::FallingEdge, move |_arg| {
+            println!("TXRdy IRQ seen");
+            evt_clone.trigger()
+        });
 
         RfidIrq
         {

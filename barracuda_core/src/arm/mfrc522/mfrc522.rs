@@ -251,11 +251,22 @@ where T: SpiInterface, Irq: Interrupt
 {
     pub fn new(spi: T, irq: Irq) -> Self
     {
-        Self 
+        let result = Self 
         {
             spi_interface: spi,
             tx_rdy_irq: irq
-        }
+        };
+
+        result.write_register(ChipRegisters::TModeReg, 0x8D);
+        result.write_register(ChipRegisters::TPrescalerReg, 0x3E);
+        result.write_register(ChipRegisters::TxAutoReg, 0x40);
+        result.write_register(ChipRegisters::TReloadRegL, 30);
+        result.write_register(ChipRegisters::TReloadRegH, 0);
+        result.write_register(ChipRegisters::ModeReg, 0x3D);
+
+        println!("MFRC Firmwareversion Version: {}", result.read_register(ChipRegisters::VersionReg));
+
+        result
     }
 
     fn write_mfrc522(&self, address: u8, data: &[u8])
@@ -291,6 +302,11 @@ where T: SpiInterface, Irq: Interrupt
     fn read_register(&self, register: ChipRegisters) -> u8
     {
         return self.read_mrfrc522(register as u8);
+    }
+
+    fn write_register(&self, register: ChipRegisters, value: u8)
+    {
+        return self.write_byte(register as u8, value);
     }
 
     pub fn Reset(&self)
@@ -373,22 +389,39 @@ where T: SpiInterface, Irq: Interrupt
         }
 
         // Stupid: let's use an IRQ instead...
-        // i = 2000
-        // while True:
-        //     n = self.Read_MFRC522(self.CommIrqReg)
-        //     i -= 1
-        //     if ~((i != 0) and ~(n & 0x01) and ~(n & waitIRq)):
-        //         break
-        if !self.tx_rdy_irq.wait_timeout(2000)
+        let mut i = 2000;
+        while true
         {
-            // Timeout!
-            return Err(TxpError::Timeout)
+            let n = self.read_register(ChipRegisters::CommIrqReg);
+            i -= 1;
+            if (i == 0) || (n != 0)
+            {
+                if n != 0
+                {
+                    println!("IRQ seen : {}", n);
+                }
+                break;
+            }
         }
+
+        // if !self.tx_rdy_irq.wait_timeout(75)
+        // {
+        //     // Timeout!
+        //     println!("--> Timeout!");
+        //     return Err(TxpError::Timeout)
+        // }
+
+        // if i <= 0
+        // {
+        //     println!("--> Timeout!");
+        //     return Err(TxpError::Timeout);         
+        // }
 
         let irq_no = self.read_register(ChipRegisters::CommIrqReg);
         if irq_no != irq_id
         {
             // wrong IRQ triggered, abort.
+            println!("--> GeneralError!");
             return Err(TxpError::GeneralError);
         }
 
