@@ -263,6 +263,8 @@ where T: SpiInterface, Irq: Interrupt
         result.write_register(ChipRegisters::TReloadRegL, 30);
         result.write_register(ChipRegisters::TReloadRegH, 0);
         result.write_register(ChipRegisters::ModeReg, 0x3D);
+        result.clear_bit(ChipRegisters::CommIEnReg as u8, IrqSources::HiAlertIEn as u8);
+        result.clear_bit(ChipRegisters::CommIEnReg as u8, IrqSources::LoAlertIEn as u8);
 
         println!("MFRC Firmwareversion Version: {}", result.read_register(ChipRegisters::VersionReg));
 
