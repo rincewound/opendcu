@@ -130,7 +130,6 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
     {
         self.rfchip.toggle_antenna(true);        
         let txp = self.rfchip.search_txp();
-
         self.rfchip.toggle_antenna(false);
 
         if let Ok(uid) = txp
@@ -152,7 +151,7 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
             self.last_txp = Some(uid);
         }
 
-        let ten_millis = time::Duration::from_millis(250);
+        let ten_millis = time::Duration::from_millis(500);
         thread::sleep(ten_millis);
     }
 }

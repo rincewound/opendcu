@@ -119,7 +119,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
     {
         self.tracer.trace_str("Start serving requests.");
         let req = self.access_request_rx.receive();
-        self.tracer.trace_str("Received request.");
+        self.tracer.trace(format!("Received request with token {:?}", req.identity_token_number));
         // ToDo: This should be done from a threadpool.
         self.process_access_request(req);
         true

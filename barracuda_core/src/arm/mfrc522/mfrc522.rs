@@ -48,6 +48,7 @@
 
 use crate::lowlevel::{interrupt::Interrupt, spi::SpiInterface};
 use std::{time, thread};
+use std::iter::FromIterator;
 
 #[allow(dead_code)]
 #[derive(Debug,PartialEq, Clone, Copy)]
@@ -236,6 +237,8 @@ pub enum TxpError
     NoTxp,
     GeneralError,
     Timeout,
+    CommunicationLost,
+    UnsupportedTagType,
     ChipError(u8)
 }
 
@@ -391,17 +394,18 @@ where T: SpiInterface, Irq: Interrupt
         }
 
         // Stupid: let's use an IRQ instead...
-        let mut i = 2000;
+        let mut i = 3500;
         while true
         {
             let n = self.read_register(ChipRegisters::CommIrqReg);
             i -= 1;
-            if (i == 0) || (n != 0)
+            if (n & irq_id) != 0
             {
-                if n != 0
-                {
-                    println!("IRQ seen : {}", n);
-                }
+                //println!("IRQ seen : {}", n);
+                break;
+            }
+            if i <= 0
+            {
                 break;
             }
         }
@@ -413,27 +417,26 @@ where T: SpiInterface, Irq: Interrupt
         //     return Err(TxpError::Timeout)
         // }
 
-        // if i <= 0
-        // {
-        //     println!("--> Timeout!");
-        //     return Err(TxpError::Timeout);         
-        // }
-
-        let irq_no = self.read_register(ChipRegisters::CommIrqReg);
-        if irq_no != irq_id
+        if i <= 0
         {
-            // wrong IRQ triggered, abort.
-            println!("--> GeneralError!");
-            return Err(TxpError::GeneralError);
+            return Err(TxpError::Timeout);         
         }
+
+        // let irq_no = self.read_register(ChipRegisters::CommIrqReg);
+        // if irq_no != irq_id
+        // {
+        //     // wrong IRQ triggered, abort.
+        //     println!("--> GeneralError!");
+        //     return Err(TxpError::GeneralError);
+        // }
 
         self.clear_bit(ChipRegisters::BitFramingReg as u8, 0x80);
 
         // If we're here, we saw the correct IRQ and can now check,
         // if the command we triggered was successful by reading the
         // error register:
-        let error = self.read_register(ChipRegisters::ErrorReg);
-        if (error & 0x1B) == 0x00
+        let error = self.read_register(ChipRegisters::ErrorReg);        
+        if (error & 0x1B) != 0x00
         {
             return Err(TxpError::ChipError(error & 0x1B))
         }
@@ -451,9 +454,9 @@ where T: SpiInterface, Irq: Interrupt
         {
             back_len = num_bytes_received * 8;
         }
-        
+       
         let mut ret_val = Vec::<u8>::new();
-        for _ in 0..back_len
+        for _ in 0..num_bytes_received
         {
             ret_val.push(self.read_register(ChipRegisters::FIFODataReg));
         }
@@ -471,10 +474,27 @@ where T: SpiInterface, Irq: Interrupt
         self.write_mfrc522(ChipRegisters::BitFramingReg as u8, &[0x00 as u8]);
         let res = self.send_chip_command(ChipCommand::TRANSCEIVE, &[Iso1443aCommand::ANTICOLL_CASC1 as u8, 0x20])?;
 
-        // The anti collision loop should go here. 
+        // The anti collision loop should go here... but alas:
+        if res.len() != 5
+        {
+            return Err(TxpError::UnsupportedTagType);
+        }
 
-        // we could do a CRC check here... but we omit that.
-        return Ok(res);
+        // The last byte of the data contains an XOR blockcheck.
+        // this needs to be done in case the reception was interrupted
+        // and we only got parts of the UID.
+        let mut bcc: u8 = 0x00;
+        for idx in 0..res.len() - 1
+        {
+            bcc = bcc ^ res[idx]
+        }
+
+        if bcc != res[res.len() - 1]
+        {
+            return Err(TxpError::CommunicationLost);
+        }
+
+        return Ok(Vec::from_iter(res[0..4].iter().cloned()))
     }
 
     pub fn search_txp(&self) -> Result<Vec<u8>, TxpError>
@@ -485,7 +505,7 @@ where T: SpiInterface, Irq: Interrupt
         // present.
         if atqa.len() != 2
         {
-            return  Err(TxpError::GeneralError);
+            return Err(TxpError::GeneralError);
         }
 
 
