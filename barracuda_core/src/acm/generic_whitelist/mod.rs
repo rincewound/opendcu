@@ -157,6 +157,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
     {
         // Pull Whitelist Entry
         let entry = self.whitelist.lock().get_entry(req.identity_token_number);
+        println!("{:?}", entry);
 
         // Found? If so, check access profile, otherwise emit AccessDenied Sig
         if let Some(entry) = entry 

@@ -248,6 +248,10 @@ impl IoManager
         self.tracer.trace_str("Switching output.");
         let command = self.output_commands.receive();
 
+        let raw_cmd = RawOutputSwitch{output_id: 23, target_state: command.target_state.clone()};
+        self.raw_output_commands.send(raw_cmd);   
+        return
+
         if let Some(mut output) = self.output_list.lock().get_mut(command.output_id as usize)
         {
             // step 2: generate actual command:

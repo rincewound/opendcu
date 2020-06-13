@@ -10,7 +10,6 @@ use barracuda_core::{io::{OutputState, RawOutputSwitch},
                            event::DataEvent}};
 
 
-// ugly, we need to import all helpers used inside a macro (e.g DataEvent which is used in select_chan!)
 use barracuda_core::core;
 use barracuda_core::launch;
 use barracuda_core::wait_for;
@@ -20,8 +19,7 @@ use barracuda_core::launch_impl;
 const GPIO: u8 = 23;
 
 
-// test code
-// TODO: clean up
+// TODO: remove test code
 fn gpio()
 { 
     let mut gpio = Gpio::new().unwrap().get(GPIO).unwrap().into_output();
@@ -76,13 +74,6 @@ impl IoModule
         crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);
     }
 
-    fn map_id(&self, id: i32) -> u8
-    {
-        // convert soft-id to hard-id that can be handled via rpi
-
-        23 as u8
-    }
-
     fn set_output(&self, gpio_id: u8, state: OutputState)
     {
         let mut gpio = Gpio::new().unwrap().get(gpio_id).unwrap().into_output();
@@ -107,6 +98,8 @@ impl IoModule
         {
             0 => {
                 let res = self.switch_out_req.receive();
+                // TODO: remove example code
+                self.set_output(GPIO, OutputState::Low);
                 println!("io_request: {}", res.output_id)
                 },
             _ => {}
