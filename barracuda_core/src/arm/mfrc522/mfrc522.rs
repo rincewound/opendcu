@@ -266,8 +266,7 @@ where T: SpiInterface, Irq: Interrupt
         result.write_register(ChipRegisters::TReloadRegL, 30);
         result.write_register(ChipRegisters::TReloadRegH, 0);
         result.write_register(ChipRegisters::ModeReg, 0x3D);
-        //result.write_register(ChipRegisters::DivIrqReg, 0x80);  // Switch IRQ pin to default CMOS
-
+        
         println!("MFRC Firmwareversion Version: {}", result.read_register(ChipRegisters::VersionReg));
 
         result
@@ -365,6 +364,17 @@ where T: SpiInterface, Irq: Interrupt
         self.write_register(ChipRegisters::FIFOLevelReg, 0x80);
     }
 
+    fn handle_error(&self) -> Result<(), TxpError>
+    {
+        let error = self.read_register(ChipRegisters::ErrorReg);        
+        if (error & 0x1B) != 0x00
+        {
+            println!("--> ChipError, {}", error & 0x1B);
+            return Err(TxpError::ChipError(error & 0x1B))
+        }
+        return Ok(());
+    }
+
     fn send_chip_command(&self, command: ChipCommand, data: &[u8]) -> Result<Vec<u8>, TxpError>
     {
 
@@ -410,12 +420,7 @@ where T: SpiInterface, Irq: Interrupt
         // If we're here, we saw the correct IRQ and can now check,
         // if the command we triggered was successful by reading the
         // error register:
-        let error = self.read_register(ChipRegisters::ErrorReg);        
-        if (error & 0x1B) != 0x00
-        {
-            println!("--> ChipError, {}", error & 0x1B);
-            return Err(TxpError::ChipError(error & 0x1B))
-        }
+        let _ = self.handle_error()?;
 
         // let last_bits = self.read_register(ChipRegisters::ControlReg) & 0x07;
         // let back_len: u8;
