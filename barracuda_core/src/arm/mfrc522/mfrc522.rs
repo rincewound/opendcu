@@ -266,9 +266,7 @@ where T: SpiInterface, Irq: Interrupt
         result.write_register(ChipRegisters::TReloadRegL, 30);
         result.write_register(ChipRegisters::TReloadRegH, 0);
         result.write_register(ChipRegisters::ModeReg, 0x3D);
-        result.clear_bit(ChipRegisters::CommIEnReg as u8, IrqSources::HiAlertIEn as u8);
-        result.clear_bit(ChipRegisters::CommIEnReg as u8, IrqSources::LoAlertIEn as u8);
-
+        
         println!("MFRC Firmwareversion Version: {}", result.read_register(ChipRegisters::VersionReg));
 
         result
@@ -355,30 +353,35 @@ where T: SpiInterface, Irq: Interrupt
         self.set_bit(ChipRegisters::CommIEnReg as u8, irqmask | 0x80);
     }
 
+    fn clear_irq_bits(&self)
+    {
+        // 0b0111111 *should* clear all IRQ requests.
+        self.write_register(ChipRegisters::CommIrqReg, 0x7F);
+    }
+
+    fn clear_fifo(&self)
+    {
+        self.write_register(ChipRegisters::FIFOLevelReg, 0x80);
+    }
+
+    fn handle_error(&self) -> Result<(), TxpError>
+    {
+        let error = self.read_register(ChipRegisters::ErrorReg);        
+        if (error & 0x1B) != 0x00
+        {
+            println!("--> ChipError, {}", error & 0x1B);
+            return Err(TxpError::ChipError(error & 0x1B))
+        }
+        return Ok(());
+    }
+
     fn send_chip_command(&self, command: ChipCommand, data: &[u8]) -> Result<Vec<u8>, TxpError>
     {
 
-        // Step 1: Setup IRQs to wait for
-        let mut irq_en: u8 = 0x00;
-        let mut irq_id: u8 = 0x00;
-
-        if command == ChipCommand::AUTHENT
-        {
-            irq_en = 0x12;
-            irq_id = 0x10;
-        }
-
-        if command == ChipCommand::TRANSCEIVE
-        {
-            irq_en = 0x77;
-            irq_id = 0x30;
-        }
-
-        self.write_mfrc522(ChipRegisters::CommIEnReg as u8, &[irq_en | 0x80]);
-        self.clear_bit(ChipRegisters::CommIrqReg as u8, 0x80);
-        self.clear_bit(ChipRegisters::FIFOLevelReg as u8, 0x80);
-
+        self.write_mfrc522(ChipRegisters::CommIEnReg as u8, &[0x80 | IrqSources::RxIEn as u8]);        
+        self.clear_fifo();
         self.do_command(ChipCommand::IDLE);
+
         for d in data
         {
             // ToDo: Check if we can use a single transaction
@@ -386,6 +389,7 @@ where T: SpiInterface, Irq: Interrupt
             self.write_byte(ChipRegisters::FIFODataReg as u8, *d)
         }
 
+        self.clear_irq_bits();     
         self.do_command(command);
 
         if command == ChipCommand::TRANSCEIVE
@@ -393,74 +397,54 @@ where T: SpiInterface, Irq: Interrupt
             self.set_bit(ChipRegisters::BitFramingReg as u8, 0x80)
         }
 
-        // Stupid: let's use an IRQ instead...
-        let mut i = 3500;
-        while true
+        for i in 0..5
         {
-            let n = self.read_register(ChipRegisters::CommIrqReg);
-            i -= 1;
-            if (n & irq_id) != 0
+            // This is a bit rubbish, however: The lowAlert IRQ
+            // can apparently not be disabled, which means we will
+            // get multiple IRQs, one that actually signalizes, the
+            // event we're waiting for.
+            if !self.tx_rdy_irq.wait_timeout(75)
             {
-                //println!("IRQ seen : {}", n);
-                break;
+                return Err(TxpError::Timeout);
             }
-            if i <= 0
+
+            let irq = self.read_register(ChipRegisters::CommIrqReg);
+            if irq & IrqSources::RxIEn as u8 != 0
             {
                 break;
             }
         }
-
-        // if !self.tx_rdy_irq.wait_timeout(75)
-        // {
-        //     // Timeout!
-        //     println!("--> Timeout!");
-        //     return Err(TxpError::Timeout)
-        // }
-
-        if i <= 0
-        {
-            return Err(TxpError::Timeout);         
-        }
-
-        // let irq_no = self.read_register(ChipRegisters::CommIrqReg);
-        // if irq_no != irq_id
-        // {
-        //     // wrong IRQ triggered, abort.
-        //     println!("--> GeneralError!");
-        //     return Err(TxpError::GeneralError);
-        // }
 
         self.clear_bit(ChipRegisters::BitFramingReg as u8, 0x80);
 
         // If we're here, we saw the correct IRQ and can now check,
         // if the command we triggered was successful by reading the
         // error register:
-        let error = self.read_register(ChipRegisters::ErrorReg);        
-        if (error & 0x1B) != 0x00
-        {
-            return Err(TxpError::ChipError(error & 0x1B))
-        }
+        let _ = self.handle_error()?;
 
-        // Check the number of bytes we received
-        let num_bytes_received = self.read_register(ChipRegisters::FIFOLevelReg);
-        let last_bits = self.read_register(ChipRegisters::ControlReg) & 0x07;
-
-        let back_len: u8;
-        if last_bits != 0
-        {
-            back_len = (num_bytes_received - 1) * 8 + last_bits
-        }
-        else
-        {
-            back_len = num_bytes_received * 8;
-        }
+        // let last_bits = self.read_register(ChipRegisters::ControlReg) & 0x07;
+        // let back_len: u8;
+        // if last_bits != 0
+        // {
+        //     back_len = (num_bytes_received - 1) * 8 + last_bits
+        // }
+        // else
+        // {
+        //     back_len = num_bytes_received * 8;
+        // }
        
+        return Ok(self.retrieve_fifo());
+    }
+
+    fn retrieve_fifo(&self) -> Vec<u8>
+    {
+        let num_bytes_received = self.read_register(ChipRegisters::FIFOLevelReg);
         let mut ret_val = Vec::<u8>::new();
         for _ in 0..num_bytes_received
         {
             ret_val.push(self.read_register(ChipRegisters::FIFODataReg));
         }
-        return Ok(ret_val);
+        ret_val
     }
 
     pub fn txp_request(&self, cmd: Iso1443aCommand) -> Result<Vec<u8>, TxpError>
@@ -477,6 +461,7 @@ where T: SpiInterface, Irq: Interrupt
         // The anti collision loop should go here... but alas:
         if res.len() != 5
         {
+            println!("--> Unsupported TagType");
             return Err(TxpError::UnsupportedTagType);
         }
 
@@ -505,6 +490,7 @@ where T: SpiInterface, Irq: Interrupt
         // present.
         if atqa.len() != 2
         {
+            println!("--> BadAtqa");
             return Err(TxpError::GeneralError);
         }
 
