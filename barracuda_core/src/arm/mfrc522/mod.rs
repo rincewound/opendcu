@@ -36,11 +36,12 @@
 use crate::{core::
             {bootstage_helper::{boot_noop, boot}, 
              channel_manager::ChannelManager, 
-             broadcast_channel::{GenericSender, GenericReceiver}, SystemMessage}, 
-             lowlevel::{spi::SpiInterface, interrupt::Interrupt}, 
+             broadcast_channel::{GenericSender, GenericReceiver}, SystemMessage},              
              trace::trace_helper, 
              modcaps::{ModuleCapability, ModuleCapabilityAdvertisement}, acm::WhitelistAccessRequest
             };
+
+use barracuda_hal::{spi::SpiInterface, interrupt::Interrupt};
 use std::{thread, sync::Arc, time};
 
 mod mfrc522;

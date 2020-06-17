@@ -1,5 +1,6 @@
 
 extern crate barracuda_core;
+extern crate barracuda_hal;
 extern crate rppal;
 
 use barracuda_core::core;

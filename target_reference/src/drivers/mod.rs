@@ -1,5 +1,7 @@
-use barracuda_core::lowlevel::spi::{SpiInterface};
-use barracuda_core::lowlevel::interrupt::Interrupt;
+use barracuda_hal::spi::{SpiInterface};
+use barracuda_hal::interrupt::Interrupt;
+
+
 
 use barracuda_core::core::event::Event;
 

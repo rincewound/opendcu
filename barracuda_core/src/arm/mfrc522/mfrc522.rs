@@ -46,7 +46,7 @@
 
 */
 
-use crate::lowlevel::{interrupt::Interrupt, spi::SpiInterface};
+use barracuda_hal::{interrupt::Interrupt, spi::SpiInterface};
 use std::{time, thread};
 use std::iter::FromIterator;
 
