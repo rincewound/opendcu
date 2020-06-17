@@ -67,6 +67,7 @@ pub enum ChipCommand
     
 }
 
+#[allow(dead_code)]
 pub enum IrqSources
 {
     // Triggered when the internal timer overflows
@@ -87,8 +88,8 @@ pub enum IrqSources
     IRqInv      = 0x80
 }
 
-// Missing DivIrqReg 
 
+#[allow(dead_code)]
 pub enum ErrorRegBits
 {    
     ProtocolError   = 0x01,
@@ -107,6 +108,7 @@ pub enum ErrorRegBits
                             // on the RF interface
 }
 
+#[allow(dead_code)]
 enum StatusRegister1Bits
 {
     RFU2            = 0x80,
@@ -119,6 +121,7 @@ enum StatusRegister1Bits
     LoAlert         = 0x01
 }
 
+#[allow(dead_code)]
 pub enum StatusRegister2Bits
 {
     TempSensClear   = 0x80,
@@ -128,6 +131,7 @@ pub enum StatusRegister2Bits
     ModemState      = 0x07  // bits 0 to 2
 }
 
+#[allow(dead_code)]
 pub enum ModemStates
 {
     Receiving       = 0x06,
@@ -142,20 +146,20 @@ pub enum ModemStates
 #[allow(dead_code)]
 pub enum Iso1443aCommand
 {
-    REQA                = 0x26,     // AKA REQIDL
-    REQALL              = 0x52,
-    ANTICOLL_CASC1      = 0x93,     // is also select_tag in original.
-    ANTICOLL_CASC2      = 0x95,
-    ANTICOLL_CASC3      = 0x97,
-    AUTHENT1A           = 0x60,
-    AUTHENT1B           = 0x61,
-    READ                = 0x30,
-    WRITE               = 0xA0,
-    DECREMENT           = 0xC0,
-    INCREMENT           = 0xC1,
-    RESTORE             = 0xC2,
-    TRANSFER            = 0xB0,
-    HALT                = 0x50 
+    ReqA                = 0x26,     // AKA REQIDL
+    ReqAll              = 0x52,
+    AnticollCasc1      = 0x93,     // is also select_tag in original.
+    AntikollCasc2      = 0x95,
+    AnticollCasc2      = 0x97,
+    Authent1A           = 0x60,
+    Authent1B           = 0x61,
+    Read                = 0x30,
+    Write               = 0xA0,
+    Decrement           = 0xC0,
+    Increment           = 0xC1,
+    Restore             = 0xC2,
+    Transfer            = 0xB0,
+    Halt                = 0x50 
 }
 
 #[allow(dead_code)]
@@ -242,14 +246,14 @@ pub enum TxpError
     ChipError(u8)
 }
 
-pub struct mfrc522<T, Irq>
+pub struct Mfrc522<T, Irq>
     where T: SpiInterface, Irq: Interrupt
 {
     spi_interface: T,
     tx_rdy_irq: Irq
 }
 
-impl<T, Irq> mfrc522<T, Irq>
+impl<T, Irq> Mfrc522<T, Irq>
 where T: SpiInterface, Irq: Interrupt 
 {
     pub fn new(spi: T, irq: Irq) -> Self
@@ -312,7 +316,8 @@ where T: SpiInterface, Irq: Interrupt
         return self.write_byte(register as u8, value);
     }
 
-    pub fn Reset(&self)
+    #[allow(dead_code)]
+    pub fn reset(&self)
     {
         self.do_command(ChipCommand::RESETPHASE);
     }
@@ -348,6 +353,7 @@ where T: SpiInterface, Irq: Interrupt
         }
     }
 
+    #[allow(dead_code)]
     fn enable_interrupt(&self, irqmask: u8)
     {
         self.set_bit(ChipRegisters::CommIEnReg as u8, irqmask | 0x80);
@@ -397,7 +403,7 @@ where T: SpiInterface, Irq: Interrupt
             self.set_bit(ChipRegisters::BitFramingReg as u8, 0x80)
         }
 
-        for i in 0..5
+        for _ in 0..5
         {
             // This is a bit rubbish, however: The lowAlert IRQ
             // can apparently not be disabled, which means we will
@@ -456,7 +462,7 @@ where T: SpiInterface, Irq: Interrupt
     pub fn txp_anticoll(&self)-> Result<Vec<u8>, TxpError>
     {
         self.write_mfrc522(ChipRegisters::BitFramingReg as u8, &[0x00 as u8]);
-        let res = self.send_chip_command(ChipCommand::TRANSCEIVE, &[Iso1443aCommand::ANTICOLL_CASC1 as u8, 0x20])?;
+        let res = self.send_chip_command(ChipCommand::TRANSCEIVE, &[Iso1443aCommand::AnticollCasc1 as u8, 0x20])?;
 
         // The anti collision loop should go here... but alas:
         if res.len() != 5
@@ -484,7 +490,7 @@ where T: SpiInterface, Irq: Interrupt
 
     pub fn search_txp(&self) -> Result<Vec<u8>, TxpError>
     {
-        let atqa = self.txp_request(Iso1443aCommand::REQA)?;
+        let atqa = self.txp_request(Iso1443aCommand::ReqA)?;
         // We should have received
         // an ATQA response containing at least the UID size of a txp, if
         // present.

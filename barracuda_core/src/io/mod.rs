@@ -169,7 +169,7 @@ impl IoManager
             timer               : Timer::new(),
             input_list          : Vec::new(),
             output_list         : Shareable::new(Vec::new()),
-            dataevent           :Arc::new(DataEvent::new("IOWait".to_string()))
+            dataevent           : Arc::new(DataEvent::new("IOWait".to_string()))
         }
     } 
 

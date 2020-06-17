@@ -72,7 +72,7 @@ pub struct ReaderModule<Spi, Irq>
     access_request_tx: GenericSender<crate::acm::WhitelistAccessRequest>,
     tracer: trace_helper::TraceHelper,
     last_txp: Option<Vec<u8>>,
-    rfchip: mfrc522::mfrc522<Spi,Irq>
+    rfchip: mfrc522::Mfrc522<Spi,Irq>
 }
 
 impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq> 
@@ -86,7 +86,7 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
             modcaps_tx: chm.get_sender(),
             access_request_tx: chm.get_sender(),
             tracer,
-            rfchip: mfrc522::mfrc522::new(spi_driver, tx_rdy_irq),
+            rfchip: mfrc522::Mfrc522::new(spi_driver, tx_rdy_irq),
             last_txp: None
         }
     }
