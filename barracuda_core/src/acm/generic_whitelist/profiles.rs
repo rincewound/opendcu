@@ -79,6 +79,11 @@ impl ProfileChecker for JsonProfileChecker
             if let Some(the_profile) = profile
             {   
                 let datetime = Local::now();
+                // ToDo: This code will effectively only check the
+                // first assigned profile and always return afterwards.
+                // We actually want to check all assigned profiles 
+                // here and return AccessGranted if any profile allows
+                // access.
                 return check_profile_impl(ap_id, &the_profile, datetime)              
             }
         }

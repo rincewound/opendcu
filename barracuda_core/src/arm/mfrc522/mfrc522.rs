@@ -381,44 +381,54 @@ where T: SpiInterface, Irq: Interrupt
         return Ok(());
     }
 
-    fn send_chip_command(&self, command: ChipCommand, data: &[u8]) -> Result<Vec<u8>, TxpError>
+    fn write_data_to_fifo(&self, data: &[u8])
     {
-
-        self.write_mfrc522(ChipRegisters::CommIEnReg as u8, &[0x80 | IrqSources::RxIEn as u8]);        
-        self.clear_fifo();
-        self.do_command(ChipCommand::IDLE);
-
         for d in data
         {
             // ToDo: Check if we can use a single transaction
             //       here
             self.write_byte(ChipRegisters::FIFODataReg as u8, *d)
         }
+    }
 
-        self.clear_irq_bits();     
-        self.do_command(command);
-
-        if command == ChipCommand::TRANSCEIVE
-        {
-            self.set_bit(ChipRegisters::BitFramingReg as u8, 0x80)
-        }
-
+    fn wait_irq(&self, irq_mask: u8, timeout_ms: u32) -> bool
+    {
         for _ in 0..5
         {
             // This is a bit rubbish, however: The lowAlert IRQ
             // can apparently not be disabled, which means we will
             // get multiple IRQs, one that actually signalizes, the
             // event we're waiting for.
-            if !self.tx_rdy_irq.wait_timeout(75)
+            if !self.tx_rdy_irq.wait_timeout(timeout_ms)
             {
-                return Err(TxpError::Timeout);
+                return false;
             }
 
             let irq = self.read_register(ChipRegisters::CommIrqReg);
-            if irq & IrqSources::RxIEn as u8 != 0
+            if irq & irq_mask as u8 != 0
             {
-                break;
+                return true;
             }
+        }
+        return false;
+    }
+
+    fn send_picc_command(&self, data: &[u8]) -> Result<Vec<u8>, TxpError>
+    {
+        self.enable_interrupt(IrqSources::RxIEn as u8);       
+        self.clear_fifo();
+        self.do_command(ChipCommand::IDLE);
+
+        self.write_data_to_fifo(data);
+        self.clear_irq_bits();     
+        self.do_command(ChipCommand::TRANSCEIVE);
+        
+        // ToDo: Should we do this before actually triggering the TRANSCEIVE command?
+        self.set_bit(ChipRegisters::BitFramingReg as u8, 0x80);
+
+        if !self.wait_irq(IrqSources::RxIEn as u8, 75)
+        {
+            return Err(TxpError::Timeout);
         }
 
         self.clear_bit(ChipRegisters::BitFramingReg as u8, 0x80);
@@ -456,13 +466,13 @@ where T: SpiInterface, Irq: Interrupt
     pub fn txp_request(&self, cmd: Iso1443aCommand) -> Result<Vec<u8>, TxpError>
     {
         self.write_mfrc522(ChipRegisters::BitFramingReg as u8, &[0x07 as u8]);
-        self.send_chip_command(ChipCommand::TRANSCEIVE, &[cmd as u8])
+        self.send_picc_command(&[cmd as u8])
     }
 
     pub fn txp_anticoll(&self)-> Result<Vec<u8>, TxpError>
     {
         self.write_mfrc522(ChipRegisters::BitFramingReg as u8, &[0x00 as u8]);
-        let res = self.send_chip_command(ChipCommand::TRANSCEIVE, &[Iso1443aCommand::AnticollCasc1 as u8, 0x20])?;
+        let res = self.send_picc_command( &[Iso1443aCommand::AnticollCasc1 as u8, 0x20])?;
 
         // The anti collision loop should go here... but alas:
         if res.len() != 5
