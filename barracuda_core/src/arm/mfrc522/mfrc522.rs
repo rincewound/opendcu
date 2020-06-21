@@ -149,8 +149,8 @@ pub enum Iso1443aCommand
     ReqA                = 0x26,     // AKA REQIDL
     ReqAll              = 0x52,
     AnticollCasc1      = 0x93,     // is also select_tag in original.
-    AntikollCasc2      = 0x95,
-    AnticollCasc2      = 0x97,
+    AnticollCasc2      = 0x95,
+    AnticollCasc3      = 0x97,
     Authent1A           = 0x60,
     Authent1B           = 0x61,
     Read                = 0x30,
@@ -245,6 +245,9 @@ pub enum TxpError
     UnsupportedTagType,
     ChipError(u8)
 }
+
+const sak_uid_not_complete_mask: u8 = 0b00000100;
+const sak_uid_complete_mask: u8 = 0b00100000;
 
 pub struct Mfrc522<T, Irq>
     where T: SpiInterface, Irq: Interrupt
@@ -353,7 +356,6 @@ where T: SpiInterface, Irq: Interrupt
         }
     }
 
-    #[allow(dead_code)]
     fn enable_interrupt(&self, irqmask: u8)
     {
         self.set_bit(ChipRegisters::CommIEnReg as u8, irqmask | 0x80);
@@ -422,7 +424,7 @@ where T: SpiInterface, Irq: Interrupt
         self.write_data_to_fifo(data);
         self.clear_irq_bits();     
         self.do_command(ChipCommand::TRANSCEIVE);
-        
+
         // ToDo: Should we do this before actually triggering the TRANSCEIVE command?
         self.set_bit(ChipRegisters::BitFramingReg as u8, 0x80);
 
@@ -463,18 +465,38 @@ where T: SpiInterface, Irq: Interrupt
         ret_val
     }
 
-    pub fn txp_request(&self, cmd: Iso1443aCommand) -> Result<Vec<u8>, TxpError>
+    fn txp_request(&self, cmd: Iso1443aCommand) -> Result<Vec<u8>, TxpError>
     {
         self.write_mfrc522(ChipRegisters::BitFramingReg as u8, &[0x07 as u8]);
         self.send_picc_command(&[cmd as u8])
     }
 
-    pub fn txp_anticoll(&self)-> Result<Vec<u8>, TxpError>
+    fn check_bcc(&self, data: &[u8]) -> Result<(), TxpError>
+    {
+        let mut bcc: u8 = 0x00;
+        for idx in 0..data.len() - 1
+        {
+            bcc = bcc ^ data[idx]
+        }
+
+        if bcc != data[data.len() - 1]
+        {
+            return Err(TxpError::CommunicationLost);
+        }
+        return Ok(());
+    }
+
+    
+
+    fn txp_anticoll(&self)-> Result<Vec<u8>, TxpError>
     {
         self.write_mfrc522(ChipRegisters::BitFramingReg as u8, &[0x00 as u8]);
-        let res = self.send_picc_command( &[Iso1443aCommand::AnticollCasc1 as u8, 0x20])?;
+        // The 0x20 is actually the NVB!
+        let mut res = self.send_picc_command( &[Iso1443aCommand::AnticollCasc1 as u8, 0x20])?;
 
         // The anti collision loop should go here... but alas:
+        // Note, that we do not really support anti coll here, but we use the anticoll
+        // procedure as specified for ISO14443A Tags to obtain the fullsize UID.
         if res.len() != 5
         {
             println!("--> Unsupported TagType");
@@ -484,18 +506,42 @@ where T: SpiInterface, Irq: Interrupt
         // The last byte of the data contains an XOR blockcheck.
         // this needs to be done in case the reception was interrupted
         // and we only got parts of the UID.
-        let mut bcc: u8 = 0x00;
-        for idx in 0..res.len() - 1
+        let _ = self.check_bcc(&res)?;
+
+        // check if this UID is complete (see 8371.TypeA_UID_retrieval.pdf)
+        if res[0] != 0x88
         {
-            bcc = bcc ^ res[idx]
+            return Ok(Vec::from_iter(res[0..4].iter().cloned()))
+        }
+        
+        let mut  select_data = vec![Iso1443aCommand::AnticollCasc1 as u8, 0x70];
+        select_data.append(&mut res);
+        let sak = self.send_picc_command(&select_data)?[0];
+        if sak != 0xB3
+        {
+            // TBD!
         }
 
-        if bcc != res[res.len() - 1]
+        let uid2 = self.send_picc_command( &[Iso1443aCommand::AnticollCasc2 as u8, 0x20])?;
+        let _ = self.check_bcc(&uid2)?;
+
+        // check if this UID is complete (see 8371.TypeA_UID_retrieval.pdf)
+        if uid2[0] != 0x88
         {
-            return Err(TxpError::CommunicationLost);
+            res.extend_from_slice(&uid2[0..3]);
+            return Ok(Vec::from_iter(res[0..7].iter().cloned()))
         }
 
-        return Ok(Vec::from_iter(res[0..4].iter().cloned()))
+        // ToDo: Which of these bytes are actually valid at this point
+        res.extend_from_slice(&uid2[0..3]);
+
+        // 10 Byte UID
+        let uid3 = self.send_picc_command( &[Iso1443aCommand::AnticollCasc3 as u8, 0x20])?;
+        let _ = self.check_bcc(&uid3)?;
+        res.extend_from_slice(&uid3[0..3]);
+        
+
+        return Ok(Vec::from_iter(res[0..9].iter().cloned()))
     }
 
     pub fn search_txp(&self) -> Result<Vec<u8>, TxpError>
