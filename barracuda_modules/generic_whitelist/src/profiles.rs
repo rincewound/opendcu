@@ -2,7 +2,7 @@
 
 use super::whitelist::WhitelistEntry;
 use serde::{Deserialize, Serialize};
-use crate::util::{JsonStorage, ObjectStorage};
+use barracuda_core::util::{JsonStorage, ObjectStorage};
 use chrono::{DateTime, Datelike, Timelike, Local};
 use strum_macros::*;
 

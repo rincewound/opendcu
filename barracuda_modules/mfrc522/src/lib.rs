@@ -32,6 +32,8 @@
 *   The original code does not use IRQs, but instead uses polling
 *   (stupidly!). This should be 
 */
+extern crate barracuda_core;
+extern crate barracuda_hal;
 
 use barracuda_core::{core::
             {bootstage_helper::{boot_noop, boot}, 

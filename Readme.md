@@ -401,7 +401,7 @@ The I/O Module provides a generic interface to all I/O modules of the concrete h
 The configuration is immediately relayed to the concrete I/O implementations. Depending on these
 modules a restart might be required
 
-## MFRC522 RFID Reader Module
+## MFRC522 RFID Reader Module (ARM/MFRC522)
 This module contains a driver for the NXP "MFRC522 Standard performance MIFARE and NTAG frontend" connected via SPI
 
 ### Functionality
@@ -411,7 +411,7 @@ The module will provide a single access point and read the UIDs off of ISO 14443
 At this point no functionality beyond reading UIDs is implemented. As such the module does not need any configuration options.
 
 # The Reference Device
-As stated before the reference device is a Raspberry Pi with a PiFace extension board an a generic RFID reader.
+As stated before the reference device is a Raspberry Pi with a PiFace extension board and an MFRC522 based RFID reader
 
 ## Standard Modules on the reference device
 The reference devices uses 
@@ -419,6 +419,7 @@ The reference devices uses
 * DCM/Trivial
 * IO
 * ACM/generic_whitelist
+* ARM/MRFC522
 
 ## Configuring the reference device
 As DCM/Trivial allows no configuration whatsoever the only configuration at this point is the content of the whitelist, with the associated API functions.

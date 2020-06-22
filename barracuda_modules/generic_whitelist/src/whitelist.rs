@@ -2,7 +2,7 @@
 use serde::{Deserialize, Serialize};
 use std::{cmp::Ordering};
 
-use crate::util::{JsonStorage, ObjectStorage};
+use barracuda_core::util::{JsonStorage, ObjectStorage};
 
 
 #[derive(Clone, Deserialize, Serialize, Debug)]

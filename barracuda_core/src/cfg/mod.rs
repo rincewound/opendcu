@@ -26,7 +26,7 @@ pub enum ConfigMessage
     RegisterHandlers(Shareable<cfgholder::CfgHolder>)
 }
 
-
+#[macro_export]
 macro_rules! Handler {
     ($func: expr) => {
         (move |req : Vec<u8>| { 

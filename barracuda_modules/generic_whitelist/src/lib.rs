@@ -1,12 +1,14 @@
+extern crate barracuda_core;
+extern crate barracuda_hal;
 
-use crate::core::broadcast_channel::*;
-use crate::core::channel_manager::*;
-use crate::core::{shareable::Shareable, bootstage_helper::*, SystemMessage};
-use crate::cfg;
-use crate::cfg::cfgholder::*;
-use crate::trace::*;
-use crate::{sig::*, acm::*};
-use crate::dcm::DoorOpenRequest;
+use barracuda_core::core::broadcast_channel::*;
+use barracuda_core::core::channel_manager::*;
+use barracuda_core::core::{shareable::Shareable, bootstage_helper::*, SystemMessage};
+use barracuda_core::cfg;
+use barracuda_core::cfg::cfgholder::*;
+use barracuda_core::trace::*;
+use barracuda_core::{sig::*, acm::*};
+use barracuda_core::dcm::DoorOpenRequest;
 use std::{sync::Arc, thread};
 
 use cfg::ConfigMessage;
@@ -165,7 +167,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
 
             // Good? If so, emit DoorOpenRequest, otherwise emit AccessDenied Sig 
             self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.identification_token_id));
-            let openreq = crate::dcm::DoorOpenRequest {access_point_id: req.access_point_id};
+            let openreq = barracuda_core::dcm::DoorOpenRequest {access_point_id: req.access_point_id};
             self.door_tx.send(openreq);
                
         }
@@ -214,28 +216,29 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
 
 #[cfg(test)]
 mod tests {
-     use crate::{core::channel_manager::ChannelManager, acm::*, trace::*, sig::SigCommand};
-     use generic_whitelist::{profiles::{AccessProfile, ProfileChecker, ProfileCheckResult}, whitelist::{WhitelistEntry}};
-     use crate::acm::generic_whitelist::whitelist::WhitelistEntryProvider;
-     use crate::{sig::*};
+     use barracuda_core::{core::channel_manager::ChannelManager, acm::*, trace::*, sig::SigCommand};
+     use crate::profiles::{AccessProfile, ProfileChecker, ProfileCheckResult};
+     use crate::whitelist::WhitelistEntry;
+     use crate::whitelist::WhitelistEntryProvider;
+     use barracuda_core::{sig::*};
 
      struct DummyWhitelist
      {
         pub entry: Option<WhitelistEntry>
      }
 
-     impl crate::acm::generic_whitelist::whitelist::WhitelistEntryProvider for DummyWhitelist
+     impl crate::whitelist::WhitelistEntryProvider for DummyWhitelist
      {         
         fn new() -> Self
         {
             DummyWhitelist{entry: None}
         }
 
-         fn get_entry(&self, _identity_token_id: Vec<u8>) -> Option<generic_whitelist::whitelist::WhitelistEntry> 
+         fn get_entry(&self, _identity_token_id: Vec<u8>) -> Option<crate::whitelist::WhitelistEntry> 
          { 
              self.entry.clone()
          }
-         fn put_entry(&mut self, entry: generic_whitelist::whitelist::WhitelistEntry) 
+         fn put_entry(&mut self, entry: crate::whitelist::WhitelistEntry) 
          { 
             self.entry = Some(entry);
          }
@@ -262,12 +265,12 @@ mod tests {
         fn delete_profile(&mut self, _profile_id: u32) { }         
      }
 
-     fn make_whitelist(chm: &mut ChannelManager) -> generic_whitelist::GenericWhitelist<DummyWhitelist, DummyProfileChecker>
+     fn make_whitelist(chm: &mut ChannelManager) -> crate::GenericWhitelist<DummyWhitelist, DummyProfileChecker>
      {
         let wl = DummyWhitelist::new();
         let prof = DummyProfileChecker {check_result: Ok(())};
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), chm);
-        let md = generic_whitelist::GenericWhitelist::new(tracer, chm, wl, prof);
+        let md = crate::GenericWhitelist::new(tracer, chm, wl, prof);
         return md;
      }
 
@@ -308,9 +311,9 @@ mod tests {
 
         });
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
-        let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl, DummyProfileChecker {check_result: Ok(())});
+        let mut md = crate::GenericWhitelist::new(tracer, &mut chm, wl, DummyProfileChecker {check_result: Ok(())});
 
-        let dcm_rx = chm.get_receiver::<crate::dcm::DoorOpenRequest>();
+        let dcm_rx = chm.get_receiver::<barracuda_core::dcm::DoorOpenRequest>();
         let access_tx = chm.get_sender::<WhitelistAccessRequest>();
 
         let req = WhitelistAccessRequest {
@@ -341,9 +344,9 @@ mod tests {
 
         });
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
-        let mut md = generic_whitelist::GenericWhitelist::new(tracer, &mut chm, wl,DummyProfileChecker {check_result: Ok(())});
+        let mut md = crate::GenericWhitelist::new(tracer, &mut chm, wl,DummyProfileChecker {check_result: Ok(())});
 
-        let dcm_rx = chm.get_receiver::<crate::dcm::DoorOpenRequest>();
+        let dcm_rx = chm.get_receiver::<barracuda_core::dcm::DoorOpenRequest>();
         let access_tx = chm.get_sender::<WhitelistAccessRequest>();
 
         for _ in 0..20
