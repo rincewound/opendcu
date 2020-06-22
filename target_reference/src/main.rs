@@ -1,6 +1,8 @@
 
 extern crate barracuda_core;
 extern crate barracuda_hal;
+extern crate mfrc522;
+extern crate generic_whitelist;
 extern crate rppal;
 
 use barracuda_core::core;
@@ -14,10 +16,10 @@ fn main() {
     // Note: Launch never returns!
     launch!(barracuda_core::trace::launch,
             barracuda_core::cfg::rest::launch,
-            barracuda_core::acm::generic_whitelist::launch::<barracuda_core::acm::generic_whitelist::whitelist::JsonEntryProvider>,
+            generic_whitelist::launch::<generic_whitelist::whitelist::JsonEntryProvider>,
             barracuda_core::arm::console_input::launch,
             barracuda_core::io::launch,
             barracuda_core::dcm::trivial::launch,
-            |chm| barracuda_core::arm::mfrc522::launch(chm, RfidSpi::new(), RfidIrq::new()) 
+            |chm| mfrc522::launch(chm, RfidSpi::new(), RfidIrq::new()) 
             );    
 }

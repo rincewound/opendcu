@@ -1,11 +1,12 @@
 extern crate barracuda_core;
+
 extern crate barracuda_hal;
 
 use barracuda_core::core::broadcast_channel::*;
 use barracuda_core::core::channel_manager::*;
 use barracuda_core::core::{shareable::Shareable, bootstage_helper::*, SystemMessage};
 use barracuda_core::cfg;
-use barracuda_core::cfg::cfgholder::*;
+use barracuda_core::{Handler, cfg::cfgholder::*};
 use barracuda_core::trace::*;
 use barracuda_core::{sig::*, acm::*};
 use barracuda_core::dcm::DoorOpenRequest;
