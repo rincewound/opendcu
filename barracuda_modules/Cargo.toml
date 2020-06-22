@@ -1,5 +1,5 @@
 [package]
-name = "barracuda-reference"
+name = "barracuda_modules"
 version = "0.1.0"
 authors = ["rincewound <aaaargh@minddebugger.com>"]
 edition = "2018"
@@ -9,5 +9,3 @@ edition = "2018"
 [dependencies]
 barracuda_core = { path = "../barracuda_core" }
 barracuda_hal = { path = "../barracuda_hal" }
-barracuda_modules = { path = "../barracuda_modules" }
-rppal = '*'
