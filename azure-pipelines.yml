@@ -32,4 +32,8 @@ steps:
 - bash: |
       cd barracuda_core
       cargo test
+      cd ..
+      cd barracuda_modules
+      cd generic_whitelist
+      cargo test
   displayName: Run cargo test
