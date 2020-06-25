@@ -153,6 +153,10 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
             self.access_request_tx.send(req);
             self.last_txp = Some(uid);
         }
+        else
+        {
+            self.last_txp = None;
+        }
 
         let ten_millis = time::Duration::from_millis(500);
         thread::sleep(ten_millis);
