@@ -5,14 +5,12 @@ extern crate barracuda_hal;
 use barracuda_core::core::broadcast_channel::*;
 use barracuda_core::core::channel_manager::*;
 use barracuda_core::core::{shareable::Shareable, bootstage_helper::*, SystemMessage};
-use barracuda_core::cfg;
-use barracuda_core::{Handler, cfg::cfgholder::*};
+use barracuda_core::{Handler, cfg::{ConfigMessage, cfgholder::*, self}};
 use barracuda_core::trace::*;
 use barracuda_core::{sig::*, acm::*};
 use barracuda_core::dcm::DoorOpenRequest;
 use std::{sync::Arc, thread};
 
-use cfg::ConfigMessage;
 use profiles::{ProfileChecker, JsonProfileChecker, AccessProfile};
 
 pub mod whitelist;
@@ -80,7 +78,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
             */
 
             let res = the_receiver.receive();
-            let crate::cfg::ConfigMessage::RegisterHandlers(cfg_holder) = res;
+            let cfg::ConfigMessage::RegisterHandlers(cfg_holder) = res;
             let mut holder = cfg_holder.lock();
             let wl1 = self.whitelist.clone();
             let wl2 = self.whitelist.clone();

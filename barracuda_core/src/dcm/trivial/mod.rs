@@ -1,7 +1,7 @@
 use crate::core::broadcast_channel::*;
-use crate::core::{channel_manager::*};
-use crate::trace::*;
-use std::{sync::{Arc}, thread};
+use crate::core::{channel_manager::*, bootstage_helper};
+use crate::{io, trace::*};
+use std::{sync::Arc, thread};
 
 const MODULE_ID: u32 = 0x08000000;
 
@@ -34,7 +34,7 @@ pub struct TrivialDoorControl
     system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
     system_events_tx: GenericSender<crate::core::SystemMessage>,
     door_requests_rx: Arc<GenericReceiver<crate::dcm::DoorOpenRequest>>,
-    output_cmd_tx: GenericSender<crate::io::OutputSwitch>
+    output_cmd_tx: GenericSender<io::OutputSwitch>
 }
 
 impl TrivialDoorControl
@@ -53,7 +53,7 @@ impl TrivialDoorControl
 
     pub fn init(&self)
     {
-        crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer)
+        bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer)
     }
 
     pub fn do_request(&self) -> bool
@@ -64,7 +64,7 @@ impl TrivialDoorControl
 
         // ToDo: 
         // * Use switchtime configuration
-        let cmd = crate::io::OutputSwitch{output_id: request.access_point_id, target_state: crate::io::OutputState::High, switch_time: 5000};
+        let cmd = io::OutputSwitch{output_id: request.access_point_id, target_state: io::OutputState::High, switch_time: 5000};
         self.output_cmd_tx.send(cmd);
 
         return true;

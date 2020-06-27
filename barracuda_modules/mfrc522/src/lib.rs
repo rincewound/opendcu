@@ -47,6 +47,9 @@ use barracuda_hal::{spi::SpiInterface, interrupt::Interrupt};
 use std::{thread, sync::Arc, time};
 
 mod mfrc522;
+mod rfchip;
+mod iso14443a;
+mod error;
 
 const MODULE_ID: u32 = 0x0B000000;
 
@@ -131,8 +134,10 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
 
     pub fn search_media(&mut self)
     {
+        let isoImpl = iso14443a::Iso14443A::new(&self.rfchip);
+
         self.rfchip.toggle_antenna(true);        
-        let txp = self.rfchip.search_txp();
+        let txp = isoImpl.search_txp();
         self.rfchip.toggle_antenna(false);
 
         if let Ok(uid) = txp
