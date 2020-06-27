@@ -149,3 +149,22 @@ impl<'a, T:RFChip> Iso14443A<'a, T>
         // return Ok(Vec::from_iter(res[0..9].iter().cloned()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+
+    use crate::{error::TxpError, rfchip::*};
+    use mockall::{automock, mock, predicate::*};
+    use super::{Iso14443aCommand, Iso14443A};
+    
+    #[test]
+    fn search_txp_sends_reqa() 
+    {
+        let mut mock = MockRFChip::new();
+        mock.expect_send_picc()
+            .with(eq(vec![Iso14443aCommand::ReqA as u8]))
+            .returning(|x| Err(TxpError::Timeout));
+        let iso = Iso14443A::new(&mock);
+        iso.search_txp();
+    }
+}

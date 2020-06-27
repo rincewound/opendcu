@@ -10,3 +10,6 @@ edition = "2018"
 [dependencies]
 barracuda_core = { path = "../../barracuda_core" }
 barracuda_hal = { path = "../../barracuda_hal" }
+
+[dev-dependencies]
+mockall = "0.7.1"

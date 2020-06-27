@@ -36,4 +36,7 @@ steps:
       cd barracuda_modules
       cd generic_whitelist
       cargo test
+      cd ..
+      cd mfrc522
+      cargo test
   displayName: Run cargo test
