@@ -1,11 +1,15 @@
 [package]
-name = "barracuda-w64"
+name = "mfrc522"
 version = "0.1.0"
 authors = ["rincewound <aaaargh@minddebugger.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+
 [dependencies]
-barracuda_core = { path = "../barracuda_core" }
-generic_whitelist = { path = "../barracuda_modules/generic_whitelist" }
+barracuda_core = { path = "../../barracuda_core" }
+barracuda_hal = { path = "../../barracuda_hal" }
+
+[dev-dependencies]
+mockall = "0.7.1"

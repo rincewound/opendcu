@@ -3,9 +3,6 @@ use crate::core::shareable::Shareable;
 
 pub mod rest;
 
-// use serde::{Serialize, Deserialize};
-// use serde_json::{Result, Value};
-
 /*
 
 We need a macro that calls Serde to convert a given
@@ -29,7 +26,7 @@ pub enum ConfigMessage
     RegisterHandlers(Shareable<cfgholder::CfgHolder>)
 }
 
-
+#[macro_export]
 macro_rules! Handler {
     ($func: expr) => {
         (move |req : Vec<u8>| { 
@@ -42,15 +39,8 @@ macro_rules! Handler {
     };
 }
 
-/*
-
-The rubbish bit here ist, that this introduces a rouille dependency
-for all components, even if we - at some point, want to
-have use a different CFG module.
-*/
 pub fn convert_data<T: for<'de> serde::Deserialize<'de>>(r: Vec<u8>) -> Option<T>
 {
-    //let rdr = r.data().unwrap();
     let someval = serde_json::from_slice(&r[..]);
     if let Ok(data) = someval {
         return Some(data)

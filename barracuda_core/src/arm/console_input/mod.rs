@@ -60,7 +60,7 @@ impl ConsoleInput
             Ok(_) => {
                 let req = WhitelistAccessRequest
                 {
-                    access_point_id: MODULE_ID & 0x01,      // Access point 1 
+                    access_point_id: MODULE_ID | 0x01,      // Access point 1 
                     identity_token_number: input.into_bytes()
                 };
                 self.access_request_tx.send(req);

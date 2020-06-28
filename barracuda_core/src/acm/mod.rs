@@ -4,8 +4,6 @@ This module contains the basic data for generic ACM modules
 
 */
 
-pub mod generic_whitelist;
-
 #[derive(Clone)]
 pub struct WhitelistAccessRequest
 {

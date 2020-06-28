@@ -3,6 +3,8 @@ extern crate rouille;
 
 extern crate serde;
 
+extern crate barracuda_hal;
+
 #[macro_use]
 pub mod core;
 #[macro_use]

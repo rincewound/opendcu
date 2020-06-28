@@ -1,8 +1,9 @@
 use crate::core::{SystemMessage, BootStage};
 use crate::core::broadcast_channel::*;
 use crate::trace::trace_helper::TraceHelper;
-use std::{mem, sync::Arc};
+use std::{sync::Arc};
 
+pub fn boot_noop() {}
 
 /// This function will return a
 /// "stage complete" for all stages,
@@ -25,42 +26,24 @@ pub fn plain_boot(module_id: u32, sys_chan: GenericSender<SystemMessage>, sys_ch
     tracer.trace_str("Runstage: APP");
 }
 
-fn try_trigger_stage_cb<Fun>(boot_stage: BootStage, stage_cb: &mut [Option<Fun>; 2])
-    where Fun: FnOnce() -> ()
-{
-    let stage_index: usize;
-    match boot_stage
-    {
-        BootStage::HighLevelInit => stage_index = 1,
-        BootStage::LowLevelInit => stage_index = 0,
-        _ => return
-    }
-    let func = mem::replace(&mut stage_cb[stage_index], std::option::Option::<Fun>::None);
-    if let Some(f) = func
-    {
-        f();
-    }
-}
-
-
 /// This function will return a
 /// "stage complete" for all stages,
 /// making it easier to boot modules
 /// that have no external dependencies.
-pub fn boot<Fun>(module_id: u32, mut stage_cb: [Option<Fun>; 2], sys_chan: GenericSender<SystemMessage>, sys_chan_rx: Arc<GenericReceiver<SystemMessage>>, tracer: &TraceHelper)
-    where Fun: FnOnce() -> ()
+pub fn boot<LliCb, HliCb>(module_id: u32, llicb: Option<LliCb>, hlicb: Option<HliCb>, sys_chan: GenericSender<SystemMessage>, sys_chan_rx: Arc<GenericReceiver<SystemMessage>>, tracer: &TraceHelper)
+    where LliCb: FnOnce() -> (), HliCb: FnOnce() -> ()
 {
     tracer.trace_str("Starting");
     send_stage_complete(module_id, BootStage::Sync, &sys_chan);        
 
     wait_for_stage(BootStage::LowLevelInit, &sys_chan_rx, tracer);
     tracer.trace_str("Runstage: LLI");
-    try_trigger_stage_cb(BootStage::LowLevelInit, &mut stage_cb);    
+    if let Some(lli) = llicb { lli();}
     send_stage_complete(module_id, BootStage::LowLevelInit, &sys_chan);
 
     wait_for_stage(BootStage::HighLevelInit, &sys_chan_rx, tracer);
     tracer.trace_str("Runstage: HLI");
-    try_trigger_stage_cb(BootStage::HighLevelInit, &mut stage_cb);
+    if let Some(hli) = hlicb { hli();}
     send_stage_complete(module_id, BootStage::HighLevelInit, &sys_chan);
 
     wait_for_stage(BootStage::Application, &sys_chan_rx, tracer);

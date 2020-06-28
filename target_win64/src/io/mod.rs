@@ -1,4 +1,9 @@
-use barracuda_core::{trace::trace_helper, core::{broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::ChannelManager, bootstage_helper::boot}, modcaps::{ModuleCapability, ModuleCapabilityAdvertisement}};
+use barracuda_core::{trace::trace_helper, 
+    core::{
+        broadcast_channel::{GenericReceiver, GenericSender}, 
+        channel_manager::ChannelManager, bootstage_helper::{boot, boot_noop}
+        }, 
+        modcaps::{ModuleCapability, ModuleCapabilityAdvertisement}};
 use std::{thread, sync::Arc};
 
 const MODULE_ID: u32 = 0x09000000;
@@ -36,7 +41,7 @@ impl W32Io
     pub fn init(&self)
     {
         let modcaps_tx_clone =self.modcaps_tx.clone();
-        let cbs= [Some(move|| {
+        let llicb= Some(move|| {
             /*
                 This is executed during LLI
             */
@@ -45,9 +50,9 @@ impl W32Io
                 module_id: MODULE_ID
             };
             modcaps_tx_clone.send(m);            
-        }), None];
+        });
 
-        boot(MODULE_ID, cbs, 
+        boot(MODULE_ID, llicb, Some(boot_noop),
             self.system_events_tx.clone(), 
             self.system_events_rx.clone(), 
             &self.tracer);

@@ -9,3 +9,6 @@ edition = "2018"
 [dependencies]
 barracuda_core = { path = "../barracuda_core" }
 rppal = "0.11.3"
+barracuda_hal = { path = "../barracuda_hal" }
+generic_whitelist = { path = "../barracuda_modules/generic_whitelist" }
+mfrc522 = { path = "../barracuda_modules/mfrc522" }

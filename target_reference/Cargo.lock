@@ -47,6 +47,9 @@ name = "barracuda-reference"
 version = "0.1.0"
 dependencies = [
  "barracuda_core",
+ "barracuda_hal",
+ "generic_whitelist",
+ "mfrc522",
  "rppal",
 ]
 
@@ -55,6 +58,7 @@ name = "barracuda_core"
 version = "0.1.0"
 dependencies = [
  "anymap",
+ "barracuda_hal",
  "chrono",
  "rouille",
  "serde",
@@ -62,6 +66,10 @@ dependencies = [
  "strum",
  "strum_macros",
 ]
+
+[[package]]
+name = "barracuda_hal"
+version = "0.1.0"
 
 [[package]]
 name = "base64"
@@ -237,6 +245,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a06f77d526c1a601b7c4cdd98f54b5eaabffc14d5f2f0296febdc7f357c6d3ba"
 
 [[package]]
+name = "generic_whitelist"
+version = "0.1.0"
+dependencies = [
+ "barracuda_core",
+ "barracuda_hal",
+ "chrono",
+ "serde",
+ "serde_json",
+ "strum",
+ "strum_macros",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -338,6 +359,14 @@ name = "memchr"
 version = "2.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3728d817d99e5ac407411fa471ff9800a778d88a24685968b36824eaf4bee400"
+
+[[package]]
+name = "mfrc522"
+version = "0.1.0"
+dependencies = [
+ "barracuda_core",
+ "barracuda_hal",
+]
 
 [[package]]
 name = "mime"

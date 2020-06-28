@@ -2,7 +2,7 @@
 
 use super::whitelist::WhitelistEntry;
 use serde::{Deserialize, Serialize};
-use crate::util::{JsonStorage, ObjectStorage};
+use barracuda_core::util::{JsonStorage, ObjectStorage};
 use chrono::{DateTime, Datelike, Timelike, Local};
 use strum_macros::*;
 
@@ -79,6 +79,11 @@ impl ProfileChecker for JsonProfileChecker
             if let Some(the_profile) = profile
             {   
                 let datetime = Local::now();
+                // ToDo: This code will effectively only check the
+                // first assigned profile and always return afterwards.
+                // We actually want to check all assigned profiles 
+                // here and return AccessGranted if any profile allows
+                // access.
                 return check_profile_impl(ap_id, &the_profile, datetime)              
             }
         }
