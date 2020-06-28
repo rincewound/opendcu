@@ -7,7 +7,9 @@ use barracuda_core::{io::{OutputState, RawOutputSwitch},
                     trace::trace_helper,
                     core::{broadcast_channel::{GenericReceiver, GenericSender},
                            channel_manager::ChannelManager,
-                           event::DataEvent}};
+                           event::DataEvent},
+                           modcaps::{ModuleCapability, ModuleCapabilityAdvertisement},
+                        };
 
 
 use barracuda_core::core;
@@ -39,7 +41,6 @@ pub fn launch(chm: &mut ChannelManager)
                 break;
             }
         }   
-        
     });
 }
 
@@ -54,6 +55,7 @@ struct IoModule
     system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
     system_events_tx: GenericSender<crate::core::SystemMessage>,
     switch_out_req: Arc<GenericReceiver<RawOutputSwitch>>,
+    modcaps_tx:  GenericSender<barracuda_core::modcaps::ModuleCapabilityAdvertisement>,
 }
 
 impl IoModule
@@ -66,11 +68,21 @@ impl IoModule
                   system_events_rx: chm.get_receiver(),
                   system_events_tx: chm.get_sender(),
                   switch_out_req: chm.get_receiver::<RawOutputSwitch>(),
+                  modcaps_tx: chm.get_sender(),
                 }
     }
 
     pub fn init(&self)
     {
+        let modcaps_tx_clone =self.modcaps_tx.clone();
+        let llicb= Some(move|| {
+            // TODO: num of inputs and outputs should be configured via web-ui
+            let m = ModuleCapabilityAdvertisement {
+                caps: vec![ModuleCapability::Outputs(3), ModuleCapability::Inputs(3)],
+                module_id: MODULE_ID
+            };
+            modcaps_tx_clone.send(m);            
+        });
         crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);
     }
 

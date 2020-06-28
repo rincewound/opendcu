@@ -22,6 +22,6 @@ fn main() {
             barracuda_core::io::launch,
             barracuda_core::dcm::trivial::launch,
             crate::io::launch,
-            chm| mfrc522::launch(chm, RfidSpi::new(), RfidIrq::new()) 
+            |chm| mfrc522::launch(chm, RfidSpi::new(), RfidIrq::new()) 
             );    
 }
