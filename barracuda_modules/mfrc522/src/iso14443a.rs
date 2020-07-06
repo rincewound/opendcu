@@ -1,3 +1,60 @@
+/*
+    # The ISO 14443A Implementation
+
+    This module implements an compliant ISO14443A 
+    protocol stack that can be used to read
+    smart cards or to communicate with NFC devices.
+
+
+    ## Prerequesites
+    The protocol implementation needs to be able to
+    send and receive data via RF to a transponder.
+    As such it requires an implementation of the
+    RFChip trait. 
+  
+    ## Searching a transponder
+
+    The ISO/IEC 14443 specifies that cards following the 
+    ISO/IEC 14443A shall not interfere cards following 
+    the ISO/IEC 14443B, and vice versa. In any case, 
+    the card activation procedure starts with a 
+    Request command (REQA or REQB), which is used only 
+    to check whether there is at least one card in the 
+    reader field. The REQA or REQB has to be sent after 
+    the carrier is switched on, waiting 5 ms at minimum 
+    before starting the transmission.
+
+    For NFC devices, there has to be another block between 
+    “Card Polling” and “Switch on RF”, because NFC devices 
+    need to check whether there is already a field available 
+    or not. If an external field is detected, the reader 
+    is not allowed to switch on its own RF field.
+
+    Command Order for searching a transponder (14443a only!)
+
+    * Enable RF
+        * Delay >= 5ms
+        * Send REQA/REQIDL (0x23)
+        * If not ATQA received: Terminate
+            [* Activate Card]
+            [* Perform transaction]
+            [* Halt/Deselect]
+    * RF Off
+
+
+    ### Activating a card
+    Card activation will yield the UID of a given medium,
+    procedure:
+    * Do Anticollision
+    * Check SAK Bit 6 == 1, if not: Terminate
+    * RATS + PSS if required
+    * Card is now selected
+
+
+    ### Anticollision Loop
+
+
+*/
 
 use crate::{error::TxpError, rfchip::RFChip};
 use std::iter::FromIterator;
@@ -6,7 +63,7 @@ use std::iter::FromIterator;
 pub enum Iso14443aCommand
 {
     ReqA                = 0x26,     // AKA REQIDL
-    ReqAll              = 0x52,
+    ReqAll              = 0x52,     // AKA WUPA
     AnticollCasc1       = 0x93,     // is also select_tag in original.
     AnticollCasc2       = 0x95,
     AnticollCasc3       = 0x97,
@@ -55,6 +112,9 @@ impl<'a, T:RFChip> Iso14443A<'a, T>
         // We should have received
         // an ATQA response containing at least the UID size of a txp, if
         // present.
+
+        print!("{:?}", atqa);
+
         if atqa.len() != 2
         {
             return Err(TxpError::GeneralError);
@@ -113,7 +173,7 @@ impl<'a, T:RFChip> Iso14443A<'a, T>
         let sak = self.do_picc_command(Iso14443aCommand::AnticollCasc1, Some(select_data))?[0];
         if sak != sak_uid_not_complete_mask
         {
-            // SAK states UID is ncomplete (i.e. != 0x04)
+            // SAK states UID is incomplete (i.e. != 0x04)
             // in this case the previously received magic
             // 0x88 byte is actually part of the UID.
             return Ok(Vec::from_iter(res[0..4].iter().cloned()))
@@ -125,8 +185,9 @@ impl<'a, T:RFChip> Iso14443A<'a, T>
         // check if this UID is complete (see 8371.TypeA_UID_retrieval.pdf)
         if uid2[0] != 0x88
         {
-            res.extend_from_slice(&uid2[0..3]);
-            return Ok(Vec::from_iter(res[0..7].iter().cloned()))
+            res.pop();  // this is the bcc that still floats in res
+            res.extend_from_slice(&uid2[0..4]);
+            return Ok(Vec::from_iter(res[1..8].iter().cloned()))
         }
 
         // We can't deal with 10 byte UIDs yet.
@@ -165,6 +226,69 @@ mod tests {
             .with(eq(vec![Iso14443aCommand::ReqA as u8]))
             .returning(|x| Err(TxpError::Timeout));
         let iso = Iso14443A::new(&mock);
-        iso.search_txp();
+        let _= iso.search_txp();
+    }
+
+    #[test]
+    fn search_txp_yields_4byte_uid_if_uid_is_complete()
+    {
+        let mut mock = MockRFChip::new();
+        mock.expect_send_picc()
+        .with(eq(vec![Iso14443aCommand::ReqA as u8]))
+        .returning(|x| Ok(vec![0xAB, 0x04]));
+
+        mock.expect_toggle_bit_framing()
+        .with(eq(false)).return_const(());
+
+        mock.expect_send_picc()
+        .with(eq(vec![Iso14443aCommand::AnticollCasc1 as u8, 0x20]))
+        .returning(|x| Ok(vec![0xAB, 0x04, 0xDA, 0xE9, 0x9C]));
+
+        let iso = Iso14443A::new(&mock);
+        let result = iso.search_txp();
+        assert!(result.is_ok());
+    }
+
+    
+    #[test]
+    fn search_txp_yields_7byte_uid_if_uid_is_complete()
+    {
+        let mut mock = MockRFChip::new();
+        mock.expect_send_picc()
+        .with(eq(vec![Iso14443aCommand::ReqA as u8]))
+        .returning(|_| Ok(vec![0xAB, 0x04]));
+
+        mock.expect_toggle_bit_framing()
+        .with(eq(false)).return_const(());
+
+        // Indicate incomplete UID using 0x88
+        mock.expect_send_picc()
+        .with(eq(vec![Iso14443aCommand::AnticollCasc1 as u8, 0x20]))
+        .returning(|_| Ok(vec![0x88, 0x04, 0xDA, 0xE9, 0xBF]));
+
+        mock.expect_send_picc()
+        .with(eq(vec![Iso14443aCommand::AnticollCasc1 as u8, 0x70, 0x88, 0x04, 0xDA, 0xE9, 0xBF]))
+        .returning(|_| Ok(vec![0x4]));
+
+        mock.expect_send_picc()
+        .with(eq(vec![Iso14443aCommand::AnticollCasc2 as u8, 0x20]))
+        .returning(|_| Ok(vec![0xCA, 0xB5, 0x28, 0x80, 0xD7]));
+    
+        mock.expect_send_picc()
+        .with(eq(vec![Iso14443aCommand::AnticollCasc2 as u8, 0x70, 0xCA, 0xB5, 0x28, 0x80, 0xD7]))
+        .returning(|_| Ok(vec![0x0]));
+
+        let iso = Iso14443A::new(&mock);
+        let result = iso.search_txp();
+        assert!(result.is_ok());
+        let uid = result.unwrap();
+        assert_eq!(&[0x4, 0xDA, 0xE9, 0xCA, 0xB5, 0x28, 0x80], &uid[..]);
+    }
+
+    
+    #[test]
+    fn search_txp_yields_10byte_uid_if_uid_is_complete()
+    {
+        assert!(false)
     }
 }
