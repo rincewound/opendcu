@@ -34,6 +34,7 @@
 */
 extern crate barracuda_core;
 extern crate barracuda_hal;
+extern crate num_enum;
 
 use barracuda_core::{core::
             {bootstage_helper::{boot_noop, boot}, 
@@ -45,6 +46,7 @@ use barracuda_core::{core::
 
 use barracuda_hal::{spi::SpiInterface, interrupt::Interrupt};
 use std::{thread, sync::Arc, time};
+use iso14443a::Iso14443aTransponder;
 
 mod mfrc522;
 mod rfchip;
@@ -76,7 +78,7 @@ pub struct ReaderModule<Spi, Irq>
     modcaps_tx:  GenericSender<ModuleCapabilityAdvertisement>,
     access_request_tx: GenericSender<barracuda_core::acm::WhitelistAccessRequest>,
     tracer: trace_helper::TraceHelper,
-    last_txp: Option<Vec<u8>>,
+    last_txp: Option<Iso14443aTransponder>,
     rfchip: mfrc522::Mfrc522<Spi,Irq>
 }
 
@@ -113,12 +115,12 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
             &self.tracer);
     }
 
-    fn is_new_txp(&self, uid: &Vec<u8>) -> bool
+    fn is_new_txp(&self, txp: &Iso14443aTransponder) -> bool
     {
         match self.last_txp
         {            
             Some(ref last_uid) => {
-                let zip_iter = last_uid.iter().zip(uid.iter());
+                let zip_iter = last_uid.uid.iter().zip(txp.uid.iter());
                 for (byte_a, byte_b) in zip_iter
                 {   
                     if byte_a != byte_b
@@ -152,7 +154,7 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
             let req = WhitelistAccessRequest
             {
                 access_point_id: MODULE_ID & 0x01,
-                identity_token_number: uid.clone()
+                identity_token_number: uid.uid.clone()
             };
 
             self.access_request_tx.send(req);
