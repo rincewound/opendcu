@@ -153,7 +153,7 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
 
             let req = WhitelistAccessRequest
             {
-                access_point_id: MODULE_ID & 0x01,
+                access_point_id: MODULE_ID | 0x01,
                 identity_token_number: uid.uid.clone()
             };
 
@@ -165,7 +165,7 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
             self.last_txp = None;
         }
 
-        let ten_millis = time::Duration::from_millis(500);
+        let ten_millis = time::Duration::from_millis(10);
         thread::sleep(ten_millis);
     }
 }
