@@ -136,10 +136,10 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
 
     pub fn search_media(&mut self)
     {
-        let isoImpl = iso14443a::Iso14443A::new(&self.rfchip);
+        let iso_impl = iso14443a::Iso14443A::new(&self.rfchip);
 
         self.rfchip.toggle_antenna(true);        
-        let txp = isoImpl.search_txp();
+        let txp = iso_impl.search_txp();
         self.rfchip.toggle_antenna(false);
 
         if let Ok(uid) = txp
