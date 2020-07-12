@@ -12,9 +12,9 @@ use crate::trace::*;
 use std::sync::Arc;
 
 pub struct Supervisor{
-    sysrec: Arc<GenericReceiver<SystemMessage>>,
-    tracer: trace_helper::TraceHelper,
     chm: crate::core::channel_manager::ChannelManager,
+    sysrec: Arc<GenericReceiver<SystemMessage>>,
+    tracer: trace_helper::TraceHelper,    
     num_threads: u32
 }
 
@@ -58,11 +58,61 @@ impl Supervisor
             {
                 // Nothing happened. Send a heartbeat message to make sure
                 // all modules are still alive:
-                // Note: Disabled for now
-                //let sender = self.chm.get_sender::<SystemMessage>();
-                //sender.send(SystemMessage::Heartbeat);
+                self.do_heartbeat();
             }
         }
+    }
+
+    fn do_heartbeat(&mut self)
+    {
+        let sender = self.chm.get_sender::<SystemMessage>();
+        sender.send(SystemMessage::Heartbeat); 
+        let mut messages_left = self.num_threads;
+        let receiver : Arc<GenericReceiver<SystemMessage>>;
+        receiver = self.chm.get_receiver();
+
+        let mut checked_in = Vec::<u32>::new();
+
+        while messages_left > 0
+        {
+            let data = receiver.receive_with_timeout(500);
+            if let Some(received) = data {
+                match received
+                {
+                    SystemMessage::HeartbeatResponse(mod_id) => 
+                    {
+
+                        let mod_type = (mod_id & 0xFF000000) >> 24;
+                        let mod_instance = mod_id & 0x00FF0000 >> 16;
+                        // Note: It would probably be a good idea to not just count
+                        // modules, but to also make sure, that no module checks in
+                        // multiple times. This should also help to find ID clashes
+                        // of modules!
+                        self.tracer.trace(format!("Module {}, instance {} checked in for heartbeat.", mod_type, mod_instance));
+                        
+                        if checked_in.contains(&mod_id)
+                        {
+                            panic!(format!("Double checkin for module {} -> possbible module id clash.", mod_id));
+                        }
+
+                        checked_in.push(mod_id);
+                        messages_left -= 1                    
+                    }
+                    _ => continue
+                }
+
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        if messages_left > 0
+        {
+            panic!("At least one module failed to answer the heartbeat message.")
+        }
+        
     }
 
     fn do_startup(&mut self)
@@ -111,6 +161,12 @@ impl Supervisor
                             // multiple times. This should also help to find ID clashes
                             // of modules!
                             self.tracer.trace(format!("Module {}, instance {} checked in for stage {} ", mod_type, mod_instance, the_stage as u32));
+                            
+                            if checked_in.contains(&mod_id)
+                            {
+                                panic!(format!("Double checkin for module {} -> possbible module id clash.", mod_id));
+                            }
+
                             checked_in.push(mod_id);
                             messages_left -= 1
                         }                     

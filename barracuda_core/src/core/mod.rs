@@ -35,8 +35,8 @@ pub enum SystemMessage
     _Shutdown,
     StageComplete(BootStage, u32),
     RunStage(BootStage),
-    _Heartbeat,
-    _HeartbeatResponse(u32)
+    Heartbeat,
+    HeartbeatResponse(u32)
 }
 
 
