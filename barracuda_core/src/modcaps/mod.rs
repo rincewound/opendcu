@@ -28,6 +28,15 @@ impl ModCapAggregator
 {
     pub fn new() -> Self { Self { entries: Vec::new(), locked: false } }
 
+    pub fn aggregate(&mut self, message_receiver: &crate::core::broadcast_channel::GenericReceiver<ModuleCapabilityAdvertisement>, property_filter: &mut dyn FnMut(&ModuleCapabilityAdvertisement) -> u32 )
+    {
+        while let Some(modcap_message) = message_receiver.receive_with_timeout(0)
+        {
+            let num_entries = property_filter(&modcap_message);
+            self.add_message(modcap_message.module_id, num_entries)
+        }
+        self.build();
+    }
 
     pub fn add_message(&mut self, module_id: u32, num_entries: u32) 
     {
@@ -50,24 +59,38 @@ impl ModCapAggregator
 
     pub fn build(&mut self) 
     {
+        self.entries.sort_unstable_by(|a,b| a.partial_cmp(b).unwrap());
         self.locked = true;
+
     }
 
     pub fn sud_to_logical_id(&self, sud: u32) -> Result<u32, ()> 
     {
+        if !self.locked
+        {
+            panic!("Cannot convert SUD if Aggregator is not locked.")
+        }
+
         if let Ok(id) =self.entries.binary_search(&sud)
         {
             return Ok(id as u32)
         }
+
         return Err(())
     }
 
     pub fn logical_id_to_sud(&self, logical_id: u32) -> Result<u32, ()>
     {
+        if !self.locked
+        {
+            panic!("Cannot convert id if Aggregator is not locked.")
+        }
+
         if self.entries.len() <= logical_id as usize
         {
             return Err(())
         }
+
         Ok(self.entries[logical_id as usize])
     }
 }
@@ -102,6 +125,24 @@ mod tests {
         let mut a = ModCapAggregator::new();
         a.add_message(0x4711, 10);
         a.add_message(0x4711, 5);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn sud_to_logical_will_panic_if_build_was_not_called()
+    {
+        let mut a = ModCapAggregator::new();
+        a.add_message(0x4711, 10);
+        let _ = a.sud_to_logical_id(0x47110011);
+    }
+
+    #[test]
+    #[should_panic]
+    pub fn logical_to_sud_will_panic_if_build_was_not_called()
+    {
+        let mut a = ModCapAggregator::new();
+        a.add_message(0x4711, 10);
+        let _ = a.logical_id_to_sud(5);
     }
 
     #[test]
