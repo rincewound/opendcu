@@ -189,25 +189,27 @@ impl IoManager
 
     pub fn process_modcaps_message(&mut self, message: crate::modcaps::ModuleCapabilityAdvertisement)
     {
-        for x in message.caps
-        {
-            match x
-            {
-                ModuleCapability::Inputs(ins) =>
-                {
-                    self.input_list.add_message(message.module_id, ins)
-                }
-                ModuleCapability::Outputs(outs) =>
-                {
-                    for i in 0..outs
-                    {
-                        self.output_list.lock()
-                                        .push(OutputEntry {sud: message.module_id | i, timer_guard: None});
-                    }
-                }
-                _ => continue
-            }
-        }
+        self.input_list.add_message(message);
+        // for x in message.caps
+        // {
+            
+            // match x
+            // {
+            //     ModuleCapability::Inputs(ins) =>
+            //     {
+            //         self.input_list.add_message(message.module_id, ins)
+            //     }
+            //     ModuleCapability::Outputs(outs) =>
+            //     {
+            //         for i in 0..outs
+            //         {
+            //             self.output_list.lock()
+            //                             .push(OutputEntry {sud: message.module_id | i, timer_guard: None});
+            //         }
+            //     }
+            //     _ => continue
+            // }
+        // }
 
     }
 
@@ -288,7 +290,7 @@ impl IoManager
     fn dispatch_raw_input_event(&self)
     {
         let event = self.raw_input_events.receive();
-        if let Ok(input_id) = self.input_list.sud_to_logical_id(event.input_id)
+        if let Ok(input_id) = self.input_list.sud_to_logical_id(event.input_id, ModuleCapabilityType::Inputs)
         {
             self.input_events.send(InputEvent {
                 input_id: input_id as u32,
