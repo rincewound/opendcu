@@ -190,32 +190,16 @@ impl IoManager
     pub fn process_modcaps_message(&mut self, message: crate::modcaps::ModuleCapabilityAdvertisement)
     {
         self.input_list.add_message(message);
-        // for x in message.caps
-        // {
-            
-            // match x
-            // {
-            //     ModuleCapability::Inputs(ins) =>
-            //     {
-            //         self.input_list.add_message(message.module_id, ins)
-            //     }
-            //     ModuleCapability::Outputs(outs) =>
-            //     {
-            //         for i in 0..outs
-            //         {
-            //             self.output_list.lock()
-            //                             .push(OutputEntry {sud: message.module_id | i, timer_guard: None});
-            //         }
-            //     }
-            //     _ => continue
-            // }
-        // }
-
     }
 
     pub fn modcaps_done(&mut self)
     {
-        self.input_list.build()
+        self.input_list.build();
+        for i in 0..self.input_list.get_num_entries(ModuleCapabilityType::Outputs)
+        {
+            self.output_list.lock().push(OutputEntry{sud: i as u32, timer_guard: None});
+        }
+
     }
 
     pub fn run(&mut self) -> bool
@@ -247,17 +231,19 @@ impl IoManager
         self.tracer.trace_str("Switching output.");
         let command = self.output_commands.receive();
 
-        if let Some(mut output) = self.output_list.lock().get_mut(command.output_id as usize)
+        if let Ok(output) = self.input_list.logical_id_to_sud(command.output_id, ModuleCapabilityType::Outputs)        
         {
             // step 2: generate actual command:
-            let raw_cmd = RawOutputSwitch{output_id: output.sud, target_state: command.target_state.clone()};
+            let raw_cmd = RawOutputSwitch{output_id: output, target_state: command.target_state.clone()};
             self.raw_output_commands.send(raw_cmd);
 
             // Drop the guard, preventing the timer
             // from triggering the reset.
-            if output.timer_guard.is_some()
+            let output_entry = &mut self.output_list.lock()[command.output_id as usize];
+
+            if output_entry.timer_guard.is_some()
             {
-                output.timer_guard = None;
+                output_entry.timer_guard = None;
             }
 
             if command.switch_time > 0
@@ -265,6 +251,7 @@ impl IoManager
                 self.tracer.trace(format!("Schedule switchback in {} ms", command.switch_time));
                 let sender = self.output_commands.create_sender();
                 let switch_time = command.switch_time;
+                let output_id = command.output_id;
                 let g = self.timer.schedule(Box::new(move || {
                     let mut cmd = command.clone();
                     match cmd.target_state
@@ -275,8 +262,9 @@ impl IoManager
                     // permanent switchback;
                     cmd.switch_time = 0;
                     sender.send(cmd);
-                }), switch_time);
-                output.timer_guard = Some(g);
+                }), switch_time);                
+                let mut lst = self.output_list.lock();
+                lst[output_id as usize].timer_guard = Some(g)
             }
         }
         else

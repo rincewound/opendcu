@@ -4,3 +4,8 @@ target_win64/barracuda-w32/target
 target_win64/target
 target_reference/target
 target_rpi/target/debug
+barracuda_hal/target
+*.lock
+barracuda_modules/target
+barracuda_modules/generic_whitelist/target
+barracuda_modules/mfrc522/target

@@ -59,6 +59,19 @@ impl ModCapAggregator
         self.build();
     }
 
+    pub fn get_num_entries(&self, cap: ModuleCapabilityType) -> usize
+    {
+        let source_list;
+        match cap
+        {
+            ModuleCapabilityType::Inputs => source_list = &self.inputs,
+            ModuleCapabilityType::Outputs => source_list = &self.outputs,
+            ModuleCapabilityType::AccessPoints => source_list = &self.accessPoints,
+            ModuleCapabilityType::_KeypadEntry => source_list = &self.inputs
+        }
+        source_list.len()
+    }
+
     pub fn add_message(&mut self, message: ModuleCapabilityAdvertisement) 
     {
         if self.locked
