@@ -1,0 +1,30 @@
+name: Rust
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Core Build
+      working-directory: barracuda_core
+      run: cargo build --verbose
+    - name: Core tests
+      working-directory: barracuda_core
+      run: cargo test --verbose
+    - name: Module Build
+      working-directory: barracuda_modules
+      run: cargo build --verbose
+    - name: Module Tests
+      working-directory: barracuda_modules
+      run: cargo test --verbose
