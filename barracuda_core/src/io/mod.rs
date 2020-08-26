@@ -42,12 +42,12 @@ pub struct InputEvent
 /// This struct describes a runtimesetting for
 /// a given digital input. The fiels have the
 /// following semantics:
-/// * input_id: Contains the logical id of the 
+/// * input_id: Contains the logical id of the
 ///             input, which was derived from the
 ///             SUD.
 /// * inverted_polarity: Controls if the input is
 ///             considered to be active low. If
-///             set to true, a physical state of 
+///             set to true, a physical state of
 ///             "Low" will be inverted to "High"
 ///             and vice versa
 /// * The debouncetimes (in ms) control how long a given signal must not change, before an InputEvent is triggered.
@@ -90,32 +90,25 @@ pub struct OutputSwitch
 
 const MODULE_ID: u32 = 0x07000000;
 
-pub fn launch(chm: &mut ChannelManager)   
-{    
+pub fn launch(chm: &mut ChannelManager)
+{
     let tracer = trace_helper::TraceHelper::new("IO/IoManager".to_string(), chm);
     let mut ioman = IoManager::new(tracer, chm);
-    thread::spawn(move || {  
-        ioman.init();   
-        loop 
+    thread::spawn(move || {
+        ioman.init();
+        loop
         {
             if !ioman.run()
             {
                 break;
             }
-        }   
-        
-    });
-}
+        }
 
-struct InputEntry
-{
-    //id: u32,
-    sud: u32
+    });
 }
 
 struct OutputEntry
 {
-    sud: u32,
     timer_guard: Option<Arc<bool>>
 }
 
@@ -123,7 +116,7 @@ struct OutputEntry
 /// The IO Manager is responsible for providing
 /// a uniform list of input- and output ids from
 /// the I/Os of a ll loaded modules.
-/// 
+///
 /// It will map all inputs from all modules to the
 /// Range [0...NumInputs]. This mapping is necessary,
 /// because the internal hardware ID of an input (and output!)
@@ -131,9 +124,9 @@ struct OutputEntry
 /// peripheral in question.
 ///
 /// The IO manager will only make modules available, that
-/// advertise their IOs during LLI using a 
+/// advertise their IOs during LLI using a
 /// ModuleCapabilityAdvertisement
-/// 
+///
 /// Note that this module only provides a generic interface
 /// and does not have logic for e.g. debouncing inputs.
 pub struct IoManager
@@ -147,17 +140,24 @@ pub struct IoManager
     raw_output_commands: GenericSender<RawOutputSwitch>,
     tracer: trace_helper::TraceHelper,
     timer: Arc<Timer>,
-    input_list: Vec<InputEntry>,
+    input_list: ModCapAggregator,
     output_list: Shareable<Vec<OutputEntry>>,
     dataevent: Arc<DataEvent<u32>>
 
+}
+
+impl Drop for IoManager
+{
+    fn drop(&mut self) {
+        self.timer.stop();
+    }
 }
 
 impl IoManager
 {
     pub fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager) -> Self
     {
-        IoManager{            
+        IoManager{
             system_events_rx    : chm.get_receiver(),
             system_events_tx    : chm.get_sender(),
             modcaps_rx          : chm.get_receiver(),
@@ -167,14 +167,14 @@ impl IoManager
             raw_output_commands : chm.get_sender(),
             tracer              : trace,
             timer               : Timer::new(),
-            input_list          : Vec::new(),
+            input_list          : ModCapAggregator::new(),
             output_list         : Shareable::new(Vec::new()),
             dataevent           : Arc::new(DataEvent::new("IOWait".to_string()))
         }
-    } 
+    }
 
     pub fn init(&self)
-    { 
+    {
         self.modcaps_rx.set_data_trigger(self.dataevent.clone(), 0);
         self.raw_input_events.set_data_trigger(self.dataevent.clone(), 1);
         self.output_commands.set_data_trigger(self.dataevent.clone(), 2);
@@ -189,46 +189,35 @@ impl IoManager
         {
             self.process_modcaps_message(cap);
         }
-        self.input_list.sort_by(|a,b| a.sud.cmp(&b.sud));
+
+        self.modcaps_done();
     }
 
     pub fn process_modcaps_message(&mut self, message: crate::modcaps::ModuleCapabilityAdvertisement)
     {
-        for x in message.caps
+        self.input_list.add_message(message);
+    }
+
+    pub fn modcaps_done(&mut self)
+    {
+        self.input_list.build();
+        for i in 0..self.input_list.get_num_entries(ModuleCapabilityType::Outputs)
         {
-            match x
-            {
-                ModuleCapability::Inputs(ins) => 
-                {
-                    for i in 0..ins
-                    {
-                        self.input_list.push(InputEntry {sud: message.module_id | i});
-                    }
-                }
-                ModuleCapability::Outputs(outs) =>
-                {
-                    for i in 0..outs
-                    {
-                        self.output_list.lock()
-                                        .push(OutputEntry {sud: message.module_id | i, timer_guard: None});
-                    }
-                }
-                _ => continue
-            }
+            self.output_list.lock().push(OutputEntry{timer_guard: None});
         }
 
     }
 
     pub fn run(&mut self) -> bool
     {
-        self.tracer.trace_str("Waiting for commands");        
+        self.tracer.trace_str("Waiting for commands");
         self.modcaps_rx.set_data_trigger(self.dataevent.clone(), 0);
         self.raw_input_events.set_data_trigger(self.dataevent.clone(), 1);
         self.output_commands.set_data_trigger(self.dataevent.clone(), 2);
         let chanid = self.dataevent.wait();
-        
+
         match chanid
-        {                
+        {
             0 => {
                 // Note: This should actually be done during HLI, however, if the
                 // other modules advertise only during LLI this should work just as
@@ -236,7 +225,7 @@ impl IoManager
                 self.do_all_modcap_messages();
             },
             1 => self.dispatch_raw_input_event(),
-            2 => self.dispatch_output_command(),            
+            2 => self.dispatch_output_command(),
             _ => return true
         }
 
@@ -248,17 +237,20 @@ impl IoManager
         self.tracer.trace_str("Switching output.");
         let command = self.output_commands.receive();
 
-        if let Some(mut output) = self.output_list.lock().get_mut(command.output_id as usize)
+        if let Ok(output) = self.input_list.logical_id_to_sud(command.output_id, ModuleCapabilityType::Outputs)        
         {
             // step 2: generate actual command:
-            let raw_cmd = RawOutputSwitch{output_id: output.sud, target_state: command.target_state.clone()};
-            self.raw_output_commands.send(raw_cmd);   
-            
+            let raw_cmd = RawOutputSwitch{output_id: output, target_state: command.target_state.clone()};
+            self.raw_output_commands.send(raw_cmd);
+
             // Drop the guard, preventing the timer
             // from triggering the reset.
-            if output.timer_guard.is_some()
+            let mut output_access = self.output_list.lock();
+            let output_entry = &mut output_access[command.output_id as usize];
+
+            if output_entry.timer_guard.is_some()
             {
-                output.timer_guard = None;
+                output_entry.timer_guard = None;
             }
 
             if command.switch_time > 0
@@ -266,18 +258,19 @@ impl IoManager
                 self.tracer.trace(format!("Schedule switchback in {} ms", command.switch_time));
                 let sender = self.output_commands.create_sender();
                 let switch_time = command.switch_time;
-                let g = self.timer.schedule(Box::new(move || {                    
+                let output_id = command.output_id;
+                let g = self.timer.schedule(Box::new(move || {
                     let mut cmd = command.clone();
                     match cmd.target_state
-                    {                        
+                    {
                         OutputState::High => cmd.target_state = OutputState::Low,
                         OutputState::Low => cmd.target_state = OutputState::High
                     }
                     // permanent switchback;
                     cmd.switch_time = 0;
                     sender.send(cmd);
-                }), switch_time);
-                output.timer_guard = Some(g);
+                }), switch_time);                
+                output_access[output_id as usize].timer_guard = Some(g)
             }
         }
         else
@@ -287,28 +280,17 @@ impl IoManager
 
 
     }
-    
+
     fn dispatch_raw_input_event(&self)
     {
         let event = self.raw_input_events.receive();
-
-        // convert sud to logical id:
-        let modcapentry = self.input_list
-                                                            .iter()
-                                                            .enumerate()
-                                                            .find(|x| x.1.sud.eq(&event.input_id));
-        if modcapentry.is_none()
+        if let Ok(input_id) = self.input_list.sud_to_logical_id(event.input_id, ModuleCapabilityType::Inputs)
         {
-            return;
+            self.input_events.send(InputEvent {
+                input_id: input_id as u32,
+                state: event.state
+            })
         }
-
-        let (index, _) = modcapentry.unwrap();
-        // update physical state and reset debounce time
-
-        self.input_events.send(InputEvent {
-            input_id: index as u32,
-            state: event.state
-        })
     }
 
     // pub fn handle_put_input_setting(setting: InputSetting)
@@ -322,7 +304,7 @@ impl IoManager
 
     // pub fn handle_get_outputs() -> Vec<OutputSetting>
     // {}
-    
+
 }
 
 #[cfg(test)]
@@ -332,15 +314,15 @@ mod tests {
         Implement the following tests:
         * switch_output sends message with correct SUD
         * switch_output with bad ID doesn't crash
-    */    
+    */
     use crate::core::*;
     use crate::io::*;
     use crate::modcaps::{ModuleCapabilityAdvertisement, ModuleCapability};
     use std::time::Duration;
 
 
-    fn make_mod() -> (IoManager, GenericSender<crate::io::RawInputEvent>, 
-                      Arc<GenericReceiver<crate::io::InputEvent>>, 
+    fn make_mod() -> (IoManager, GenericSender<crate::io::RawInputEvent>,
+                      Arc<GenericReceiver<crate::io::InputEvent>>,
                       GenericSender<OutputSwitch>, Arc<GenericReceiver<crate::io::RawOutputSwitch>>)
     {
         let mut chm = crate::core::channel_manager::ChannelManager::new();
@@ -354,6 +336,7 @@ mod tests {
         let modcap2 = ModuleCapabilityAdvertisement {module_id : make_sud(12, 0, 0), caps : vec![ModuleCapability::Inputs(2), ModuleCapability::Outputs(2)] };
         module.process_modcaps_message(modcap);
         module.process_modcaps_message(modcap2);
+        module.modcaps_done();
         return (module, sender, receiver, output_sender, output_command_recv)
     }
 
@@ -444,6 +427,6 @@ mod tests {
 
         assert!(recv.is_none());
     }
-    
-    
+
+
 }
