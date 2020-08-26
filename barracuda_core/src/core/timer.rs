@@ -178,6 +178,7 @@ mod tests {
         sleep(Duration::from_millis(100));
         drop(guard);
         assert!(*flag.lock() == true); 
+        t.stop();
     }
 
     #[test]
@@ -196,5 +197,6 @@ mod tests {
         sleep(Duration::from_millis(100));
 
         assert!(*flag.lock() == false); 
+        t.stop();
     }
 }

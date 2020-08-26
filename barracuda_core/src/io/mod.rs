@@ -147,6 +147,13 @@ pub struct IoManager
 
 }
 
+impl Drop for IoManager
+{
+    fn drop(&mut self) {
+        self.timer.stop();
+    }
+}
+
 impl IoManager
 {
     pub fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager) -> Self
@@ -239,7 +246,8 @@ impl IoManager
 
             // Drop the guard, preventing the timer
             // from triggering the reset.
-            let output_entry = &mut self.output_list.lock()[command.output_id as usize];
+            let mut output_access = self.output_list.lock();
+            let output_entry = &mut output_access[command.output_id as usize];
 
             if output_entry.timer_guard.is_some()
             {
@@ -263,8 +271,7 @@ impl IoManager
                     cmd.switch_time = 0;
                     sender.send(cmd);
                 }), switch_time);                
-                let mut lst = self.output_list.lock();
-                lst[output_id as usize].timer_guard = Some(g)
+                output_access[output_id as usize].timer_guard = Some(g)
             }
         }
         else
