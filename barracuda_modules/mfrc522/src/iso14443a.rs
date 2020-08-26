@@ -58,6 +58,8 @@
 
 use crate::{error::TxpError, rfchip::RFChip};
 use std::iter::FromIterator;
+use num_enum::TryFromPrimitive;
+use std::convert::TryFrom;
 
 #[allow(dead_code)]
 pub enum Iso14443aCommand
@@ -78,8 +80,63 @@ pub enum Iso14443aCommand
     Halt                = 0x50 
 }
 
-const sak_uid_not_complete_mask: u8 = 0b00000100;
-const sak_uid_complete_mask: u8 = 0b00100000;
+
+/// # The NXP/Mifare Txp type 
+/// Most transponders can sort-of be identified by the
+/// SAK they transmit (see NXP AN10834). We use this information
+/// to give out a hint at the transpondertype the chip is up
+/// against.
+/// Note that these are *hints* at best and ambigious in most
+/// cases. However they should suffice to detect unsafe, old
+/// transponders (i.e. Mifare Classic)
+#[repr(u8)]
+#[derive(Debug, Copy, Clone, TryFromPrimitive)]
+pub enum TxpType
+{
+    /// Returned by Mifare Transponders, that have not been through
+    /// the anti-coll loop yet.
+    AnyMifare = 0x04,
+    /// Any mifare ultralight transponder
+    Ultralight = 0x00,
+    /// Any mifare mini transponder
+    Mini = 0x09,
+    /// Classic or Mifare Plus transponders with max 2 KiB of storage.
+    ClassicOrPlusMax2k = 0x08,
+    /// Classic or Mifare Plus transponders with max 4 KiB of storage.
+    ClassicOrPlusMax4k = 0x18,
+    /// Mifare Plus Level 2 Transponders with max 2 KiB of storage.
+    Plus2kL2 = 0x10,
+    /// Mifare Plus Level 2 Transponders with max 4 KiB of storage.
+    Plus4L2 = 0x11,
+    /// Mifare Plus Level 3 Transponders
+    AnyPlusL3 = 0x20,
+    /// Mifare Desfire Transponders
+    AnyDesfire = 0x24,
+}
+
+#[derive(Debug, Clone)]
+pub struct Iso14443aTransponder
+{
+    pub txp_type: TxpType,
+    pub uid: Vec<u8>,    
+}
+
+
+impl Iso14443aTransponder
+{
+    // ToDo Reenable this when necessary.
+    // pub fn new(txpType: TxpType, uid: Vec<u8>) -> Self
+    // {
+    //     Self {txpType, uid}
+    // }
+
+    pub fn from_u8(txp_type: u8, uid: Vec<u8>) -> Self
+    {
+        Self {txp_type: TxpType::try_from(txp_type).unwrap(), uid}
+    }
+}
+
+const INCREASE_CASCADE_MASK: u8 = 0b00000100;
 
 pub struct Iso14443A<'a,T> where T: RFChip
 {
@@ -106,15 +163,11 @@ impl<'a, T:RFChip> Iso14443A<'a, T>
         return self.rf_chip.send_picc(cmd);
     }
 
-    pub fn search_txp(&self) -> Result<Vec<u8>, TxpError>
+    pub fn search_txp(&self) -> Result<Iso14443aTransponder, TxpError>
     {
         let atqa = self.do_picc_command(Iso14443aCommand::ReqA, None)?;
         // We should have received
-        // an ATQA response containing at least the UID size of a txp, if
-        // present.
-
-        print!("{:?}", atqa);
-
+        // an ATQA response.
         if atqa.len() != 2
         {
             return Err(TxpError::GeneralError);
@@ -139,7 +192,7 @@ impl<'a, T:RFChip> Iso14443A<'a, T>
         return Ok(());
     }
 
-    fn txp_anticoll(&self)-> Result<Vec<u8>, TxpError>
+    fn txp_anticoll(&self)-> Result<Iso14443aTransponder, TxpError>
     {
         //self.write_mfrc522(ChipRegisters::BitFramingReg as u8, &[0x00 as u8]);
         self.rf_chip.toggle_bit_framing(false);
@@ -160,38 +213,44 @@ impl<'a, T:RFChip> Iso14443A<'a, T>
         // and we only got parts of the UID.
         let _ = self.check_bcc(&res)?;
 
+        // Note: This case *should* be covered by the handling of the SAK further down.
         // check if this UID is complete (see 8371.TypeA_UID_retrieval.pdf)
-        if res[0] != 0x88
-        {
-            return Ok(Vec::from_iter(res[0..4].iter().cloned()))
-        }
+        // if res[0] != 0x88
+        // {
+        //     return Ok(Iso14443aTransponder::new(0, Vec::from_iter(res[0..4].iter().cloned())))
+        // }
         
         let mut select_data = vec![0x70];
         // We want to retrieve the rest of the UID, so the bits
         // already received are the prefix.
         select_data.append(&mut res.clone());
         let sak = self.do_picc_command(Iso14443aCommand::AnticollCasc1, Some(select_data))?[0];
-        if sak != sak_uid_not_complete_mask
+        if sak & INCREASE_CASCADE_MASK != INCREASE_CASCADE_MASK
         {
             // SAK states UID is incomplete (i.e. != 0x04)
             // in this case the previously received magic
             // 0x88 byte is actually part of the UID.
-            return Ok(Vec::from_iter(res[0..4].iter().cloned()))
+            return Ok(Iso14443aTransponder::from_u8(sak, Vec::from_iter(res[0..4].iter().cloned())))
         }
 
         let uid2 = self.do_picc_command( Iso14443aCommand::AnticollCasc2, Some(vec![0x20 as u8]))?;
         let _ = self.check_bcc(&uid2)?;
 
-        // check if this UID is complete (see 8371.TypeA_UID_retrieval.pdf)
-        if uid2[0] != 0x88
+        // Get select ackknowledge
+        let mut sak2selectdata = vec![0x70];
+        sak2selectdata.extend_from_slice(&uid2[..]);            
+        let sak2 = self.do_picc_command( Iso14443aCommand::AnticollCasc2, Some(sak2selectdata))?[0];
+        
+        if sak2 & INCREASE_CASCADE_MASK == INCREASE_CASCADE_MASK
         {
-            res.pop();  // this is the bcc that still floats in res
-            res.extend_from_slice(&uid2[0..4]);
-            return Ok(Vec::from_iter(res[1..8].iter().cloned()))
+            // We can't deal with 10 byte UIDs yet.
+            return Err(TxpError::UnsupportedTagType);
         }
 
-        // We can't deal with 10 byte UIDs yet.
-        return Err(TxpError::UnsupportedTagType);
+        res.pop();  // this is the bcc that still floats in res
+        res.extend_from_slice(&uid2[0..4]);
+        return Ok(Iso14443aTransponder::from_u8(sak2, Vec::from_iter(res[1..8].iter().cloned())))
+
 
         // Note: This part deals with 10 byte uids.
         // let mut seven_uid_bytes = vec<u8>::new();
@@ -215,7 +274,7 @@ impl<'a, T:RFChip> Iso14443A<'a, T>
 mod tests {
 
     use crate::{error::TxpError, rfchip::*};
-    use mockall::{automock, mock, predicate::*};
+    use mockall::{predicate::*};
     use super::{Iso14443aCommand, Iso14443A};
     
     #[test]
@@ -224,7 +283,7 @@ mod tests {
         let mut mock = MockRFChip::new();
         mock.expect_send_picc()
             .with(eq(vec![Iso14443aCommand::ReqA as u8]))
-            .returning(|x| Err(TxpError::Timeout));
+            .returning(|_| Err(TxpError::Timeout));
         let iso = Iso14443A::new(&mock);
         let _= iso.search_txp();
     }
@@ -235,14 +294,18 @@ mod tests {
         let mut mock = MockRFChip::new();
         mock.expect_send_picc()
         .with(eq(vec![Iso14443aCommand::ReqA as u8]))
-        .returning(|x| Ok(vec![0xAB, 0x04]));
+        .returning(|_| Ok(vec![0xAB, 0x04]));
 
         mock.expect_toggle_bit_framing()
         .with(eq(false)).return_const(());
 
         mock.expect_send_picc()
         .with(eq(vec![Iso14443aCommand::AnticollCasc1 as u8, 0x20]))
-        .returning(|x| Ok(vec![0xAB, 0x04, 0xDA, 0xE9, 0x9C]));
+        .returning(|_| Ok(vec![0xAB, 0x04, 0xDA, 0xE9, 0x9C]));
+
+        mock.expect_send_picc()
+        .with(eq(vec![Iso14443aCommand::AnticollCasc1 as u8, 0x70, 0xAB, 0x04, 0xDA, 0xE9, 0x9C]))
+        .returning(|_| Ok(vec![0x00]));        
 
         let iso = Iso14443A::new(&mock);
         let result = iso.search_txp();
@@ -282,13 +345,6 @@ mod tests {
         let result = iso.search_txp();
         assert!(result.is_ok());
         let uid = result.unwrap();
-        assert_eq!(&[0x4, 0xDA, 0xE9, 0xCA, 0xB5, 0x28, 0x80], &uid[..]);
-    }
-
-    
-    #[test]
-    fn search_txp_yields_10byte_uid_if_uid_is_complete()
-    {
-        assert!(false)
+        assert_eq!(&[0x4, 0xDA, 0xE9, 0xCA, 0xB5, 0x28, 0x80], &uid.uid[..]);
     }
 }
