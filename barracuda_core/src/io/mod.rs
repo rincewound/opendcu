@@ -109,7 +109,6 @@ pub fn launch(chm: &mut ChannelManager)
 
 struct OutputEntry
 {
-    sud: u32,
     timer_guard: Option<Arc<bool>>
 }
 
@@ -204,7 +203,7 @@ impl IoManager
         self.input_list.build();
         for i in 0..self.input_list.get_num_entries(ModuleCapabilityType::Outputs)
         {
-            self.output_list.lock().push(OutputEntry{sud: i as u32, timer_guard: None});
+            self.output_list.lock().push(OutputEntry{timer_guard: None});
         }
 
     }
