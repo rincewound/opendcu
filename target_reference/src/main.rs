@@ -20,6 +20,7 @@ fn main() {
             barracuda_core::arm::console_input::launch,
             barracuda_core::io::launch,
             barracuda_core::dcm::trivial::launch,
-            |chm| mfrc522::launch(chm, RfidSpi::new(), RfidIrq::new()) 
+            |chm| mfrc522::launch(chm, RfidSpi::new(), RfidIrq::new()),
+            barracuda_core::profile::launch
             );    
 }

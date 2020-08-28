@@ -1,6 +1,9 @@
 use serde::{Serialize};
 use serde::de::DeserializeOwned;
 use std::fs::File;
+use std::{slice::Iter};
+
+pub mod datetime;
 
 pub trait ObjectStorage<T>
 {
@@ -8,6 +11,7 @@ pub trait ObjectStorage<T>
     fn put_entry(&mut self, entry: T);
     fn delete_entry<P>(&mut self, filter: P)where P: FnMut(&T) -> bool;
     fn update_storage(&self);
+    fn iter(&self) -> Iter<'_, T>;
 }
 
 pub struct JsonStorage<ValueType>
@@ -72,6 +76,10 @@ impl <ValueType> ObjectStorage<ValueType> for JsonStorage<ValueType> where
     {
         let writer = File::create(self.file_name.as_str()).unwrap();
         let _ = serde_json::to_writer_pretty(writer, &self.data);
+    }
+
+    fn iter(&self) -> Iter<'_, ValueType> {
+        return self.data.iter()
     }
 }
 

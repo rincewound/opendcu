@@ -17,13 +17,18 @@ Configurable Values:
 * SwitchTime (ms): This parameter denotes the maximum number of milliseconds the door will stay released. Default: 5000. 0 = Door Opener will stay active until the framecontact has been triggered. This value should obviously only be used in systems where a framecontact is available.
 * Output ID: A logical ID of the output that this component refers to.
 
+#### Behavior: 
+The door opener will engage as soon as the doorcontrol decides, that a valid door open request was received. The door opener will immediately disengage, when the door was opened (i.e. whenever the FC senses an open door). It will also disengage after the switchtime has passed (this is especially important for doors with not framecontact.)
+If the door was permanently released the door opener will stay engaged regardless of the state of the framecontact.
+
 ### Access Granted Relais
-The access granted relais is an __output__ component used to suppress external alarm systems, that might be wired to the door along with the frame contact. The access granted relais is automatically triggered whenever an authorized access through the door is sensed, either by means of an identification token or by the door opener key or by means of an external command.
+The access granted relais is an __output__ component used to suppress external alarm systems, that might be wired to the door along with the frame contact. The access granted relais is automatically triggered whenever an authorized access through the door is sensed, either by means of an identification token or by the door opener key or by means of an external command. Note that the relais is also controlled by the door profile, i.e. if the doorprofile releases the door, the relais will be triggered as well, since this constitutes an access granted situation.
 
 The output will stay switched as long as the access granted situtation persists, i.e. it will be disengaged if:
-* The door was opened and then closed within the maximum door open time.
+* The door was opened and then closed within the maximum door open time (i.e. the relay will disengage as soon as the framecontact is triggered).
 * The door was not opened within the switchtime of the electric strike.
 * The door was opened but not closes until the door alarm was triggered.
+* The doorprofile leaves its active state.
 
 Configurable Values:
 * Output ID: A logical ID of the output that this component refers to.
@@ -31,7 +36,7 @@ Configurable Values:
 ### Alarm Relay
 The alarm relay is an __output__ component that is triggered whenever abnormal behavior is detected by the framecontact. 
 
-The otuput will stay switched on as long as the alarm persists (i.e. as long as the door stays open in an alarm state).
+The output will stay switched on as long as the alarm persists (i.e. as long as the door stays open in an alarm state).
 
 Configurable Values:
 * Output ID: A logical ID of the output that this component refers to.
@@ -75,7 +80,13 @@ These components are common for other access control systems but are not support
 ## Doorflows
 
 ## Doorprofiles
+ADCM depends on the core profile service to control door open states.
+
 ### Door Open Profile
+The dooropen profile is a __binary profile__ which is used to determine times during which the door is automatically released, i.e. times when no access token has to be provided in order to gain access. 
+
+*Note*: The doorstate is generally independant of the state of any access points, so a user can still present a token to the AP and will get rejected if she has no access rights during an active door open profile, however, the door is freely accessible.
+
 ### Auto Release
 
 ## Operation
