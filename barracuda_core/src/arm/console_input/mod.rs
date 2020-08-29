@@ -6,6 +6,13 @@ use crate::acm::*;
 use std::{sync::Arc, thread};
 use std::io;
 
+use crate::{core::
+    {bootstage_helper::{boot_noop, boot}, 
+     channel_manager::ChannelManager, 
+     broadcast_channel::{GenericSender, GenericReceiver}, SystemMessage},              
+     trace::trace_helper, 
+     modcaps::{ModuleCapability, ModuleCapabilityAdvertisement}, acm::WhitelistAccessRequest
+    };
 
 const MODULE_ID: u32 = 0x04000000;
 
@@ -32,6 +39,7 @@ struct ConsoleInput
     access_request_tx: GenericSender<crate::acm::WhitelistAccessRequest>,
     system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
     system_events_tx: GenericSender<crate::core::SystemMessage>,
+    modcaps_tx:  GenericSender<ModuleCapabilityAdvertisement>,
 }
 
 impl ConsoleInput
@@ -44,12 +52,27 @@ impl ConsoleInput
             access_request_tx: chm.get_sender(),
             system_events_rx: chm.get_receiver(),
             system_events_tx: chm.get_sender(),
+            modcaps_tx: chm.get_sender(),
         }
     }
 
     pub fn init(&mut self)
     {
-        crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
+        let modcaps_tx_clone =self.modcaps_tx.clone();
+        let hlicb= Some(move|| {
+            let m = ModuleCapabilityAdvertisement {
+                caps: vec![ModuleCapability::AccessPoints(1)],
+                module_id: MODULE_ID
+            };
+            modcaps_tx_clone.send(m);            
+        });
+
+        boot(MODULE_ID, Some(boot_noop), hlicb, 
+            self.system_events_tx.clone(), 
+            self.system_events_rx.clone(), 
+            &self.tracer);
+
+        // crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
     }
 
     pub fn do_request(&mut self) -> bool

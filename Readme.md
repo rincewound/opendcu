@@ -181,6 +181,7 @@ B: Identifies the instancenumber of the module (if a module is started multiple 
 * 0x09: Plattform/Win32Io
 * 0x0A: Plattform/ReferenceIo
 * 0x0B: ARM/MFRC522
+* 0x0C: ProfileControl
 
 ## Component ID
 A component ID is a 32 bit int, that consists of the ID of the module owning the component and 16 bits containing,

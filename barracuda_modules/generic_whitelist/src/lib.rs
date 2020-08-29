@@ -9,6 +9,7 @@ use barracuda_core::{Handler, cfg::{ConfigMessage, cfgholder::*, self}};
 use barracuda_core::trace::*;
 use barracuda_core::{sig::*, acm::*};
 use barracuda_core::dcm::DoorOpenRequest;
+use barracuda_core::modcaps::{ModCapAggregator, ModuleCapabilityAdvertisement, ModuleCapabilityType};
 use std::{sync::Arc, thread};
 
 use profiles::{ProfileChecker, JsonProfileChecker, AccessProfile};
@@ -48,7 +49,9 @@ struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider, Pr
     sig_tx              : GenericSender<SigCommand>,
     door_tx             : GenericSender<DoorOpenRequest>,
     whitelist           : Shareable<WhitelistProvider>,
-    profiles            : Shareable<ProfileStorage>    
+    profiles            : Shareable<ProfileStorage>,
+    modcaps             : ModCapAggregator,
+    modcap_rx           : Arc<GenericReceiver<ModuleCapabilityAdvertisement>>
 }
 
 impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, ProfileStorage:ProfileChecker + Send +'static> GenericWhitelist<WhitelistProvider, ProfileStorage>
@@ -65,7 +68,9 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
             sig_tx              : chm.get_sender(),
             door_tx             : chm.get_sender(),
             whitelist           : Shareable::new(whitelist),
-            profiles            : Shareable::new(profile_source)
+            profiles            : Shareable::new(profile_source),
+            modcaps             : ModCapAggregator::new(),
+            modcap_rx           : chm.get_receiver()
         }
     }
 
@@ -114,6 +119,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
             self.system_events_rx.clone(), 
             &self.tracer);
 
+        self.modcaps.aggregate(&self.modcap_rx);
     }
 
     pub fn do_request(&mut self) -> bool
@@ -162,12 +168,19 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
         // Found? If so, check access profile, otherwise emit AccessDenied Sig
         if let Some(entry) = entry 
         {
-            if !self.check_profile(req.access_point_id, &entry) { return; }
+            if let Ok(sud_ap_id) = self.modcaps.sud_to_logical_id(req.access_point_id, ModuleCapabilityType::AccessPoints)
+            {
+                if !self.check_profile(sud_ap_id, &entry) { return; }
 
-            // Good? If so, emit DoorOpenRequest, otherwise emit AccessDenied Sig 
-            self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.identification_token_id));
-            let openreq = barracuda_core::dcm::DoorOpenRequest {access_point_id: req.access_point_id};
-            self.door_tx.send(openreq);
+                // Good? If so, emit DoorOpenRequest, otherwise emit AccessDenied Sig 
+                self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.identification_token_id));
+                let openreq = barracuda_core::dcm::DoorOpenRequest {access_point_id: sud_ap_id};
+                self.door_tx.send(openreq);
+            }
+            else
+            {
+                self.tracer.trace(format!("Received access request from unknown accesspoint {}", req.access_point_id));
+            }
                
         }
         else
