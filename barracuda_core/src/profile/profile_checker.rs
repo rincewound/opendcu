@@ -1,6 +1,6 @@
 use crate::util::{datetime::TimeSlot, JsonStorage, ObjectStorage};
 use serde::{Deserialize, Serialize};
-use chrono::{Datelike, Timelike};
+use chrono::{Datelike, Timelike, Local};
 use super::ProfileChangeEvent;
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -25,7 +25,7 @@ impl ProfileChecker
         }
     }
 
-    fn is_profile_active(prof: &BinaryProfile, time: chrono::naive::NaiveDateTime) -> bool
+    fn is_profile_active(prof: &BinaryProfile, time: chrono::DateTime<Local>) -> bool
     {
         for slot in prof.time_slots.iter().filter(|x| x.day as u32 == time.weekday() as u32)
         {
@@ -35,7 +35,7 @@ impl ProfileChecker
         return false;
     }
 
-    pub fn tick(&mut self, now: chrono::naive::NaiveDateTime, last_time: chrono::naive::NaiveDateTime) -> Vec<ProfileChangeEvent>
+    pub fn tick(&mut self, now: chrono::DateTime<Local>, last_time: chrono::DateTime<Local>) -> Vec<ProfileChangeEvent>
     {
         let mut result = Vec::new();
         for profile in self.profiles.iter()

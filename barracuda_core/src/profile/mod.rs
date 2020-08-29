@@ -4,6 +4,8 @@ use crate::trace::*;
 use std::{sync::Arc, thread};
 mod profile_checker;
 
+use chrono::{DateTime, Local};
+
 const MODULE_ID: u32 = 0x0C000000;
 
 #[derive(Clone)]
@@ -68,10 +70,15 @@ impl ProfileControl
 
     pub fn run(&mut self) -> bool
     {
-        let mut last_date_time = chrono::NaiveDateTime::from_timestamp(chrono::Local::now().timestamp(), 0);
+        let mut last_date_time = Local::now();
         loop 
         {
-            let current_time = chrono::NaiveDateTime::from_timestamp(chrono::Local::now().timestamp(), 0);
+            if let Some(_) = self.system_events_rx.receive_with_timeout(30000)
+            {
+                // might have to break here, if a terminate command was received.
+            }
+
+            let current_time = Local::now();
             let events = self.checker.tick(current_time, last_date_time);
 
             last_date_time = current_time;
