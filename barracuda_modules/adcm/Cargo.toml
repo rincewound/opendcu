@@ -1,5 +1,5 @@
 [package]
-name = "Advanced door control module"
+name = "AdvancedDoorControlModule"
 version = "0.1.0"
 authors = ["rincewound <aaaargh@minddebugger.com>"]
 edition = "2018"
