@@ -153,7 +153,7 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
 
             let req = WhitelistAccessRequest
             {
-                access_point_id: MODULE_ID | 0x01,
+                access_point_id: MODULE_ID,     // use AP 1, i.e. index 0
                 identity_token_number: uid.uid.clone()
             };
 

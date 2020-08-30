@@ -1,22 +1,10 @@
-
-
 use super::whitelist::WhitelistEntry;
-use serde::{Deserialize, Serialize};
 use barracuda_core::util::{JsonStorage, ObjectStorage};
+use barracuda_core::util::datetime::*;
+
+use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Datelike, Timelike, Local};
 use strum_macros::*;
-
-#[derive(Clone, Copy, Deserialize, Serialize, Debug)]
-pub enum Weekday
-{
-    Monday,
-    Tuesday,
-    Wednesday,
-    Thursday,
-    Friday,
-    Saturday,
-    Sunday
-}
 
 #[derive(Clone, Copy, Debug, Display)]
 pub enum ProfileCheckResult
@@ -24,14 +12,6 @@ pub enum ProfileCheckResult
     NoAccessRights,     // Emitted, if the profile does not contain the AP requested
     TimezoneViolated,   // Emitted, if the profile contains the AP but booking is outside of time_pro
     InvalidProfile      // Emitted, if Whitelist entry refers to unknown profile
-}
-
-#[derive(Clone, Copy, Deserialize, Serialize, Debug)]
-pub struct TimeSlot
-{
-    pub day: Weekday,
-    pub from: u32,
-    pub to: u32
 }
 
 // pub enum AccessFlags

@@ -18,3 +18,4 @@ pub mod dcm;
 pub mod modcaps;
 pub mod io;
 pub mod util;
+pub mod profile;

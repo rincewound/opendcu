@@ -17,6 +17,7 @@ fn main() {
             barracuda_core::arm::console_input::launch,
             barracuda_core::io::launch,
             barracuda_core::dcm::trivial::launch,
+            barracuda_core::profile::launch,
             crate::io::launch
             );    
 }

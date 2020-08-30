@@ -50,7 +50,7 @@ impl Supervisor
             {
                 match e
                 {
-                    SystemMessage::_Shutdown => break,
+                    SystemMessage::Shutdown => break,
                     _ => continue
                 }
             }
