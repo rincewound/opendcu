@@ -93,7 +93,7 @@ impl ModCapAggregator
 
     fn add_cap(dest: &mut Vec<u32>, module_id: u32, num_entries: u32)
     {
-        let first_index = module_id + 1;
+        let first_index = module_id;
         for index in first_index..first_index + num_entries
         {
             if dest.binary_search(&index).is_ok()

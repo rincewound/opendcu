@@ -1,8 +1,5 @@
 # Open DCU "Barracuda"
 An open source door controller
-[![Build Status](https://dev.azure.com/opendcu/barracuda/_apis/build/status/rincewound.opendcu?branchName=master)](https://dev.azure.com/opendcu/barracuda/_build/latest?definitionId=1&branchName=master)
-
-
 
 ## Motivation
 Having worked in access control for nearly ten years I've come in contact with a multitude of access control devices, most of which share similar properties with regard to their firmware:
@@ -15,7 +12,7 @@ Having worked in access control for nearly ten years I've come in contact with a
 * Astonishingly often written in managed languages, that don't perform well on the hardware in question.
 * Poor Security: Often these devices were not built with the IoT in mind. In a lot of cases security is an afterthought
 
-As I've wanted to have electronic access control for my home for a while now but don't trust consumer grade products I decided to build an open source door control unit that adresses the above points.
+As I've wanted to have electronic access control for my home for a while now, but since I don't trust consumer grade products I decided to build an open source door control unit that adresses the above points.
 
 ## Design Goals
 ### Modularity

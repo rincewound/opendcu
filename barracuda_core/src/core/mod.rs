@@ -26,7 +26,8 @@ pub enum BootStage
     Sync,
     LowLevelInit,
     HighLevelInit,
-    Application
+    Application,
+    _Shutdown
 }
 
 #[derive(Clone)]
@@ -35,6 +36,7 @@ pub enum SystemMessage
     _Shutdown,
     StageComplete(BootStage, u32),
     RunStage(BootStage),
+    _Reboot(u32),               // Contains the module ID of the module that is supposed to reboot.
     _Heartbeat,
     _HeartbeatResponse(u32)
 }
