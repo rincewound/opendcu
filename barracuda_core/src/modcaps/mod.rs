@@ -32,7 +32,7 @@ pub struct ModCapAggregator
 {
     inputs: Vec<u32>,
     outputs: Vec<u32>,
-    accessPoints: Vec<u32>,
+    access_points: Vec<u32>,
     keypads: Vec<u32>,
     locked: bool
 }
@@ -44,7 +44,7 @@ impl ModCapAggregator
         Self { 
             inputs: vec![],
             outputs: vec![],
-            accessPoints: vec![],
+            access_points: vec![],
             keypads: vec![],
             locked: false
         }
@@ -66,7 +66,7 @@ impl ModCapAggregator
         {
             ModuleCapabilityType::Inputs => source_list = &self.inputs,
             ModuleCapabilityType::Outputs => source_list = &self.outputs,
-            ModuleCapabilityType::AccessPoints => source_list = &self.accessPoints,
+            ModuleCapabilityType::AccessPoints => source_list = &self.access_points,
             ModuleCapabilityType::_KeypadEntry => source_list = &self.inputs
         }
         source_list.len()
@@ -85,7 +85,7 @@ impl ModCapAggregator
             {
                 ModuleCapability::Inputs(num_in) => Self::add_cap(&mut self.inputs, message.module_id, *num_in),
                 ModuleCapability::Outputs(num_out) => Self::add_cap(&mut self.outputs, message.module_id, *num_out),
-                ModuleCapability::AccessPoints(num_ap) => Self::add_cap(&mut self.accessPoints, message.module_id, *num_ap),
+                ModuleCapability::AccessPoints(num_ap) => Self::add_cap(&mut self.access_points, message.module_id, *num_ap),
                 ModuleCapability::_KeypadEntry(num_kp) => Self::add_cap(&mut self.inputs, message.module_id, *num_kp),
             }
         }
@@ -110,7 +110,7 @@ impl ModCapAggregator
         self.inputs.sort_unstable_by(|a,b| a.partial_cmp(b).unwrap());
         self.outputs.sort_unstable_by(|a,b| a.partial_cmp(b).unwrap());
         self.keypads.sort_unstable_by(|a,b| a.partial_cmp(b).unwrap());
-        self.accessPoints.sort_unstable_by(|a,b| a.partial_cmp(b).unwrap());
+        self.access_points.sort_unstable_by(|a,b| a.partial_cmp(b).unwrap());
         self.locked = true;
 
     }
@@ -127,7 +127,7 @@ impl ModCapAggregator
         {
             ModuleCapabilityType::Inputs => search_list = &self.inputs,
             ModuleCapabilityType::Outputs => search_list = &self.outputs,
-            ModuleCapabilityType::AccessPoints => search_list = &self.accessPoints,
+            ModuleCapabilityType::AccessPoints => search_list = &self.access_points,
             ModuleCapabilityType::_KeypadEntry => search_list = &self.inputs
         }
 
@@ -151,7 +151,7 @@ impl ModCapAggregator
         {
             ModuleCapabilityType::Inputs => search_list = &self.inputs,
             ModuleCapabilityType::Outputs => search_list =  &self.outputs,
-            ModuleCapabilityType::AccessPoints => search_list = &self.accessPoints,
+            ModuleCapabilityType::AccessPoints => search_list = &self.access_points,
             ModuleCapabilityType::_KeypadEntry => search_list = &self.inputs
         }
 

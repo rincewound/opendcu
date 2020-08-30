@@ -1,11 +1,11 @@
 use crate::core::broadcast_channel::*;
-use crate::core::{bootstage_helper::{boot, boot_noop}, channel_manager::*, shareable::Shareable};
+use crate::core::{bootstage_helper::{boot, boot_noop}, channel_manager::*, shareable::Shareable, SystemMessage};
 use crate::{cfg::{cfgholder::FunctionType, ConfigMessage}, trace::*};
-use crate::{Handler, cfg::{cfgholder::*, self}};
+use crate::{Handler, cfg::{self}};
 use std::{sync::Arc, thread};
 mod profile_checker;
 
-use chrono::{DateTime, Local};
+use chrono::{Local};
 
 const MODULE_ID: u32 = 0x0C000000;
 
@@ -40,7 +40,6 @@ pub fn launch(chm: &mut ChannelManager)
     });
 }
 
-#[derive()]
 struct ProfileControl
 {
     tracer: trace_helper::TraceHelper,
@@ -78,17 +77,17 @@ impl ProfileControl
             let res = the_receiver.receive();
             let cfg::ConfigMessage::RegisterHandlers(cfg_holder) = res;
             let mut holder = cfg_holder.lock();
-            let profileWriter = self.checker.clone();
-            let profileDeleter = self.checker.clone();
+            let profile_writer = self.checker.clone();
+            let profile_deleter = self.checker.clone();
 
             holder.register_handler(FunctionType::Put, "profiles/entry".to_string(), Handler!(|r: profile_checker::BinaryProfile|
                 {
-                    profileWriter.lock().add_profile(r);
+                    profile_writer.lock().add_profile(r);
                 }));
 
             holder.register_handler(FunctionType::Delete, "profiles/entry".to_string(), Handler!(|r: profile_checker::BinaryProfile|
                 {
-                    profileDeleter.lock().delete_profile(r.id);
+                    profile_deleter.lock().delete_profile(r.id);
                 }));            
         });
 
@@ -106,9 +105,12 @@ impl ProfileControl
         let mut last_date_time = Local::now();
         loop 
         {
-            if let Some(_) = self.system_events_rx.receive_with_timeout(5000)
+            if let Some(e) = self.system_events_rx.receive_with_timeout(5000)
             {
-                // might have to break here, if a terminate command was received.
+                if e == SystemMessage::Shutdown
+                {
+                    return false
+                }
             }
 
             let current_time = Local::now();
@@ -120,7 +122,6 @@ impl ProfileControl
                 self.profile_state_tx.send(e);
             }
         }
-        false
     }
 
     // pub fn do_request(&mut self) -> bool

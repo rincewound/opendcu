@@ -30,10 +30,10 @@ pub enum BootStage
     _Shutdown
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum SystemMessage
 {
-    _Shutdown,
+    Shutdown,
     StageComplete(BootStage, u32),
     RunStage(BootStage),
     _Reboot(u32),               // Contains the module ID of the module that is supposed to reboot.

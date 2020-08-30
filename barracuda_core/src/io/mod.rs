@@ -201,7 +201,7 @@ impl IoManager
     pub fn modcaps_done(&mut self)
     {
         self.input_list.build();
-        for i in 0..self.input_list.get_num_entries(ModuleCapabilityType::Outputs)
+        for _ in 0..self.input_list.get_num_entries(ModuleCapabilityType::Outputs)
         {
             self.output_list.lock().push(OutputEntry{timer_guard: None});
         }
