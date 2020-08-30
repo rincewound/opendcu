@@ -119,6 +119,11 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
             self.system_events_rx.clone(), 
             &self.tracer);
 
+        self.do_modcaps_messages();
+    }
+
+    pub fn do_modcaps_messages(&mut self)
+    {
         self.modcaps.aggregate(&self.modcap_rx);
     }
 
@@ -232,7 +237,8 @@ mod tests {
      use crate::profiles::{AccessProfile, ProfileChecker, ProfileCheckResult};
      use crate::whitelist::WhitelistEntry;
      use crate::whitelist::WhitelistEntryProvider;
-     use barracuda_core::{sig::*};
+     use barracuda_core::{sig::*, modcaps::ModuleCapabilityAdvertisement};
+     use barracuda_core::modcaps::{ModCapAggregator, ModuleCapability};
 
      struct DummyWhitelist
      {
@@ -282,9 +288,19 @@ mod tests {
         let wl = DummyWhitelist::new();
         let prof = DummyProfileChecker {check_result: Ok(())};
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), chm);
-        let md = crate::GenericWhitelist::new(tracer, chm, wl, prof);
+        let mut md = crate::GenericWhitelist::new(tracer, chm, wl, prof);
+
+        let ap_modcap_message = ModuleCapabilityAdvertisement {
+            module_id: 0x10000000,
+            caps: vec![ModuleCapability::AccessPoints(50)]
+        };
+        
+        chm.get_sender().send(ap_modcap_message);
+        md.do_modcaps_messages();
+
         return md;
      }
+
 
      #[test]
      fn will_throw_access_denied_if_no_whitelist_entry_exists()
@@ -325,11 +341,19 @@ mod tests {
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
         let mut md = crate::GenericWhitelist::new(tracer, &mut chm, wl, DummyProfileChecker {check_result: Ok(())});
 
+        let ap_modcap_message = ModuleCapabilityAdvertisement {
+            module_id: 0x10000000,
+            caps: vec![ModuleCapability::AccessPoints(50)]
+        };
+        
+        chm.get_sender().send(ap_modcap_message);
+        md.do_modcaps_messages();        
+
         let dcm_rx = chm.get_receiver::<barracuda_core::dcm::DoorOpenRequest>();
         let access_tx = chm.get_sender::<WhitelistAccessRequest>();
 
         let req = WhitelistAccessRequest {
-            access_point_id: 47,
+            access_point_id: 0x1000002F,
             identity_token_number: vec![1,2,3,4],
         };
 
@@ -357,6 +381,14 @@ mod tests {
         });
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
         let mut md = crate::GenericWhitelist::new(tracer, &mut chm, wl,DummyProfileChecker {check_result: Ok(())});
+        
+        let ap_modcap_message = ModuleCapabilityAdvertisement {
+            module_id: 0x10000000,
+            caps: vec![ModuleCapability::AccessPoints(50)]
+        };
+        
+        chm.get_sender().send(ap_modcap_message);
+        md.do_modcaps_messages();   
 
         let dcm_rx = chm.get_receiver::<barracuda_core::dcm::DoorOpenRequest>();
         let access_tx = chm.get_sender::<WhitelistAccessRequest>();
@@ -364,7 +396,7 @@ mod tests {
         for _ in 0..20
         {
             let req = WhitelistAccessRequest {
-                access_point_id: 47,
+                access_point_id: 0x1000002F,
                 identity_token_number: vec![1,2,3,4],
             };
 
