@@ -9,7 +9,7 @@ use chrono::{Local};
 
 const MODULE_ID: u32 = 0x0C000000;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum ProfileState
 {
     Active,
@@ -19,8 +19,8 @@ pub enum ProfileState
 #[derive(Clone)]
 pub struct ProfileChangeEvent
 {
-    profile_id: u32,
-    profile_state: ProfileState
+    pub profile_id: u32,
+    pub profile_state: ProfileState
 }
 
 pub fn launch(chm: &mut ChannelManager)

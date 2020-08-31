@@ -9,7 +9,9 @@ use barracuda_core::profile::*;
 mod electricstrike;
 mod accessgranted;
 mod outputcomponentbase;
+mod framecontact;
 
+#[derive(Copy, Clone)]
 enum DoorEvent
 {
     Opened,
@@ -35,6 +37,11 @@ pub trait OutputComponent
     fn on_door_event(&mut self, event: DoorEvent);
 }
 
+pub trait VirtualComponent
+{
+    fn on_door_event(&mut self, event: DoorEvent);
+}
+
 
 struct Passageway
 {
@@ -43,7 +50,8 @@ struct Passageway
     //bin_prof_rx: Arc<GenericReceiver<ProfileChangeEvent>>,  // <-- Central dispatch here?
     //input_rx: Arc<GenericReceiver<InputEvent>>,             // <-- Central dispatch here?
     input_components: Vec<Box<dyn InputComponent>>,
-    output_components: Vec<Box<dyn OutputComponent>>
+    output_components: Vec<Box<dyn OutputComponent>>,
+    virtual_components: Vec<Box<dyn VirtualComponent>>
 }
 
 impl Passageway
@@ -57,6 +65,17 @@ impl Passageway
 
         // ToDo: if the profile is our door open profile, we have
         // to adjust the doorstate here as well
+        if event.profile_id == self.door_open_profile_id
+        {
+            if event.profile_state == ProfileState::Active
+            {
+                self.handle_door_event(DoorEvent::ReleasedPermanently);
+            }
+            if event.profile_state == ProfileState::Inactive
+            {
+                self.handle_door_event(DoorEvent::NormalOperation);
+            }
+        }
     }
 
     pub fn on_input_change(&mut self, event: &InputEvent)
@@ -67,9 +86,31 @@ impl Passageway
         }
     }
 
+    pub fn handle_door_event(&mut self, event: DoorEvent)
+    {
+        for v in self.output_components.iter_mut()
+        {
+            v.on_door_event(event);
+        }
+
+        for v in self.input_components.iter_mut()
+        {
+            v.on_door_event(event);
+        }
+
+        for v in self.virtual_components.iter_mut()
+        {
+            v.on_door_event(event);
+        }   
+    }
+
     pub fn on_door_open_request(&mut self, request: DoorOpenRequest)
     {
+        // Check if AP belongs to this door
+
         // Check doorstate: If we're blocked, signal this, otherwise
         // signal access granted here and release the door.
+
+        self.handle_door_event(DoorEvent::ReleaseOnce);
     }
 }

@@ -7,7 +7,7 @@ use crate::core::timer::*;
 
 extern crate chrono;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub enum InputState
 {
     _Unknown,
@@ -34,8 +34,8 @@ pub struct RawInputEvent
 #[derive(Clone)]
 pub struct InputEvent
 {
-    input_id: u32,      // Logical!
-    state: InputState
+    pub input_id: u32,      // Logical!
+    pub state: InputState
 }
 
 /// # InputSetting
