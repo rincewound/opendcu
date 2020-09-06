@@ -4,7 +4,7 @@ use barracuda_core::core::channel_manager::*;
 use barracuda_core::core::{shareable::Shareable, bootstage_helper::*, SystemMessage, event::DataEvent};
 use barracuda_core::{Handler, cfg::{ConfigMessage, cfgholder::*, self}};
 use barracuda_core::trace::*;
-use barracuda_core::{io::InputEvent, dcm::DoorOpenRequest, profile::ProfileChangeEvent, select_chan, select_chan_with_timeout, wait_for_with_timeout, wait_for};
+use barracuda_core::{io::InputEvent, dcm::DoorOpenRequest, profile::ProfileChangeEvent, select_chan, wait_for};
 use std::{sync::Arc, thread};
 use components::Passageway;
 
@@ -96,14 +96,3 @@ impl ADCM
     }
 
 }
-
-
-/*
-    Data consumed by this module:
-    * Door Open Requests
-        -> By identification token
-        -> By direct command
-    * Input Events
-    * Profile Changes
-
-*/

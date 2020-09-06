@@ -20,12 +20,12 @@ impl AccessGranted
 
 impl OutputComponent for AccessGranted
 {
-    fn on_profile_change(&mut self, event: &ProfileChangeEvent)
+    fn on_profile_change(&mut self, event: &ProfileChangeEvent, generated_events: &mut Vec<DoorEvent>)
     {
 
     }
 
-    fn on_door_event(&mut self, event: DoorEvent)
+    fn on_door_event(&mut self, event: DoorEvent, generated_events: &mut Vec<DoorEvent>)
     {
         match event
         {

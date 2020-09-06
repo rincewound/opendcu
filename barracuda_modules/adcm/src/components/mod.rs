@@ -1,8 +1,6 @@
-use barracuda_core::core::broadcast_channel::*;
 use barracuda_core::core::channel_manager::*;
 use barracuda_core::dcm::*;
 use barracuda_core::io::*;
-use std::{sync::Arc};
 
 use barracuda_core::profile::*;
 
@@ -11,35 +9,35 @@ mod accessgranted;
 mod outputcomponentbase;
 mod framecontact;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum DoorEvent
 {
     Opened,
     Closed,
     ForcedOpen,
-    OpenTooLong,
+    _OpenTooLong,
     DoorOpenAlarm,
     ReleasedPermanently,
     ReleaseOnce,
     NormalOperation,
-    Block
+    _Block
 }
 
 pub trait InputComponent: Send
 {
-    fn on_input_change(&mut self, event: &InputEvent);
-    fn on_door_event(&mut self, event: DoorEvent);
+    fn on_input_change(&mut self, event: &InputEvent, generated_events: &mut Vec<DoorEvent>);
+    fn on_door_event(&mut self, event: DoorEvent, generated_events: &mut Vec<DoorEvent>);
 }
 
 pub trait OutputComponent: Send
 {
-    fn on_profile_change(&mut self, event: &ProfileChangeEvent);
-    fn on_door_event(&mut self, event: DoorEvent);
+    fn on_profile_change(&mut self, event: &ProfileChangeEvent, generated_events: &mut Vec<DoorEvent>);
+    fn on_door_event(&mut self, event: DoorEvent, generated_events: &mut Vec<DoorEvent>);
 }
 
 pub trait VirtualComponent: Send
 {
-    fn on_door_event(&mut self, event: DoorEvent);
+    fn on_door_event(&mut self, event: DoorEvent, generated_events: &mut Vec<DoorEvent>);
 }
 
 
@@ -47,11 +45,10 @@ pub struct Passageway
 {
     id: u32,
     door_open_profile_id: u32,
-    //bin_prof_rx: Arc<GenericReceiver<ProfileChangeEvent>>,  // <-- Central dispatch here?
-    //input_rx: Arc<GenericReceiver<InputEvent>>,             // <-- Central dispatch here?
     input_components: Vec<Box<dyn InputComponent>>,
     output_components: Vec<Box<dyn OutputComponent>>,
-    virtual_components: Vec<Box<dyn VirtualComponent>>
+    virtual_components: Vec<Box<dyn VirtualComponent>>,
+    pending_events: Vec<DoorEvent>,
 }
 
 impl Passageway
@@ -60,10 +57,10 @@ impl Passageway
     {
         for v in self.output_components.iter_mut()
         {
-            v.on_profile_change(event);
+            v.on_profile_change(event, &mut self.pending_events);
         }
 
-        // ToDo: if the profile is our door open profile, we have
+        // if the profile is our door open profile, we have
         // to adjust the doorstate here as well
         if event.profile_id == self.door_open_profile_id
         {
@@ -76,32 +73,35 @@ impl Passageway
                 self.handle_door_event(DoorEvent::NormalOperation);
             }
         }
+        self.do_events();
     }
 
     pub fn on_input_change(&mut self, event: &InputEvent)
     {
         for v in self.input_components.iter_mut()
         {
-            v.on_input_change(event);
+            v.on_input_change(event, &mut self.pending_events);
         }
+        self.do_events();
     }
 
     pub fn handle_door_event(&mut self, event: DoorEvent)
     {
         for v in self.output_components.iter_mut()
         {
-            v.on_door_event(event);
+            v.on_door_event(event, &mut self.pending_events);
         }
 
         for v in self.input_components.iter_mut()
         {
-            v.on_door_event(event);
+            v.on_door_event(event, &mut self.pending_events);
         }
 
         for v in self.virtual_components.iter_mut()
         {
-            v.on_door_event(event);
-        }   
+            v.on_door_event(event, &mut self.pending_events);
+        }
+        self.do_events();   
     }
 
     pub fn on_door_open_request(&mut self, request: &DoorOpenRequest)
@@ -112,5 +112,13 @@ impl Passageway
         // signal access granted here and release the door.
 
         self.handle_door_event(DoorEvent::ReleaseOnce);
+    }
+
+    fn do_events(&mut self)
+    {
+        while let Some(evt) = self.pending_events.pop()
+        {
+            self.handle_door_event(evt);
+        }
     }
 }
