@@ -1,7 +1,10 @@
 use super::*;
 use super::DoorEvent;
 
-struct FrameContact
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize,Deserialize)]
+pub struct FrameContact
 {
     id: u32,
     has_access_allowed: bool

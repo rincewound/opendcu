@@ -6,11 +6,15 @@ use barracuda_core::{Handler, cfg::{ConfigMessage, cfgholder::*, self}};
 use barracuda_core::trace::*;
 use barracuda_core::{io::InputEvent, dcm::DoorOpenRequest, profile::ProfileChangeEvent, select_chan, wait_for};
 use std::{sync::Arc, thread};
+use std::fs::File;
 use components::Passageway;
+
+use crate::components::serialization_types::{PassagewaySetting, OutputComponentSerialization, InputComponentSerialization};
+use serde::{Deserialize, Serialize};
 
 mod components;
 
-const MODULE_ID: u32 = 0x03000000;
+const MODULE_ID: u32 = 0x0D000000;
 
 pub fn launch(chm: &mut ChannelManager)
 {    
@@ -29,12 +33,14 @@ pub fn launch(chm: &mut ChannelManager)
     });
 }
 
+
 struct ADCM
 {
-    bin_prof_rx: Arc<GenericReceiver<ProfileChangeEvent>>,  
-    input_rx: Arc<GenericReceiver<InputEvent>>, 
-    door_req_rx: Arc<GenericReceiver<DoorOpenRequest>>,
-    passageways: Vec<Passageway>
+    module_base         : barracuda_core::core::module_base::ModuleBase,
+    bin_prof_rx         : Arc<GenericReceiver<ProfileChangeEvent>>,  
+    input_rx            : Arc<GenericReceiver<InputEvent>>, 
+    door_req_rx         : Arc<GenericReceiver<DoorOpenRequest>>,
+    passageways         : Vec<Passageway>
 }
 
 impl ADCM
@@ -43,16 +49,58 @@ impl ADCM
     {
         Self
         {
-            bin_prof_rx: chm.get_receiver(),
-            input_rx: chm.get_receiver(),
-            door_req_rx: chm.get_receiver(),
-            passageways: vec![]
+            module_base         : barracuda_core::core::module_base::ModuleBase::new(MODULE_ID, tracer, chm),
+            bin_prof_rx         : chm.get_receiver(),
+            input_rx            : chm.get_receiver(),
+            door_req_rx         : chm.get_receiver(),
+            passageways         : vec![]
         }
     }
 
     pub fn init(&mut self)
     {
-        // Load passageways!
+        // Load passageways
+        // ToDo: We might be better off here by just using Util::ObjectStore
+        let reader = File::open("./passageways.txt");
+        if let Ok(file) = reader
+        {
+            let passageway_settings: Vec<PassagewaySetting> = serde_json::from_reader(file).unwrap_or_else(|_| Vec::new());
+
+            for setting in passageway_settings.into_iter()
+            {
+                self.passageways.push(Passageway::new(setting));
+            }
+        }
+
+        let the_receiver = self.module_base.cfg_rx.clone(); 
+        let hli_cb = Some(|| {
+
+            let res = the_receiver.receive();
+            let cfg::ConfigMessage::RegisterHandlers(cfg_holder) = res;
+            let mut holder = cfg_holder.lock();
+
+            holder.register_handler(FunctionType::Put, "passageway".to_string(), Handler!(|pway: PassagewaySetting|
+                {
+                    Self::process_passageway_setting(pway)
+                }));
+
+            holder.register_handler(FunctionType::Delete, "passageway".to_string(), Handler!(|pway: PassagewaySetting|
+                {
+                    Self::process_delete_passageway(pway);
+                }));            
+        });
+
+        self.module_base.boot(Some(boot_noop), hli_cb);
+    }
+
+    fn process_passageway_setting(passageway: PassagewaySetting)
+    {
+
+    }
+
+    fn process_delete_passageway(passageway: PassagewaySetting)
+    {
+
     }
 
     pub fn run(&mut self) -> bool
@@ -94,5 +142,4 @@ impl ADCM
             passageway.on_door_open_request(&door_request);
         }
     }
-
 }

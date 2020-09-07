@@ -2,7 +2,7 @@ use super::*;
 use super::DoorEvent;
 use super::outputcomponentbase::*;
 
-struct ElectricStrike
+pub struct ElectricStrike
 {
     output_component: OutputComponentBase
 }
@@ -20,12 +20,12 @@ impl ElectricStrike
 
 impl OutputComponent for ElectricStrike
 {
-    fn on_profile_change(&mut self, event: &ProfileChangeEvent, generated_events: &mut Vec<DoorEvent>)
+    fn on_profile_change(&mut self, _event: &ProfileChangeEvent, _generated_events: &mut Vec<DoorEvent>)
     {
 
     }
 
-    fn on_door_event(&mut self, event: DoorEvent, generated_events: &mut Vec<DoorEvent>)
+    fn on_door_event(&mut self, event: DoorEvent, _generated_events: &mut Vec<DoorEvent>)
     {
         match event
         {

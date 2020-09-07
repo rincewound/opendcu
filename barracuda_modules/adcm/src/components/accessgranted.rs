@@ -2,7 +2,7 @@ use super::*;
 use super::DoorEvent;
 use outputcomponentbase::OutputComponentBase;
 
-struct AccessGranted
+pub struct AccessGranted
 {
     output_component: OutputComponentBase
 }
