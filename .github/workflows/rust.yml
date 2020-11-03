@@ -34,3 +34,6 @@ jobs:
     - name: MFRC522 Tests
       working-directory: barracuda_modules/mfrc522
       run: cargo test --verbose
+    - name: ADCM Tests
+      working-directory: barracuda_modules/adcm
+      run: cargo test --verbose
