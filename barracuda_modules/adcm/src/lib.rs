@@ -29,11 +29,12 @@ enum PassagewayUpdate
 pub fn launch(chm: &mut ChannelManager)
 {    
     let tracer = trace_helper::TraceHelper::new("DCM/ADCM".to_string(), chm);
-    let mut adcm = ADCM::new(tracer, chm);
-    adcm.init(chm);   
-    thread::spawn(move || {          
+    let mut adcm = ADCM::new(tracer, chm);      
+    
+    thread::spawn(move || {
+        adcm.init(); 
         loop 
-        {
+        {            
             if !adcm.run()
             {
                 break;
@@ -59,7 +60,7 @@ impl ADCM
 {
     pub fn new(tracer: trace_helper::TraceHelper, chm: &mut ChannelManager) -> Self
     {
-        Self
+        let mut result = Self
         {
             module_base         : barracuda_core::core::module_base::ModuleBase::new(MODULE_ID, tracer, chm),
             bin_prof_rx         : chm.get_receiver(),
@@ -68,16 +69,17 @@ impl ADCM
             pway_change_rx      : chm.get_receiver(),
             passageways         : vec![],
             storage             : Shareable::new(JsonStorage::new("./passageways.txt".to_string()))
+        };
+
+        for setting in result.storage.lock().iter()
+        {
+            result.passageways.push(Passageway::new(setting.clone(), chm));
         }
+        return result;
     }
 
-    pub fn init(&mut self, chm: &mut ChannelManager)
+    pub fn init(&mut self)
     {
-        for setting in self.storage.lock().iter()
-        {
-            self.passageways.push(Passageway::new(setting.clone(), chm));
-        }
-
         let the_receiver = self.module_base.cfg_rx.clone(); 
         let hli_cb = Some(|| {
 
@@ -87,23 +89,23 @@ impl ADCM
 
             let mut storage_new_setting = self.storage.clone();
             let mut storage_delete_setting = self.storage.clone();
-            let pway_update_delete_tx = chm.get_receiver::<PassagewayUpdate>();
-            let pway_update_update_tx = chm.get_receiver::<PassagewayUpdate>();
+            let pway_update_delete_tx = self.pway_change_rx.create_sender();
+            let pway_update_update_tx = self.pway_change_rx.create_sender();
 
             holder.register_handler(FunctionType::Put, "passageway".to_string(), Handler!(|pway: PassagewaySetting|
                 {
                     Self::process_passageway_setting(pway.clone(), &mut storage_new_setting);
-                    pway_update_update_tx.push_message(PassagewayUpdate::PassagewayUpdate(pway.id));
+                    pway_update_update_tx.send(PassagewayUpdate::PassagewayUpdate(pway.id));
                 }));
 
             holder.register_handler(FunctionType::Delete, "passageway".to_string(), Handler!(|pway: PassagewaySetting|
                 {
                     Self::process_delete_passageway(pway.clone(), &mut storage_delete_setting);
-                    pway_update_delete_tx.push_message(PassagewayUpdate::DeletePassageway(pway.id));
+                    pway_update_delete_tx.send(PassagewayUpdate::DeletePassageway(pway.id));
                 }));            
         });
 
-        self.module_base.boot(Some(boot_noop), hli_cb);
+        self.module_base.boot(Some(boot_noop), Some(boot_noop));
     }
 
     fn process_passageway_setting(passageway: PassagewaySetting, storage: &mut Shareable<JsonStorage<PassagewaySetting>>)

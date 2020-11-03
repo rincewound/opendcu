@@ -179,6 +179,7 @@ B: Identifies the instancenumber of the module (if a module is started multiple 
 * 0x0A: Plattform/ReferenceIo
 * 0x0B: ARM/MFRC522
 * 0x0C: ProfileControl
+* 0x0D: DCM/ADCM
 
 ## Component ID
 A component ID is a 32 bit int, that consists of the ID of the module owning the component and 16 bits containing,
@@ -243,7 +244,7 @@ The I/O Module provides a generic interface to all I/O modules of the concrete h
 
 ### Configuration Interface
  * The module will publish the API endpoint api/io/input which accepts input settings using PUT and DELETE queries.
- * The module will publish the API endpoint api/io/ouput which accapts output settings using PUT and DELETE queries.
+ * The module will publish the API endpoint api/io/ouput which accepts output settings using PUT and DELETE queries.
  * The module will publish the API endpoint api/io/cmd which accepts output commands.
 
 ### Configuration Behavior

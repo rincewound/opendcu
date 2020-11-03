@@ -15,9 +15,9 @@ fn main() {
             barracuda_core::cfg::rest::launch,
             generic_whitelist::launch::<generic_whitelist::whitelist::JsonEntryProvider>,
             barracuda_core::arm::console_input::launch,
-            barracuda_core::io::launch,
-            barracuda_core::dcm::trivial::launch,
+            barracuda_core::io::launch,            
             barracuda_core::profile::launch,
+            AdvancedDoorControlModule::launch,
             crate::io::launch
             );    
 }
