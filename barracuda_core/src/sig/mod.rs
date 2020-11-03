@@ -3,7 +3,7 @@
 pub enum SigType
 {
     _Default,
-    _AccessGranted,
+    AccessGranted,
     AccessDenied
 }
 

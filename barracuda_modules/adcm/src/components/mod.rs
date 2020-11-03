@@ -1,4 +1,4 @@
-use barracuda_core::core::channel_manager::*;
+use barracuda_core::{core::{broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::*}, sig::{SigCommand, SigType}};
 use barracuda_core::dcm::*;
 use barracuda_core::io::*;
 use barracuda_core::profile::*;
@@ -13,6 +13,8 @@ mod framecontact;
 pub mod serialization_types;
 
 use serialization_types::*;
+
+use self::{accessgranted::AccessGranted, electricstrike::ElectricStrike, framecontact::FrameContact};
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DoorEvent
@@ -49,51 +51,61 @@ pub struct Passageway
 {
     id: u32,
     door_open_profile_id: u32,
+    access_points: Vec<u32>,
     input_components: Vec<Box<dyn InputComponent>>,
     output_components: Vec<Box<dyn OutputComponent>>,
     virtual_components: Vec<Box<dyn VirtualComponent>>,
     pending_events: Vec<DoorEvent>,
+    sig_tx:  GenericSender<SigCommand>
 }
 
 impl Passageway
 {
     fn load_input_components(components: Vec<InputComponentSerialization>) -> Vec<Box<dyn InputComponent>>
     {
+        let mut deserialized_components: Vec<Box<dyn InputComponent>> = vec![];
         for component in components.iter()
         {
+            let the_object: Box<dyn InputComponent>;
             match component
             {
-                InputComponentSerialization::FrameContact(setting) => {}                
+                InputComponentSerialization::FrameContact(setting) => {the_object = Box::new(*setting)}
                 _ => {panic!("Unknown input component type!")}
             }
+            deserialized_components.push(the_object);
         }
-        vec![]
+        deserialized_components
     }
 
-    fn load_output_components(components: Vec<OutputComponentSerialization>) -> Vec<Box<dyn OutputComponent>>
+    fn load_output_components(components: Vec<OutputComponentSerialization>, chm: &mut ChannelManager) -> Vec<Box<dyn OutputComponent>>
     {
+        let mut deserialized_components: Vec<Box<dyn OutputComponent>> = vec![];
         for component in components.iter()
-        {
+        { 
+            let the_object: Box<dyn OutputComponent>;
             match component
             {
-                OutputComponentSerialization::ElectricStrike(setting) => {}
-                OutputComponentSerialization::AccessGranted(setting) => {}
-                _ => {panic!("Unknown output component type!")}
+                OutputComponentSerialization::ElectricStrike(setting) => {the_object = Box::new(ElectricStrike::from_setting(*setting, chm))}
+                OutputComponentSerialization::AccessGranted(setting) => {the_object = Box::new(AccessGranted::from_setting(*setting, chm))}
+                _ => {panic!("Unknown output component type!")}                
             }
+            deserialized_components.push(the_object);
         }
-        vec![]
+        deserialized_components
     }
 
-    pub fn new(settings: PassagewaySetting) -> Self
+    pub fn new(settings: PassagewaySetting, chm: &mut ChannelManager) -> Self
     {
         Self 
         {
             id: settings.id,
+            access_points: settings.access_points,
             door_open_profile_id: 0,
             input_components: Passageway::load_input_components(settings.inputs),
-            output_components: Passageway::load_output_components(settings.outputs),
+            output_components: Passageway::load_output_components(settings.outputs, chm),
             virtual_components: vec![],
-            pending_events: vec![]
+            pending_events: vec![],
+            sig_tx: chm.get_sender()
         }
     }
 
@@ -151,11 +163,26 @@ impl Passageway
     pub fn on_door_open_request(&mut self, request: &DoorOpenRequest)
     {
         // Check if AP belongs to this door
+        if !self.access_points.contains(&request.access_point_id)
+        {
+            return;
+        }
 
         // Check doorstate: If we're blocked, signal this, otherwise
         // signal access granted here and release the door.
-
         self.handle_door_event(DoorEvent::ReleaseOnce);
+        self.send_signal_command(request.access_point_id, SigType::AccessGranted, 3000);
+    }
+
+    fn send_signal_command(&self, access_point_id: u32, sigtype: SigType, duration: u32)
+    {
+        let sig = SigCommand {
+            access_point_id: access_point_id,
+            sig_type: sigtype, 
+            duration: duration
+        };
+
+        self.sig_tx.send(sig); 
     }
 
     fn do_events(&mut self)

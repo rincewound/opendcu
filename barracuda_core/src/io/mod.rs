@@ -59,7 +59,7 @@ pub struct InputEvent
 //     debounce_off: u64
 // }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum OutputState
 {
     Low,

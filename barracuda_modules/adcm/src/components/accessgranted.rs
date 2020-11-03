@@ -1,6 +1,10 @@
-use super::*;
-use super::DoorEvent;
-use outputcomponentbase::OutputComponentBase;
+use barracuda_core::{
+    core::channel_manager::ChannelManager, io::OutputState, profile::ProfileChangeEvent
+};
+use super::{
+    DoorEvent, OutputComponent, 
+    outputcomponentbase::{OutputComponentBase, OutputComponentSetting}
+};
 
 pub struct AccessGranted
 {
@@ -9,12 +13,16 @@ pub struct AccessGranted
 
 impl AccessGranted
 {
-    pub fn new(id: u32, chm: &mut ChannelManager) -> Self
+    pub fn new(id: u32, operation_time: u64, chm: &mut ChannelManager) -> Self
     {
         Self
         {
-            output_component: OutputComponentBase::new(id, 0, chm)
+            output_component: OutputComponentBase::new(id, operation_time, chm)
         }
+    }
+    pub fn from_setting(setting: OutputComponentSetting, chm: &mut ChannelManager ) -> Self
+    {
+        Self::new(setting.id, setting.operation_time, chm)
     }
 }
 

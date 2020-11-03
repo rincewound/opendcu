@@ -1,16 +1,16 @@
 
 use barracuda_core::core::broadcast_channel::*;
 use barracuda_core::core::channel_manager::*;
-use barracuda_core::core::{shareable::Shareable, bootstage_helper::*, SystemMessage, event::DataEvent};
-use barracuda_core::{Handler, cfg::{ConfigMessage, cfgholder::*, self}};
+use barracuda_core::core::{bootstage_helper::*, event::DataEvent};
+use barracuda_core::{Handler, cfg::{cfgholder::*, self}};
 use barracuda_core::trace::*;
 use barracuda_core::{io::InputEvent, dcm::DoorOpenRequest, profile::ProfileChangeEvent, select_chan, wait_for};
 use std::{sync::Arc, thread};
 use std::fs::File;
 use components::Passageway;
 
-use crate::components::serialization_types::{PassagewaySetting, OutputComponentSerialization, InputComponentSerialization};
-use serde::{Deserialize, Serialize};
+use crate::components::serialization_types::{PassagewaySetting};
+
 
 mod components;
 
@@ -20,8 +20,8 @@ pub fn launch(chm: &mut ChannelManager)
 {    
     let tracer = trace_helper::TraceHelper::new("DCM/ADCM".to_string(), chm);
     let mut adcm = ADCM::new(tracer, chm);
-    thread::spawn(move || {  
-        adcm.init();   
+    adcm.init(chm);   
+    thread::spawn(move || {          
         loop 
         {
             if !adcm.run()
@@ -57,7 +57,7 @@ impl ADCM
         }
     }
 
-    pub fn init(&mut self)
+    pub fn init(&mut self, chm: &mut ChannelManager)
     {
         // Load passageways
         // ToDo: We might be better off here by just using Util::ObjectStore
@@ -68,7 +68,7 @@ impl ADCM
 
             for setting in passageway_settings.into_iter()
             {
-                self.passageways.push(Passageway::new(setting));
+                self.passageways.push(Passageway::new(setting, chm));
             }
         }
 
@@ -95,7 +95,7 @@ impl ADCM
 
     fn process_passageway_setting(passageway: PassagewaySetting)
     {
-
+        
     }
 
     fn process_delete_passageway(passageway: PassagewaySetting)

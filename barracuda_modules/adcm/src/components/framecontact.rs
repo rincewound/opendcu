@@ -3,7 +3,7 @@ use super::DoorEvent;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize,Deserialize)]
+#[derive(Serialize,Deserialize, Clone, Copy)]
 pub struct FrameContact
 {
     id: u32,
@@ -12,6 +12,7 @@ pub struct FrameContact
 
 impl FrameContact
 {
+
     fn handle_door_closed(&mut self, generated_events: &mut Vec<DoorEvent>)
     {
         self.has_access_allowed = false;

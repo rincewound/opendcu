@@ -1,11 +1,11 @@
 use barracuda_core::{core::{channel_manager::ChannelManager, broadcast_channel::GenericSender}, io::{OutputState, OutputSwitch}};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize,Deserialize)]
+#[derive(Serialize,Deserialize, Clone, Copy)]
 pub struct OutputComponentSetting
 {
-    id: u32,
-    operation_time: u64
+    pub id: u32,
+    pub operation_time: u64
 }
 
 pub struct OutputComponentBase

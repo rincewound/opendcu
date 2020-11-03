@@ -20,5 +20,6 @@ pub struct PassagewaySetting
 {
     pub id: u32,
     pub outputs: Vec<OutputComponentSerialization>,
-    pub inputs: Vec<InputComponentSerialization>
+    pub inputs: Vec<InputComponentSerialization>,
+    pub access_points: Vec<u32>
 }
