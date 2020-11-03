@@ -27,8 +27,10 @@ The access granted relais is an __output__ component used to suppress external a
 The output will stay switched as long as the access granted situtation persists, i.e. it will be disengaged if:
 * The door was opened and then closed within the maximum door open time (i.e. the relay will disengage as soon as the framecontact is triggered).
 * The door was not opened within the switchtime of the electric strike.
-* The door was opened but not closes until the door alarm was triggered.
+* The door was opened but not closed until the door alarm was triggered.
 * The doorprofile leaves its active state.
+
+__Note__: This component will not work correctly without a framecontact that senses the doorstate!
 
 Configurable Values:
 * Output ID: A logical ID of the output that this component refers to.

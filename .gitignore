@@ -9,3 +9,4 @@ barracuda_hal/target
 barracuda_modules/target
 barracuda_modules/generic_whitelist/target
 barracuda_modules/mfrc522/target
+barracuda_modules/adcm/target

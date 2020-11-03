@@ -56,17 +56,17 @@ fn send_stage_complete(module_id: u32, stage: BootStage, sys_chan: &GenericSende
 }
 
 fn wait_for_stage(stage: BootStage, sys_chan_rx: &Arc<GenericReceiver<SystemMessage>>, tracer: &TraceHelper)
+{
+    tracer.trace(format!("Wait for stage signal {}", stage as u32));
+    loop
     {
-        tracer.trace(format!("Wait for stage signal {}", stage as u32));
-        loop
+        let msg = sys_chan_rx.receive();
+        match msg
         {
-            let msg = sys_chan_rx.receive();
-            match msg
-            {
-                SystemMessage::RunStage(s) => if s == stage {
-                    break;
-                },
-                _ => continue /*ABORTS!*/
-            }
-        }  
-    }
+            SystemMessage::RunStage(s) => if s == stage {
+                break;
+            },
+            _ => continue /*ABORTS!*/
+        }
+    }  
+}
