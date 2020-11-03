@@ -66,10 +66,10 @@ impl <ValueType> ObjectStorage<ValueType> for JsonStorage<ValueType> where
         self.data.push(entry);
     }
     
-    fn delete_entry<P>(&mut self, filter: P) where
+    fn delete_entry<P>(&mut self, mut filter: P) where
         P: FnMut(&ValueType) -> bool
     { 
-        self.data.retain(filter);
+        self.data.retain(|x| !filter(x));
     }
 
     fn update_storage(&self)

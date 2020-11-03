@@ -49,7 +49,7 @@ pub trait VirtualComponent: Send
 
 pub struct Passageway
 {
-    id: u32,
+    pub id: u32,
     door_open_profile_id: u32,
     access_points: Vec<u32>,
     input_components: Vec<Box<dyn InputComponent>>,
