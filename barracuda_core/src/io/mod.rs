@@ -234,9 +234,9 @@ impl IoManager
 
     fn dispatch_output_command(&self)
     {
-        self.tracer.trace_str("Switching output.");
+        
         let command = self.output_commands.receive();
-
+        self.tracer.trace(format!("Switching output {}", command.output_id));
         if let Ok(output) = self.input_list.logical_id_to_sud(command.output_id, ModuleCapabilityType::Outputs)        
         {
             // step 2: generate actual command:

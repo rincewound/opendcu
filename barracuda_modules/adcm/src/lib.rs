@@ -10,7 +10,8 @@ use barracuda_core::util::ObjectStorage;
 use std::{sync::Arc, thread};
 use components::Passageway;
 
-use crate::components::serialization_types::{PassagewaySetting};
+use crate::components::serialization_types::*;
+//use crate::components::outputcomponentbase::*;
 
 
 mod components;
@@ -53,7 +54,8 @@ struct ADCM
     door_req_rx         : Arc<GenericReceiver<DoorOpenRequest>>,
     pway_change_rx      : Arc<GenericReceiver<PassagewayUpdate>>,
     passageways         : Vec<Passageway>,
-    storage             : Shareable<JsonStorage<PassagewaySetting>>
+    storage             : Shareable<JsonStorage<PassagewaySetting>>,
+    trace               : trace_helper::TraceHelper
 }
 
 impl ADCM
@@ -68,13 +70,24 @@ impl ADCM
             door_req_rx         : chm.get_receiver(),
             pway_change_rx      : chm.get_receiver(),
             passageways         : vec![],
-            storage             : Shareable::new(JsonStorage::new("./passageways.txt".to_string()))
+            storage             : Shareable::new(JsonStorage::new("./passageways.txt".to_string())),
+            trace               : trace_helper::TraceHelper::new("DCM/ADCM".to_string(), chm)
         };
 
         for setting in result.storage.lock().iter()
         {
             result.passageways.push(Passageway::new(setting.clone(), chm));
         }
+
+        // let s = PassagewaySetting{
+        //     id: 10,
+        //     outputs: vec![OutputComponentSerialization::ElectricStrike(OutputComponentSetting {id: 24, operation_time: 3200})],
+        //     inputs: vec![],
+        //     access_points: vec![]
+        // };
+        // result.storage.lock().put_entry(s);
+        // result.storage.lock().update_storage();
+
         return result;
     }
 
@@ -92,27 +105,27 @@ impl ADCM
             let pway_update_delete_tx = self.pway_change_rx.create_sender();
             let pway_update_update_tx = self.pway_change_rx.create_sender();
 
-            holder.register_handler(FunctionType::Put, "passageway".to_string(), Handler!(|pway: PassagewaySetting|
+            holder.register_handler(FunctionType::Put, "adcm/passageway".to_string(), Handler!(|pway: PassagewaySetting|
                 {
                     Self::process_passageway_setting(pway.clone(), &mut storage_new_setting);
                     pway_update_update_tx.send(PassagewayUpdate::PassagewayUpdate(pway.id));
                 }));
 
-            holder.register_handler(FunctionType::Delete, "passageway".to_string(), Handler!(|pway: PassagewaySetting|
+            holder.register_handler(FunctionType::Delete, "adcm/passageway".to_string(), Handler!(|pway: PassagewaySetting|
                 {
                     Self::process_delete_passageway(pway.clone(), &mut storage_delete_setting);
                     pway_update_delete_tx.send(PassagewayUpdate::DeletePassageway(pway.id));
                 }));            
         });
 
-        self.module_base.boot(Some(boot_noop), Some(boot_noop));
+        self.module_base.boot(Some(boot_noop), hli_cb);
     }
 
     fn process_passageway_setting(passageway: PassagewaySetting, storage: &mut Shareable<JsonStorage<PassagewaySetting>>)
     {
         let mut writeable_storage = storage.lock();
         let the_pway = writeable_storage.get_entry(|x|{x.id == passageway.id});
-        if let Some(existing_pway) = the_pway
+        if let Some(_existing_pway) = the_pway
         {
             //update existing passageqay... somehow!
         }
@@ -127,7 +140,7 @@ impl ADCM
     {
         let mut writeable_storage = storage.lock();
         let the_pway = writeable_storage.get_entry(|x|{x.id == passageway.id});
-        if let Some(existing_pway) = the_pway
+        if let Some(_existing_pway) = the_pway
         {
             // Kill off existing passsageway
         }
@@ -171,15 +184,16 @@ impl ADCM
     fn do_door_request(&mut self)
     {
         let door_request = self.door_req_rx.receive();
+        self.trace.trace(format!("DoorRequest for accesspoint {}", door_request.access_point_id));
         for passageway in self.passageways.iter_mut()
         {            
             passageway.on_door_open_request(&door_request);
         }
     }
 
-    fn load_passageway(&mut self, pway_id: u32)
+    fn load_passageway(&mut self, _pway_id: u32)
     {
-        let setting = self.storage.lock().get_entry(|x| x.id == pway_id);
+        //let setting = self.storage.lock().get_entry(|x| x.id == pway_id);
 
     }
 
@@ -189,8 +203,8 @@ impl ADCM
 
         match event
         {
-            PassagewayUpdate::NewPassageway(id ) => {},
-            PassagewayUpdate::PassagewayUpdate(id) => {},
+            PassagewayUpdate::NewPassageway(id) => {self.load_passageway(id)},
+            PassagewayUpdate::PassagewayUpdate(_id) => {},
             PassagewayUpdate::DeletePassageway(id) => {self.passageways.retain(|x| x.id != id)}
         }
     }

@@ -55,6 +55,7 @@ The door opener key is a simple __input__ component that will instantly trigger 
 Configurable Values:
 * Input ID: A logical ID of the input that this component refers to.
 * Profile: The id of a profile, that controls, when this component provides is function. I.e. if the profile is inactive pressing the button will not trigger a release.
+
 ### Door Handle
 The door handle is an __input__ component that is used to suppress alarms on passageways that only have accesspoints on one side. If the door handle contact is triggered the frame contact can be released without causing an alarm to be fired. Triggering the door handle will also instantly trigger the Access Granted Relais.
 

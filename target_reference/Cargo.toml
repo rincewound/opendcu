@@ -11,4 +11,5 @@ barracuda_core = { path = "../barracuda_core" }
 barracuda_hal = { path = "../barracuda_hal" }
 generic_whitelist = { path = "../barracuda_modules/generic_whitelist" }
 mfrc522 = { path = "../barracuda_modules/mfrc522" }
+AdvancedDoorControlModule = { path = "../barracuda_modules/adcm" }
 rppal = '*'
