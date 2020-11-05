@@ -70,7 +70,7 @@ impl InputComponent for FrameContact
             DoorEvent::ReleasedPermanently => {}
             DoorEvent::ReleaseOnce => {self.has_access_allowed = true}
             DoorEvent::NormalOperation => {}
-            DoorEvent::_Block => {}
+            DoorEvent::Block => {}
             DoorEvent::AccessAllowed => {self.has_access_allowed = true}
         }
     }
