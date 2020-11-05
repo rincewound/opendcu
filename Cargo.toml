@@ -3,6 +3,7 @@ members = [
   "barracuda_core/",
   "barracuda_hal/",
   "target_win64",
+  "target_reference/",
   "barracuda_modules/adcm",
   "barracuda_modules/generic_whitelist",
   "barracuda_modules/mfrc522",

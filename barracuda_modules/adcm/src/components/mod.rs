@@ -1,4 +1,4 @@
-use barracuda_core::{trace::trace_helper::TraceHelper, core::{broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::*}, sig::{SigCommand, SigType}};
+use barracuda_core::{trace::trace_helper::TraceHelper, core::{broadcast_channel::{GenericSender}, channel_manager::*}, sig::{SigCommand, SigType}};
 use barracuda_core::dcm::*;
 use barracuda_core::io::*;
 use barracuda_core::profile::*;
@@ -14,7 +14,7 @@ pub mod serialization_types;
 
 use serialization_types::*;
 
-use self::{accessgranted::AccessGranted, electricstrike::ElectricStrike, framecontact::FrameContact};
+use self::{accessgranted::AccessGranted, electricstrike::ElectricStrike};
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DoorEvent
@@ -71,7 +71,6 @@ impl Passageway
             match component
             {
                 InputComponentSerialization::FrameContact(setting) => {the_object = Box::new(*setting)}
-                _ => {panic!("Unknown input component type!")}
             }
             deserialized_components.push(the_object);
         }
@@ -87,8 +86,7 @@ impl Passageway
             match component
             {
                 OutputComponentSerialization::ElectricStrike(setting) => {the_object = Box::new(ElectricStrike::from_setting(*setting, chm))}
-                OutputComponentSerialization::AccessGranted(setting) => {the_object = Box::new(AccessGranted::from_setting(*setting, chm))}
-                _ => {panic!("Unknown output component type!")}                
+                OutputComponentSerialization::AccessGranted(setting) => {the_object = Box::new(AccessGranted::from_setting(*setting, chm))}                
             }
             deserialized_components.push(the_object);
         }

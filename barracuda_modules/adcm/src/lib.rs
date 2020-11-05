@@ -11,7 +11,7 @@ use std::{sync::Arc, thread};
 use components::Passageway;
 
 use crate::components::serialization_types::*;
-use crate::components::outputcomponentbase::*;
+//use crate::components::outputcomponentbase::*;
 
 
 mod components;
@@ -125,7 +125,7 @@ impl ADCM
     {
         let mut writeable_storage = storage.lock();
         let the_pway = writeable_storage.get_entry(|x|{x.id == passageway.id});
-        if let Some(existing_pway) = the_pway
+        if let Some(_existing_pway) = the_pway
         {
             //update existing passageqay... somehow!
         }
@@ -140,7 +140,7 @@ impl ADCM
     {
         let mut writeable_storage = storage.lock();
         let the_pway = writeable_storage.get_entry(|x|{x.id == passageway.id});
-        if let Some(existing_pway) = the_pway
+        if let Some(_existing_pway) = the_pway
         {
             // Kill off existing passsageway
         }
@@ -191,9 +191,9 @@ impl ADCM
         }
     }
 
-    fn load_passageway(&mut self, pway_id: u32)
+    fn load_passageway(&mut self, _pway_id: u32)
     {
-        let setting = self.storage.lock().get_entry(|x| x.id == pway_id);
+        //let setting = self.storage.lock().get_entry(|x| x.id == pway_id);
 
     }
 
@@ -203,8 +203,8 @@ impl ADCM
 
         match event
         {
-            PassagewayUpdate::NewPassageway(id ) => {},
-            PassagewayUpdate::PassagewayUpdate(id) => {},
+            PassagewayUpdate::NewPassageway(id) => {self.load_passageway(id)},
+            PassagewayUpdate::PassagewayUpdate(_id) => {},
             PassagewayUpdate::DeletePassageway(id) => {self.passageways.retain(|x| x.id != id)}
         }
     }
