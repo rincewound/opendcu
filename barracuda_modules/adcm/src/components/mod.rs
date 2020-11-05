@@ -11,6 +11,7 @@ pub mod outputcomponentbase;
 mod framecontact;
 mod dooropenerkey;
 mod doorhandle;
+mod releasecontact;
 
 pub mod serialization_types;
 
@@ -76,6 +77,7 @@ impl Passageway
                 InputComponentSerialization::FrameContact(setting) => {the_object = Box::new(*setting)}
                 InputComponentSerialization::DoorOpenerKey(dooropenerkey) => { the_object = Box::new(*dooropenerkey)}
                 InputComponentSerialization::DoorHandle(doorhandle) => { the_object = Box::new(*doorhandle)}
+                InputComponentSerialization::ReleaseContact(releasecontact) => { the_object = Box::new(*releasecontact)}
             }
             deserialized_components.push(the_object);
         }

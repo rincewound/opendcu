@@ -2,6 +2,7 @@ use crate::components::framecontact::FrameContact;
 use crate::components::dooropenerkey::DoorOpenerKey;
 use crate::components::outputcomponentbase::OutputComponentSetting;
 use crate::components::doorhandle::DoorHandle;
+use crate::components::releasecontact::ReleaseContact;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize,Deserialize, Clone)]
@@ -9,7 +10,8 @@ pub enum InputComponentSerialization
 {
     FrameContact(FrameContact),
     DoorOpenerKey(DoorOpenerKey),
-    DoorHandle(DoorHandle)
+    DoorHandle(DoorHandle),
+    ReleaseContact(ReleaseContact)
 }
 
 #[derive(Serialize,Deserialize, Clone)]
