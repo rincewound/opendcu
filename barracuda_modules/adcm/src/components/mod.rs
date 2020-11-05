@@ -13,12 +13,13 @@ mod dooropenerkey;
 mod doorhandle;
 mod releasecontact;
 mod blockingcontact;
+mod alarmrelay;
 
 pub mod serialization_types;
 
 use serialization_types::*;
 
-use self::{accessgranted::AccessGranted, electricstrike::ElectricStrike};
+use self::{accessgranted::AccessGranted, alarmrelay::AlarmRelay, electricstrike::ElectricStrike};
 
 #[derive(Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DoorEvent
@@ -95,6 +96,7 @@ impl Passageway
             {
                 OutputComponentSerialization::ElectricStrike(setting) => {the_object = Box::new(ElectricStrike::from_setting(*setting, chm))}
                 OutputComponentSerialization::AccessGranted(setting) => {the_object = Box::new(AccessGranted::from_setting(*setting, chm))}                
+                OutputComponentSerialization::AlarmRelay(output_id) => {the_object = Box::new(AlarmRelay::new(*output_id, chm))}                
             }
             deserialized_components.push(the_object);
         }

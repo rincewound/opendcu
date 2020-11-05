@@ -3,6 +3,7 @@ use crate::components::dooropenerkey::DoorOpenerKey;
 use crate::components::outputcomponentbase::OutputComponentSetting;
 use crate::components::doorhandle::DoorHandle;
 use crate::components::releasecontact::ReleaseContact;
+use crate::components::alarmrelay::AlarmRelay;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize,Deserialize, Clone)]
@@ -17,6 +18,7 @@ pub enum InputComponentSerialization
 #[derive(Serialize,Deserialize, Clone)]
 pub enum OutputComponentSerialization
 {
+    AlarmRelay(u32),
     ElectricStrike(OutputComponentSetting),
     AccessGranted(OutputComponentSetting)
 }
