@@ -1,0 +1,13 @@
+[workspace]
+members = [
+  "barracuda_core/",
+  "barracuda_hal/",
+  "target_win64",
+  "barracuda_modules/adcm",
+  "barracuda_modules/generic_whitelist",
+  "barracuda_modules/mfrc522",
+
+]
+
+[profile.release]
+opt-level=3

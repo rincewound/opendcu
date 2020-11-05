@@ -1,0 +1,15 @@
+[
+  {
+    "id": 10,
+    "outputs": [
+      {
+        "ElectricStrike": {
+          "id": 2,
+          "operation_time": 3200
+        }
+      }
+    ],
+    "inputs": [],
+    "access_points": [0]
+  }
+]

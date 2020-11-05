@@ -1,4 +1,4 @@
-use barracuda_core::{core::{broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::*}, sig::{SigCommand, SigType}};
+use barracuda_core::{trace::trace_helper::TraceHelper, core::{broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::*}, sig::{SigCommand, SigType}};
 use barracuda_core::dcm::*;
 use barracuda_core::io::*;
 use barracuda_core::profile::*;
@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 mod electricstrike;
 mod accessgranted;
-mod outputcomponentbase;
+pub mod outputcomponentbase;
 mod framecontact;
 
 pub mod serialization_types;
@@ -56,7 +56,8 @@ pub struct Passageway
     output_components: Vec<Box<dyn OutputComponent>>,
     virtual_components: Vec<Box<dyn VirtualComponent>>,
     pending_events: Vec<DoorEvent>,
-    sig_tx:  GenericSender<SigCommand>
+    sig_tx:  GenericSender<SigCommand>,
+    trace: TraceHelper
 }
 
 impl Passageway
@@ -105,7 +106,8 @@ impl Passageway
             output_components: Passageway::load_output_components(settings.outputs, chm),
             virtual_components: vec![],
             pending_events: vec![],
-            sig_tx: chm.get_sender()
+            sig_tx: chm.get_sender(),
+            trace: TraceHelper::new(format!("ADCM/PW{}", settings.id), chm)
         }
     }
 
@@ -170,6 +172,7 @@ impl Passageway
 
         // Check doorstate: If we're blocked, signal this, otherwise
         // signal access granted here and release the door.
+        self.trace.trace_str("Release once.");
         self.handle_door_event(DoorEvent::ReleaseOnce);
         self.send_signal_command(request.access_point_id, SigType::AccessGranted, 3000);
     }
