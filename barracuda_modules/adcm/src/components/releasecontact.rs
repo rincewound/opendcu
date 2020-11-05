@@ -64,7 +64,7 @@ mod tests {
     }
 
     #[test]
-    fn on_input_event_will_trigger_access_allowed()
+    fn on_input_event_will_trigger_permanent_release()
     {
         let (mut dok, mut v) = make_rel();
         let event = InputEvent{input_id: 24, state: InputState::High};
