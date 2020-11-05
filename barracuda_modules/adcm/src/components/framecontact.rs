@@ -71,6 +71,7 @@ impl InputComponent for FrameContact
             DoorEvent::ReleaseOnce => {self.has_access_allowed = true}
             DoorEvent::NormalOperation => {}
             DoorEvent::_Block => {}
+            DoorEvent::AccessAllowed => {self.has_access_allowed = true}
         }
     }
 }
@@ -130,6 +131,16 @@ mod tests {
         let (mut fc, mut v) = make_fc();
         let event = InputEvent{input_id: 24, state: InputState::Low};
         fc.on_door_event(DoorEvent::ReleaseOnce, &mut v);
+        fc.on_input_change(&event,  &mut v);
+        assert!(v[0] == DoorEvent::Opened);     
+    }
+
+    #[test]
+    fn on_input_event_will_trigger_door_opened_if_access_allowed_was_sent_before()
+    {
+        let (mut fc, mut v) = make_fc();
+        let event = InputEvent{input_id: 24, state: InputState::Low};
+        fc.on_door_event(DoorEvent::AccessAllowed, &mut v);
         fc.on_input_change(&event,  &mut v);
         assert!(v[0] == DoorEvent::Opened);     
     }

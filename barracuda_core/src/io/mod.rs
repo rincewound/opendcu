@@ -11,8 +11,8 @@ extern crate chrono;
 pub enum InputState
 {
     _Unknown,
-    _Low,
-    _High,
+    Low,
+    High,
     _Short,
     _Cutout
 }
