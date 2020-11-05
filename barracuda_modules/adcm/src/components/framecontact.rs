@@ -48,11 +48,11 @@ impl InputComponent for FrameContact
             return;
         }
 
-        if event.state == InputState::_High
+        if event.state == InputState::High
         {
             self.handle_door_closed(generated_events);
         }
-        if event.state == InputState::_Low
+        if event.state == InputState::Low
         {
             self.handle_door_opened(generated_events);
         }
@@ -90,7 +90,7 @@ mod tests {
     fn on_input_event_will_ignore_events_with_non_matching_id()
     { 
         let (mut fc, mut v) = make_fc();
-        let event = InputEvent{input_id: 13, state: InputState::_Low};
+        let event = InputEvent{input_id: 13, state: InputState::Low};
         fc.on_input_change(&event,  &mut v);
         assert!(v.len() == 0);
     }
@@ -99,7 +99,7 @@ mod tests {
     fn on_input_event_will_trigger_door_forced_open_if_no_access_granted_was_sent_before()
     {
         let (mut fc, mut v) = make_fc();
-        let event = InputEvent{input_id: 24, state: InputState::_Low};
+        let event = InputEvent{input_id: 24, state: InputState::Low};
         fc.on_input_change(&event,  &mut v);
         assert!(v[0] == DoorEvent::ForcedOpen);
     }
@@ -108,12 +108,12 @@ mod tests {
     fn on_input_event_will_trigger_door_forced_open_after_door_close()
     {
         let (mut fc, mut v) = make_fc();
-        let event = InputEvent{input_id: 24, state: InputState::_Low};
+        let event = InputEvent{input_id: 24, state: InputState::Low};
 
         // Normal sequence: ReleaseOnce, OpenDoor, CloseDoor
         fc.on_door_event(DoorEvent::ReleaseOnce, &mut v);
         fc.on_input_change(&event,  &mut v);
-        let event2 = InputEvent{input_id: 24, state: InputState::_High};
+        let event2 = InputEvent{input_id: 24, state: InputState::High};
         fc.on_input_change(&event2,  &mut v);
 
         // If we reopen the door now, we should see a forced open:
@@ -128,7 +128,7 @@ mod tests {
     fn on_input_event_will_trigger_door_opened_if_access_granted_was_sent_before()
     {
         let (mut fc, mut v) = make_fc();
-        let event = InputEvent{input_id: 24, state: InputState::_Low};
+        let event = InputEvent{input_id: 24, state: InputState::Low};
         fc.on_door_event(DoorEvent::ReleaseOnce, &mut v);
         fc.on_input_change(&event,  &mut v);
         assert!(v[0] == DoorEvent::Opened);     

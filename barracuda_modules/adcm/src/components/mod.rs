@@ -9,6 +9,7 @@ mod electricstrike;
 mod accessgranted;
 pub mod outputcomponentbase;
 mod framecontact;
+mod dooropenerkey;
 
 pub mod serialization_types;
 
@@ -71,6 +72,7 @@ impl Passageway
             match component
             {
                 InputComponentSerialization::FrameContact(setting) => {the_object = Box::new(*setting)}
+                InputComponentSerialization::DoorOpenerKey(dooropenerkey) => { the_object = Box::new(*dooropenerkey)}
             }
             deserialized_components.push(the_object);
         }
