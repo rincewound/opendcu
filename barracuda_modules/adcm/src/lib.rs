@@ -1,4 +1,3 @@
-
 use barracuda_core::core::{shareable::Shareable, broadcast_channel::*};
 use barracuda_core::core::channel_manager::*;
 use barracuda_core::core::{bootstage_helper::*, event::DataEvent};
@@ -8,13 +7,14 @@ use barracuda_core::{io::InputEvent, dcm::DoorOpenRequest, profile::ProfileChang
 use barracuda_core::util::JsonStorage;
 use barracuda_core::util::ObjectStorage;
 use std::{sync::Arc, thread};
-use components::Passageway;
-
 use crate::components::serialization_types::*;
+use passageway::Passageway;
 //use crate::components::outputcomponentbase::*;
 
 
 mod components;
+mod fsm;
+mod passageway;
 
 const MODULE_ID: u32 = 0x0D000000;
 

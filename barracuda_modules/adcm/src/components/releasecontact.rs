@@ -27,7 +27,7 @@ impl InputComponent for ReleaseContact
         }
         else if event.state == InputState::High
         {
-            generated_events.push(DoorEvent::ReleasedPermanently);
+            generated_events.push(DoorEvent::EmergencyRelease);
         }        
     }
 
@@ -69,6 +69,6 @@ mod tests {
         let (mut dok, mut v) = make_rel();
         let event = InputEvent{input_id: 24, state: InputState::High};
         dok.on_input_change(&event,  &mut v);
-        assert!(v[0] == DoorEvent::ReleasedPermanently);
+        assert!(v[0] == DoorEvent::EmergencyRelease);
     }
 }

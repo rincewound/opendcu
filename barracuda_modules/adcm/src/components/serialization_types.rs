@@ -3,7 +3,6 @@ use crate::components::dooropenerkey::DoorOpenerKey;
 use crate::components::outputcomponentbase::OutputComponentSetting;
 use crate::components::doorhandle::DoorHandle;
 use crate::components::releasecontact::ReleaseContact;
-use crate::components::alarmrelay::AlarmRelay;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize,Deserialize, Clone)]

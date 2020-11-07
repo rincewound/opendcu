@@ -36,6 +36,7 @@ impl OutputComponent for ElectricStrike
             DoorEvent::ReleasedPermanently  => { self.output_component.control_output(OutputState::High);}
             DoorEvent::ReleaseOnce          => { self.output_component.control_output_with_timeout(OutputState::High);}
             DoorEvent::NormalOperation      => { self.output_component.control_output(OutputState::Low);} 
+            DoorEvent::EmergencyRelease     => { self.output_component.control_output(OutputState::High);}
             _ => {}
         }
     }

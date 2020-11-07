@@ -38,6 +38,8 @@ impl OutputComponent for AccessGranted
         match event
         {
             DoorEvent::Closed               => { self.output_component.control_output(OutputState::Low);}
+            // ToDo: Check if AccessAllows suffices here
+            DoorEvent::AccessAllowed        => { self.output_component.control_output(OutputState::High);}
             DoorEvent::ReleasedPermanently  => { self.output_component.control_output(OutputState::High);}
             DoorEvent::ReleaseOnce          => { self.output_component.control_output(OutputState::High);}
             DoorEvent::NormalOperation      => { self.output_component.control_output(OutputState::Low);}

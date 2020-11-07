@@ -111,6 +111,32 @@ If the FC detects an unauthorized access (i.e. the door was opened without there
 #### Permanent Release
 #### Block
 
+## Door States
+
+```mermaid
+stateDiagram-v2
+NormalOperation --> ReleasedOnce: Door Open Request
+NormalOperation --> ReleasedPermanently: Permanent Release Request
+NormalOperation --> Blocked: Block Door Request
+ReleasedOnce --> NormalOperation: Normal Op Request
+ReleasedPermanently --> NormalOperation: Normal Op Request
+Blocked --> NormalOperation: Unblock Request
+ReleasedPermanently --> Blocked: Block Door Request
+ReleasedOnce --> Blocked: Block Door Request
+NormalOperation --> EmergencyRelease: Emergency
+Blocked --> EmergencyRelease: Emergency
+ReleasedOnce --> EmergencyRelease: Emergency
+ReleasedPermanently --> EmergencyRelease: Emergency
+EmergencyRelease --> NormalOperation: AcknowledgeEmergency
+```
+
+On Doorstates:
+* During normal operation the door can be used "normally", i.e. it will open, whenever it receives a door open request. If an FC is present the FC will generate alarms in cases of unauthorized openings of the door.
+* In "ReleasedOnce" it will ignore any further door open requests and will return to Normal Operation after the door has been closed (if an FC is present!), or after the releasetime has elapsed.
+* A permanently released door will ignore any door open requests (it will signal!) and not generate any alarms if doors are opened or stay open too long.
+* A blocked door will reject all access requests and never open.
+* A door that was emergency released will never lock again until an AcknowledgeEmergency Event was triggerd, this means all other events will be ignored.
+
 ## Command Hierarchy
 
 ## Systeminterface

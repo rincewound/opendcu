@@ -10,9 +10,9 @@ pub struct FrameContact
     has_access_allowed: bool
 }
 
-impl FrameContact
-{
 
+impl FrameContact
+{    
     fn handle_door_closed(&mut self, generated_events: &mut Vec<DoorEvent>)
     {
         self.has_access_allowed = false;
@@ -72,6 +72,7 @@ impl InputComponent for FrameContact
             DoorEvent::NormalOperation => {}
             DoorEvent::Block => {}
             DoorEvent::AccessAllowed => {self.has_access_allowed = true}
+            DoorEvent::EmergencyRelease => {}
         }
     }
 }
