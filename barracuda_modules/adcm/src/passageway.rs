@@ -1,8 +1,8 @@
-use barracuda_core::{core::{channel_manager::ChannelManager, broadcast_channel::GenericSender}, dcm::DoorOpenRequest, io::InputEvent, sig::SigType, profile::{ProfileChangeEvent, ProfileState}, sig::SigCommand, trace::trace_helper::TraceHelper};
+use barracuda_core::{core::{channel_manager::ChannelManager, broadcast_channel::GenericSender}, dcm::DoorOpenRequest, io::InputEvent, sig::SigType, profile::{ProfileChangeEvent}, sig::SigCommand, trace::trace_helper::TraceHelper};
 
-use crate::components::{DoorEvent, InputComponent, OutputComponent, VirtualComponent, accessgranted::AccessGranted, alarmrelay::AlarmRelay, electricstrike::ElectricStrike, serialization_types::InputComponentSerialization, serialization_types::{OutputComponentSerialization, PassagewaySetting}};
+use crate::{DoorCommand, DoorEvent, components::{InputComponent, OutputComponent, VirtualComponent, accessgranted::AccessGranted, alarmrelay::AlarmRelay, electricstrike::ElectricStrike, serialization_types::InputComponentSerialization, serialization_types::{OutputComponentSerialization, PassagewaySetting}}};
 
-
+use crate::fsm::*;
 
 pub struct Passageway
 {
@@ -14,7 +14,8 @@ pub struct Passageway
     virtual_components: Vec<Box<dyn VirtualComponent>>,
     pending_events: Vec<DoorEvent>,
     sig_tx:  GenericSender<SigCommand>,
-    trace: TraceHelper
+    trace: TraceHelper,
+    door_fsm: crate::fsm::DoorStateContainer
 }
 
 impl Passageway
@@ -66,7 +67,9 @@ impl Passageway
             virtual_components: vec![],
             pending_events: vec![],
             sig_tx: chm.get_sender(),
-            trace: TraceHelper::new(format!("ADCM/PW{}", settings.id), chm)
+            trace: TraceHelper::new(format!("ADCM/PW{}", settings.id), chm),
+            
+            door_fsm: DoorStateContainer::NormalOp(NormalOperation{})
         }
     }
 
@@ -81,14 +84,14 @@ impl Passageway
         // to adjust the doorstate here as well
         if event.profile_id == self.door_open_profile_id
         {
-            if event.profile_state == ProfileState::Active
-            {
-                self.handle_door_event(DoorEvent::ReleasedPermanently);
-            }
-            if event.profile_state == ProfileState::Inactive
-            {
-                self.handle_door_event(DoorEvent::NormalOperation);
-            }
+            // if event.profile_state == ProfileState::Active
+            // {
+            //     self.handle_door_event(DoorEvent::ReleasedPermanently);
+            // }
+            // if event.profile_state == ProfileState::Inactive
+            // {
+            //     self.handle_door_event(DoorEvent::NormalOperation);
+            // }
         }
         self.do_events();
     }
@@ -104,21 +107,48 @@ impl Passageway
 
     pub fn handle_door_event(&mut self, event: DoorEvent)
     {
-        for v in self.output_components.iter_mut()
+        // for v in self.output_components.iter_mut()
+        // {
+        //     v.on_door_event(event, &mut self.pending_events);
+        // }
+
+        // for v in self.input_components.iter_mut()
+        // {
+        //     v.on_door_event(event, &mut self.pending_events);
+        // }
+
+        // for v in self.virtual_components.iter_mut()
+        // {
+        //     v.on_door_event(event, &mut self.pending_events);
+        // }
+
+        let mut generated_commands : Vec<DoorCommand>;
+        generated_commands = vec![];
+        let next_state : DoorStateContainer;
+        match &self.door_fsm
         {
-            v.on_door_event(event, &mut self.pending_events);
+            DoorStateContainer::NormalOp(op) => { next_state = op.dispatch_door_event(event , &mut generated_commands);}
+            DoorStateContainer::ReleasedOnce(op) =>  { next_state = op.dispatch_door_event(event , &mut generated_commands);}
+            //DoorStateContainer::ReleasePerm => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
+            DoorStateContainer::Blocked => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
+            DoorStateContainer::Emergency => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
         }
 
-        for v in self.input_components.iter_mut()
-        {
-            v.on_door_event(event, &mut self.pending_events);
-        }
+        self.door_fsm = next_state;
 
-        for v in self.virtual_components.iter_mut()
+        self.do_door_commands(generated_commands);   
+    }
+
+    fn do_door_commands(&mut self, commands: Vec<DoorCommand>)
+    {
+        for cmd in commands.iter()
         {
-            v.on_door_event(event, &mut self.pending_events);
+            for output in self.output_components.iter_mut()
+            {
+                let the_cmd = cmd.clone();
+                output.on_door_command(the_cmd);
+            }
         }
-        self.do_events();   
     }
 
     pub fn on_door_open_request(&mut self, request: &DoorOpenRequest)
@@ -132,7 +162,7 @@ impl Passageway
         // Check doorstate: If we're blocked, signal this, otherwise
         // signal access granted here and release the door.
         self.trace.trace_str("Release once.");
-        self.handle_door_event(DoorEvent::ReleaseOnce);
+        self.handle_door_event(DoorEvent::ValidDoorOpenRequestSeen);
         self.send_signal_command(request.access_point_id, SigType::AccessGranted, 3000);
     }
 

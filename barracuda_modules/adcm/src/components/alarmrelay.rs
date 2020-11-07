@@ -1,5 +1,6 @@
+use crate::DoorEvent;
+
 use super::*;
-use super::DoorEvent;
 use super::outputcomponentbase::*;
 
 pub struct AlarmRelay
@@ -23,13 +24,11 @@ impl OutputComponent for AlarmRelay
     fn on_profile_change(&mut self, _event: &ProfileChangeEvent, _generated_events: &mut Vec<DoorEvent>)
     {    }
 
-    fn on_door_event(&mut self, event: DoorEvent, _generated_events: &mut Vec<DoorEvent>)
-    {
-        match event
+    fn on_door_command(&mut self, command: DoorCommand) {
+        match command
         {
-            DoorEvent::ForcedOpen  => { self.output_component.control_output(OutputState::High);}
-            DoorEvent::Closed      => { self.output_component.control_output(OutputState::Low);}
-            _ => {return;}
+            DoorCommand::ToggleAlarmRelay(output_state) => {self.output_component.control_output(output_state)}
+            _ => {}
         }
     }
 }
@@ -48,11 +47,11 @@ mod tests {
     }
 
     #[test]
-    fn will_fire_on_door_forced_open()
+    fn will_fire_on_cmd()
     {
-        let (mut alarm, mut chm, mut events) = make_alarm_relay();
+        let (mut alarm, mut chm, _events) = make_alarm_relay();
         let output_cmds = chm.get_receiver::<OutputSwitch>();
-        alarm.on_door_event(DoorEvent::ForcedOpen, &mut events);
+        alarm.on_door_command(DoorCommand::ToggleAlarmRelay(OutputState::High));
 
         assert!(output_cmds.has_data());
         let cmd = output_cmds.receive();
@@ -63,11 +62,11 @@ mod tests {
     }
 
     #[test]
-    fn will_switch_off_on_door_closed_open()
+    fn will_switch_off_on_cmd()
     {
-        let (mut alarm, mut chm, mut events) = make_alarm_relay();
+        let (mut alarm, mut chm, _events) = make_alarm_relay();
         let output_cmds = chm.get_receiver::<OutputSwitch>();
-        alarm.on_door_event(DoorEvent::Closed, &mut events);
+        alarm.on_door_command(DoorCommand::ToggleAlarmRelay(OutputState::Low));
 
         assert!(output_cmds.has_data());
         let cmd = output_cmds.receive();

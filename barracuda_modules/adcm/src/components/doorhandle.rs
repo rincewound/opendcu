@@ -1,5 +1,6 @@
+use crate::DoorEvent;
+
 use super::*;
-use super::DoorEvent;
 
 use serde::{Deserialize, Serialize};
 
@@ -26,10 +27,9 @@ impl InputComponent for DoorHandle
             return;
         }
 
-        generated_events.push(DoorEvent::AccessAllowed);
+        generated_events.push(DoorEvent::DoorHandleTriggered);
     }
 
-    fn on_door_event(&mut self, _event: DoorEvent, _generated_events: &mut Vec<DoorEvent>) { }
 }
 
 #[cfg(test)]
@@ -67,6 +67,6 @@ mod tests {
         let (mut dok, mut v) = make_doh();
         let event = InputEvent{input_id: 24, state: InputState::High};
         dok.on_input_change(&event,  &mut v);
-        assert!(v[0] == DoorEvent::AccessAllowed);
+        assert!(v[0] == DoorEvent::DoorHandleTriggered);
     }
 }

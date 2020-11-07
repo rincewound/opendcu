@@ -1,5 +1,6 @@
+use crate::DoorEvent;
+
 use super::*;
-use super::DoorEvent;
 
 use serde::{Deserialize, Serialize};
 
@@ -23,15 +24,14 @@ impl InputComponent for BlockingContact
 
         if event.state == InputState::Low
         {
-            generated_events.push(DoorEvent::NormalOperation);
+            generated_events.push(DoorEvent::BlockingContactDisengaged);
         }
         else if event.state == InputState::High
         {
-            generated_events.push(DoorEvent::Block);
+            generated_events.push(DoorEvent::BlockingContactEngaged);
         }        
     }
 
-    fn on_door_event(&mut self, _event: DoorEvent, _generated_events: &mut Vec<DoorEvent>) { }
 }
 
 #[cfg(test)]
@@ -55,20 +55,20 @@ mod tests {
     }
 
     #[test]
-    fn on_input_event_input_low_will_generates_normal_operation()
+    fn on_input_event_input_low_will_generates_disengaged_event()
     { 
         let (mut dok, mut v) = make_rel();
         let event = InputEvent{input_id: 24, state: InputState::Low};
         dok.on_input_change(&event,  &mut v);
-        assert!(v[0] == DoorEvent::NormalOperation);
+        assert!(v[0] == DoorEvent::BlockingContactDisengaged);
     }
 
     #[test]
-    fn on_input_event_will_trigger_block()
+    fn on_input_event_will_generates_engaged_event()
     {
         let (mut dok, mut v) = make_rel();
         let event = InputEvent{input_id: 24, state: InputState::High};
         dok.on_input_change(&event,  &mut v);
-        assert!(v[0] == DoorEvent::Block);
+        assert!(v[0] == DoorEvent::BlockingContactEngaged);
     }
 }

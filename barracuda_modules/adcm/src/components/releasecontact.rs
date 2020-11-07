@@ -1,5 +1,6 @@
+use crate::DoorEvent;
+
 use super::*;
-use super::DoorEvent;
 
 use serde::{Deserialize, Serialize};
 
@@ -23,15 +24,14 @@ impl InputComponent for ReleaseContact
 
         if event.state == InputState::Low
         {
-            generated_events.push(DoorEvent::NormalOperation);
+            generated_events.push(DoorEvent::ReleaseSwitchDisengaged);
         }
         else if event.state == InputState::High
         {
-            generated_events.push(DoorEvent::EmergencyRelease);
+            generated_events.push(DoorEvent::ReleaseSwitchEngaged);
         }        
     }
 
-    fn on_door_event(&mut self, _event: DoorEvent, _generated_events: &mut Vec<DoorEvent>) { }
 }
 
 #[cfg(test)]
@@ -60,7 +60,7 @@ mod tests {
         let (mut dok, mut v) = make_rel();
         let event = InputEvent{input_id: 24, state: InputState::Low};
         dok.on_input_change(&event,  &mut v);
-        assert!(v[0] == DoorEvent::NormalOperation);
+        assert!(v[0] == DoorEvent::ReleaseSwitchDisengaged);
     }
 
     #[test]
@@ -69,6 +69,6 @@ mod tests {
         let (mut dok, mut v) = make_rel();
         let event = InputEvent{input_id: 24, state: InputState::High};
         dok.on_input_change(&event,  &mut v);
-        assert!(v[0] == DoorEvent::EmergencyRelease);
+        assert!(v[0] == DoorEvent::ReleaseSwitchEngaged);
     }
 }
