@@ -78,6 +78,7 @@ impl DoorStateImpl for NormalOperation
                                 return DoorStateContainer::ReleasedOnce(ReleasedOnce{});
             }
             DoorEvent::DoorOpenTooLong => {}
+            DoorEvent::DoorTimerExpired => {}
         }
         return DoorStateContainer::NormalOp(self)
     }
@@ -120,6 +121,12 @@ impl DoorStateImpl for ReleasedOnce
             DoorEvent::DoorOpenerKeyTriggered => { /* Ignore */ }
             DoorEvent::DoorHandleTriggered    => { /* Ignore */ }
             DoorEvent::DoorOpenTooLong => {}
+            DoorEvent::DoorTimerExpired => {
+                // Triggered by the pway in cases, where we have no FC.
+                commands.push(DoorCommand::ToggleElectricStrike(OutputState::Low));
+                commands.push(DoorCommand::ToggleAccessAllowed(OutputState::Low));
+                return DoorStateContainer::NormalOp(NormalOperation{});
+            }
         }
         return DoorStateContainer::ReleasedOnce(self)
     }

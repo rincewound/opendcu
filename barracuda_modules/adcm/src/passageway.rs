@@ -1,6 +1,6 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 
-use barracuda_core::{core::{channel_manager::ChannelManager, broadcast_channel::GenericSender}, core::timer::Timer, dcm::DoorOpenRequest, io::InputEvent, profile::{ProfileChangeEvent, ProfileState}, sig::SigCommand, sig::SigType, trace::trace_helper::TraceHelper};
+use barracuda_core::{core::{channel_manager::ChannelManager, broadcast_channel::GenericSender}, core::timer::Timer, dcm::DoorOpenRequest, io::InputEvent, core::shareable::Shareable, profile::{ProfileChangeEvent, ProfileState}, sig::SigCommand, sig::SigType, trace::trace_helper::TraceHelper};
 
 use crate::{DoorCommand, DoorEvent, components::{InputComponent, OutputComponent, VirtualComponent, accessgranted::AccessGranted, alarmrelay::AlarmRelay, electricstrike::ElectricStrike, serialization_types::InputComponentSerialization, serialization_types::{OutputComponentSerialization, PassagewaySetting}}};
 
@@ -12,12 +12,12 @@ pub struct Passageway
     door_open_profile_id: u32,
     access_points: Vec<u32>,
     input_components: Vec<Box<dyn InputComponent>>,
-    output_components: Vec<Box<dyn OutputComponent>>,
+    output_components: Shareable<Vec<Box<dyn OutputComponent>>>,
     virtual_components: Vec<Box<dyn VirtualComponent>>,
     pending_events: Vec<DoorEvent>,
     sig_tx:  GenericSender<SigCommand>,
     trace: TraceHelper,
-    door_fsm: Arc<Mutex<crate::fsm::DoorStateContainer>>,
+    door_fsm: Shareable<crate::fsm::DoorStateContainer>,
     auto_event_timer: Arc<Timer>,
     auto_switch_normal_timer: Option<Arc<bool>>
 }
@@ -67,12 +67,12 @@ impl Passageway
             access_points: settings.access_points,
             door_open_profile_id: 0,
             input_components: Passageway::load_input_components(settings.inputs),
-            output_components: Passageway::load_output_components(settings.outputs, chm),
+            output_components: Shareable::new(Passageway::load_output_components(settings.outputs, chm)),
             virtual_components: vec![],
             pending_events: vec![],
             sig_tx: chm.get_sender(),
             trace: TraceHelper::new(format!("ADCM/PW{}", settings.id), chm),            
-            door_fsm: Arc::new(Mutex::new(DoorStateContainer::NormalOp(NormalOperation{}))),
+            door_fsm: Shareable::new(DoorStateContainer::NormalOp(NormalOperation{})),
             auto_event_timer: Timer::new(),
             auto_switch_normal_timer: None
         }
@@ -80,7 +80,7 @@ impl Passageway
 
     pub fn on_profile_change(&mut self, event: &ProfileChangeEvent)
     {
-        for v in self.output_components.iter_mut()
+        for v in self.output_components.lock().iter_mut()
         {
             v.on_profile_change(event, &mut self.pending_events);
         }
@@ -118,10 +118,10 @@ impl Passageway
         self.do_door_commands(generated_commands);   
     }
 
-    fn inject_door_event(door_event: DoorEvent, current_door_state: &mut Arc<Mutex<DoorStateContainer>>, generated_commands: &mut Vec<DoorCommand>)
+    fn inject_door_event(door_event: DoorEvent, current_door_state: &mut Shareable<DoorStateContainer>, generated_commands: &mut Vec<DoorCommand>)
     {
         let next_state : DoorStateContainer;
-        let mut fsm_lcked = current_door_state.lock().expect("Failed to lock fsm");
+        let mut fsm_lcked = current_door_state.lock();
         let fsm = *fsm_lcked;
         match fsm
         {
@@ -143,12 +143,6 @@ impl Passageway
             match cmd
             {
                 DoorCommand::ArmDoorOpenTooLongAlarm => {
-                    // let mut fsm_clone = self.door_fsm.clone();
-                    // let mut generated_commands : Vec<DoorCommand>;
-                    // generated_commands = vec![];
-                    // self.auto_switch_normal_timer = Some(self.auto_event_timer.schedule( Box::new( move||{
-                    //     Passageway::inject_door_event(DoorEvent::DoorOpenTooLong, &mut fsm_clone, &mut generated_commands)
-                    // }), 5000));
                 },
                 DoorCommand::DisarmDoorOpenTooLongAlarm => {
                     self.auto_switch_normal_timer = None
@@ -157,14 +151,23 @@ impl Passageway
                     self.auto_switch_normal_timer = None
                 },
                 DoorCommand::ArmAutoswitchToNormal => {
-                    // ToDo: This should only be done in case no FC is configured. 
-                    let fsm_clone = self.door_fsm.clone();
+                    let mut fsm_clone = self.door_fsm.clone();
+                    let mut generated_commands : Vec<DoorCommand>;
+                    let mut outputs = self.output_components.clone();
+                    generated_commands = vec![];       
+                    // ToDo: Obtain Strike Timeout for timer here!             
                     self.auto_switch_normal_timer =  Some(self.auto_event_timer.schedule( Box::new( move|| {
-                            *fsm_clone.lock().unwrap() = DoorStateContainer::NormalOp(NormalOperation{});
+                            Passageway::inject_door_event(DoorEvent::DoorTimerExpired, &mut fsm_clone, &mut generated_commands);
+                            /* Attention: This will need some refactoring at some point, as this solution will only
+                               execute commands that influence the behavior of outputs. Commands that are to be executed
+                               by the Passageway will be ignored. 
+                            */
+                            Passageway::do_doorcommands_for_outputs(&mut outputs, generated_commands);
                         }), 5000));
                 },
                 _ => {
-                    for output in self.output_components.iter_mut()
+
+                    for output in self.output_components.lock().iter_mut()
                     {
                         let the_cmd = cmd.clone();
                         output.on_door_command(the_cmd);
@@ -172,6 +175,17 @@ impl Passageway
                 }
             }
         }
+    }
+
+    fn do_doorcommands_for_outputs(outputs: &mut Shareable<Vec<Box<dyn OutputComponent>>>, commands: Vec<DoorCommand>)
+    {
+        for cmd in commands.iter()
+        {
+            for output in outputs.lock().iter_mut()
+            {
+                output.on_door_command(cmd.clone());
+            }  
+        }    
     }
 
     pub fn on_door_open_request(&mut self, request: &DoorOpenRequest)
