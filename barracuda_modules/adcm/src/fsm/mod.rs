@@ -3,13 +3,14 @@ use barracuda_core::io::OutputState;
 use crate::{DoorCommand, DoorEvent};
 
 
+#[derive(Copy, Clone)]
 pub enum DoorStateContainer
 {
     NormalOp(NormalOperation),
     ReleasedOnce(ReleasedOnce),
-    //ReleasePerm,
-    Blocked,
-    Emergency
+    ReleasePerm(ReleasedPermanently),
+    Blocked(Blocked),
+    Emergency(Emergency)
 }
 
 
@@ -20,6 +21,15 @@ pub trait DoorStateImpl
 }
 
 #[derive(Copy, Clone)]
+pub struct ReleasedPermanently{}
+
+#[derive(Copy, Clone)]
+pub struct Blocked{}
+
+#[derive(Copy, Clone)]
+pub struct Emergency{}
+
+#[derive(Copy, Clone)]
 pub struct NormalOperation{}
 
 impl DoorStateImpl for NormalOperation
@@ -28,9 +38,11 @@ impl DoorStateImpl for NormalOperation
         match d
         {
             DoorEvent::ValidDoorOpenRequestSeen => {
-                                    // ToDo: Start timer to switch back to normal op, in case the door was not opened.
+                                    // ToDo: Start timer to switch back to normal op, in case the door was not opened´
+                                    //       or no FC is present!
                                     commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
                                     commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
+                                    commands.push(DoorCommand::ArmAutoswitchToNormal);
                                     return DoorStateContainer::ReleasedOnce(ReleasedOnce{});
                                 }
             DoorEvent::Opened => {
@@ -40,12 +52,22 @@ impl DoorStateImpl for NormalOperation
             DoorEvent::Closed => {
                                     commands.push(DoorCommand::ToggleAlarmRelay(OutputState::Low))
                                 }
-            DoorEvent::DoorOpenProfileActive => {}
-            DoorEvent::DoorOpenProfileInactive => {}
-            DoorEvent::BlockingContactEngaged => {return DoorStateContainer::Blocked;}
-            DoorEvent::BlockingContactDisengaged => {}
-            DoorEvent::ReleaseSwitchEngaged => {return DoorStateContainer::Emergency;}
-            DoorEvent::ReleaseSwitchDisengaged => {}
+            DoorEvent::DoorOpenProfileActive => {
+                                    commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
+                                    commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));                
+                                    return DoorStateContainer::ReleasePerm(ReleasedPermanently{});
+                                }
+            DoorEvent::DoorOpenProfileInactive => {
+                                    panic!("DoorOpenProfileInactive in NormalOperation")
+                                }
+            DoorEvent::BlockingContactEngaged => { return DoorStateContainer::Blocked(Blocked{}); }
+            DoorEvent::BlockingContactDisengaged => {
+                                    panic!("BlockingContactDisengaged in NormalOperation")
+                                }
+            DoorEvent::ReleaseSwitchEngaged => { return DoorStateContainer::Emergency(Emergency{}); }
+            DoorEvent::ReleaseSwitchDisengaged => {
+                                    panic!("ReleaseSwitchDisengaged in NormalOperation")                
+                                }
             DoorEvent::DoorOpenerKeyTriggered => {
                                 commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
                                 commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
@@ -55,6 +77,7 @@ impl DoorStateImpl for NormalOperation
                                 commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
                                 return DoorStateContainer::ReleasedOnce(ReleasedOnce{});
             }
+            DoorEvent::DoorOpenTooLong => {}
         }
         return DoorStateContainer::NormalOp(self)
     }
@@ -69,26 +92,34 @@ impl DoorStateImpl for ReleasedOnce
     fn dispatch_door_event(self, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
         match d
         {
-            DoorEvent::ValidDoorOpenRequestSeen => {}
+            DoorEvent::ValidDoorOpenRequestSeen => { /* Ignore */ }
             DoorEvent::Opened => {
                     // ToDo: Start timer, that triggers a door-open-too-long alarm,
-                    // iff the door is not closed.
+                    // if the door is not closed.                    
                     commands.push(DoorCommand::ArmDoorOpenTooLongAlarm);
                     commands.push(DoorCommand::ToggleElectricStrike(OutputState::Low));
+                    commands.push(DoorCommand::DisarmAutoswitchToNormal);
                 }
             DoorEvent::Closed => {
                     commands.push(DoorCommand::DisarmDoorOpenTooLongAlarm);
                     commands.push(DoorCommand::ToggleAccessAllowed(OutputState::Low));
                     return DoorStateContainer::NormalOp(NormalOperation{});
                 }
-            DoorEvent::DoorOpenProfileActive => {}
-            DoorEvent::DoorOpenProfileInactive => {}
-            DoorEvent::BlockingContactEngaged => {return DoorStateContainer::Blocked;}
-            DoorEvent::BlockingContactDisengaged => {}
-            DoorEvent::ReleaseSwitchEngaged => {return DoorStateContainer::Emergency;}
-            DoorEvent::ReleaseSwitchDisengaged => {}
-            DoorEvent::DoorOpenerKeyTriggered => {}
-            DoorEvent::DoorHandleTriggered => {}
+            DoorEvent::DoorOpenProfileActive   => { /* ToDo -> This should propagate to NormalOp! */ }
+            DoorEvent::DoorOpenProfileInactive => { /* ToDo -> This should propagate to NormalOp! */ }
+
+            DoorEvent::BlockingContactEngaged    => {return DoorStateContainer::Blocked(Blocked{});}
+            DoorEvent::BlockingContactDisengaged => {
+                                            panic!("BlockingContactDisengaged in ReleasedOnce")
+                                        }
+            DoorEvent::ReleaseSwitchEngaged    => {return DoorStateContainer::Emergency(Emergency{});}
+            DoorEvent::ReleaseSwitchDisengaged => {
+                                            panic!("ReleaseSwitchDisengaged in ReleasedOnce")
+                                        }
+
+            DoorEvent::DoorOpenerKeyTriggered => { /* Ignore */ }
+            DoorEvent::DoorHandleTriggered    => { /* Ignore */ }
+            DoorEvent::DoorOpenTooLong => {}
         }
         return DoorStateContainer::ReleasedOnce(self)
     }

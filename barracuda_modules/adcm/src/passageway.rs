@@ -1,4 +1,6 @@
-use barracuda_core::{core::{channel_manager::ChannelManager, broadcast_channel::GenericSender}, dcm::DoorOpenRequest, io::InputEvent, sig::SigType, profile::{ProfileChangeEvent}, sig::SigCommand, trace::trace_helper::TraceHelper};
+use std::sync::{Arc, Mutex};
+
+use barracuda_core::{core::{channel_manager::ChannelManager, broadcast_channel::GenericSender}, core::timer::Timer, dcm::DoorOpenRequest, io::InputEvent, profile::{ProfileChangeEvent, ProfileState}, sig::SigCommand, sig::SigType, trace::trace_helper::TraceHelper};
 
 use crate::{DoorCommand, DoorEvent, components::{InputComponent, OutputComponent, VirtualComponent, accessgranted::AccessGranted, alarmrelay::AlarmRelay, electricstrike::ElectricStrike, serialization_types::InputComponentSerialization, serialization_types::{OutputComponentSerialization, PassagewaySetting}}};
 
@@ -15,7 +17,9 @@ pub struct Passageway
     pending_events: Vec<DoorEvent>,
     sig_tx:  GenericSender<SigCommand>,
     trace: TraceHelper,
-    door_fsm: crate::fsm::DoorStateContainer
+    door_fsm: Arc<Mutex<crate::fsm::DoorStateContainer>>,
+    auto_event_timer: Arc<Timer>,
+    auto_switch_normal_timer: Option<Arc<bool>>
 }
 
 impl Passageway
@@ -67,9 +71,10 @@ impl Passageway
             virtual_components: vec![],
             pending_events: vec![],
             sig_tx: chm.get_sender(),
-            trace: TraceHelper::new(format!("ADCM/PW{}", settings.id), chm),
-            
-            door_fsm: DoorStateContainer::NormalOp(NormalOperation{})
+            trace: TraceHelper::new(format!("ADCM/PW{}", settings.id), chm),            
+            door_fsm: Arc::new(Mutex::new(DoorStateContainer::NormalOp(NormalOperation{}))),
+            auto_event_timer: Timer::new(),
+            auto_switch_normal_timer: None
         }
     }
 
@@ -83,15 +88,15 @@ impl Passageway
         // if the profile is our door open profile, we have
         // to adjust the doorstate here as well
         if event.profile_id == self.door_open_profile_id
-        {
-            // if event.profile_state == ProfileState::Active
-            // {
-            //     self.handle_door_event(DoorEvent::ReleasedPermanently);
-            // }
-            // if event.profile_state == ProfileState::Inactive
-            // {
-            //     self.handle_door_event(DoorEvent::NormalOperation);
-            // }
+        {            
+            if event.profile_state == ProfileState::Active
+            {
+                self.handle_door_event(DoorEvent::DoorOpenProfileActive);
+            }
+            if event.profile_state == ProfileState::Inactive
+            {
+                self.handle_door_event(DoorEvent::DoorOpenProfileInactive);
+            }
         }
         self.do_events();
     }
@@ -107,46 +112,64 @@ impl Passageway
 
     pub fn handle_door_event(&mut self, event: DoorEvent)
     {
-        // for v in self.output_components.iter_mut()
-        // {
-        //     v.on_door_event(event, &mut self.pending_events);
-        // }
-
-        // for v in self.input_components.iter_mut()
-        // {
-        //     v.on_door_event(event, &mut self.pending_events);
-        // }
-
-        // for v in self.virtual_components.iter_mut()
-        // {
-        //     v.on_door_event(event, &mut self.pending_events);
-        // }
-
         let mut generated_commands : Vec<DoorCommand>;
         generated_commands = vec![];
+        Passageway::inject_door_event(event, &mut self.door_fsm, &mut generated_commands);
+        self.do_door_commands(generated_commands);   
+    }
+
+    fn inject_door_event(door_event: DoorEvent, current_door_state: &mut Arc<Mutex<DoorStateContainer>>, generated_commands: &mut Vec<DoorCommand>)
+    {
         let next_state : DoorStateContainer;
-        match &self.door_fsm
+        let mut fsm_lcked = current_door_state.lock().expect("Failed to lock fsm");
+        let fsm = *fsm_lcked;
+        match fsm
         {
-            DoorStateContainer::NormalOp(op) => { next_state = op.dispatch_door_event(event , &mut generated_commands);}
-            DoorStateContainer::ReleasedOnce(op) =>  { next_state = op.dispatch_door_event(event , &mut generated_commands);}
-            //DoorStateContainer::ReleasePerm => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
-            DoorStateContainer::Blocked => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
-            DoorStateContainer::Emergency => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
+            DoorStateContainer::NormalOp(op) => { next_state = op.dispatch_door_event(door_event, generated_commands);}
+            DoorStateContainer::ReleasedOnce(op) =>  { next_state = op.dispatch_door_event(door_event, generated_commands);}
+            DoorStateContainer::ReleasePerm(op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
+            DoorStateContainer::Blocked(op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
+            DoorStateContainer::Emergency(op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
         }
 
-        self.door_fsm = next_state;
-
-        self.do_door_commands(generated_commands);   
+        *fsm_lcked = next_state;
+        drop(fsm_lcked);      
     }
 
     fn do_door_commands(&mut self, commands: Vec<DoorCommand>)
     {
         for cmd in commands.iter()
         {
-            for output in self.output_components.iter_mut()
+            match cmd
             {
-                let the_cmd = cmd.clone();
-                output.on_door_command(the_cmd);
+                DoorCommand::ArmDoorOpenTooLongAlarm => {
+                    // let mut fsm_clone = self.door_fsm.clone();
+                    // let mut generated_commands : Vec<DoorCommand>;
+                    // generated_commands = vec![];
+                    // self.auto_switch_normal_timer = Some(self.auto_event_timer.schedule( Box::new( move||{
+                    //     Passageway::inject_door_event(DoorEvent::DoorOpenTooLong, &mut fsm_clone, &mut generated_commands)
+                    // }), 5000));
+                },
+                DoorCommand::DisarmDoorOpenTooLongAlarm => {
+                    self.auto_switch_normal_timer = None
+                },
+                DoorCommand::DisarmAutoswitchToNormal => {
+                    self.auto_switch_normal_timer = None
+                },
+                DoorCommand::ArmAutoswitchToNormal => {
+                    // ToDo: This should only be done in case no FC is configured. 
+                    let fsm_clone = self.door_fsm.clone();
+                    self.auto_switch_normal_timer =  Some(self.auto_event_timer.schedule( Box::new( move|| {
+                            *fsm_clone.lock().unwrap() = DoorStateContainer::NormalOp(NormalOperation{});
+                        }), 5000));
+                },
+                _ => {
+                    for output in self.output_components.iter_mut()
+                    {
+                        let the_cmd = cmd.clone();
+                        output.on_door_command(the_cmd);
+                    }
+                }
             }
         }
     }
