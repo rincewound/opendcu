@@ -32,17 +32,19 @@ pub struct Emergency{}
 #[derive(Copy, Clone)]
 pub struct NormalOperation{}
 
+#[derive(Copy, Clone)]
+pub struct ReleasedOnce{}
+
+
 impl DoorStateImpl for NormalOperation
 {
     fn dispatch_door_event(self, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
         match d
         {
             DoorEvent::ValidDoorOpenRequestSeen => {
-                                    // ToDo: Start timer to switch back to normal op, in case the door was not opened´
-                                    //       or no FC is present!
                                     commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
                                     commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
-                                    commands.push(DoorCommand::ArmAutoswitchToNormal);
+                                    commands.push(DoorCommand::ArmAutoswitchToNormal);                                    
                                     return DoorStateContainer::ReleasedOnce(ReleasedOnce{});
                                 }
             DoorEvent::Opened => {
@@ -85,9 +87,6 @@ impl DoorStateImpl for NormalOperation
 }
 
 
-#[derive(Copy, Clone)]
-pub struct ReleasedOnce{}
-
 impl DoorStateImpl for ReleasedOnce
 {
     fn dispatch_door_event(self, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
@@ -129,6 +128,46 @@ impl DoorStateImpl for ReleasedOnce
             }
         }
         return DoorStateContainer::ReleasedOnce(self)
+    }
+}
+
+
+impl DoorStateImpl for Blocked
+{
+    fn dispatch_door_event(self, d: DoorEvent, _commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
+         match d
+         {
+             DoorEvent::BlockingContactDisengaged => {return DoorStateContainer::NormalOp(NormalOperation{});}
+             DoorEvent::ReleaseSwitchEngaged => {return DoorStateContainer::Emergency(Emergency{});}
+             _ => {}
+         }
+         return DoorStateContainer::Blocked(self)
+    }
+}
+
+impl DoorStateImpl for ReleasedPermanently
+{
+    fn dispatch_door_event(self, d: DoorEvent, _commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
+        match d
+        {
+            DoorEvent::DoorOpenProfileInactive => {return DoorStateContainer::NormalOp(NormalOperation{});}
+            DoorEvent::BlockingContactEngaged => {return DoorStateContainer::Blocked(Blocked{});}
+            DoorEvent::ReleaseSwitchEngaged => {return DoorStateContainer::Emergency(Emergency{});}
+            _ => {}
+        }
+        return DoorStateContainer::ReleasePerm(self)
+    }
+}
+
+impl DoorStateImpl for Emergency
+{
+    fn dispatch_door_event(self, d: DoorEvent, _commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
+        match d
+        {
+            DoorEvent::ReleaseSwitchDisengaged => {return DoorStateContainer::NormalOp(NormalOperation{});}
+            _ => {}
+        }
+        return DoorStateContainer::Emergency(self)
     }
 }
 

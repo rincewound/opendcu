@@ -6,6 +6,8 @@ use crate::{DoorCommand, DoorEvent, components::{InputComponent, OutputComponent
 
 use crate::fsm::*;
 
+const DEFAULT_RELEASE_TIME: u64 = 5000;
+
 pub struct Passageway
 {
     pub id: u32,
@@ -19,12 +21,15 @@ pub struct Passageway
     trace: TraceHelper,
     door_fsm: Shareable<crate::fsm::DoorStateContainer>,
     auto_event_timer: Arc<Timer>,
-    auto_switch_normal_timer: Option<Arc<bool>>
+    auto_switch_normal_timer: Option<Arc<bool>>,
+    door_open_too_long_timer: Option<Arc<bool>>,
+    alarm_time: u64,
+    release_time: u64
 }
 
 impl Passageway
 {
-    fn load_input_components(components: Vec<InputComponentSerialization>) -> Vec<Box<dyn InputComponent>>
+    fn load_input_components(components: &Vec<InputComponentSerialization>) -> Vec<Box<dyn InputComponent>>
     {
         let mut deserialized_components: Vec<Box<dyn InputComponent>> = vec![];
         for component in components.iter()
@@ -42,7 +47,7 @@ impl Passageway
         deserialized_components
     }
 
-    fn load_output_components(components: Vec<OutputComponentSerialization>, chm: &mut ChannelManager) -> Vec<Box<dyn OutputComponent>>
+    fn load_output_components(components: &Vec<OutputComponentSerialization>, chm: &mut ChannelManager) -> Vec<Box<dyn OutputComponent>>
     {
         let mut deserialized_components: Vec<Box<dyn OutputComponent>> = vec![];
         for component in components.iter()
@@ -59,22 +64,38 @@ impl Passageway
         deserialized_components
     }
 
+    fn find_release_time(settings: &PassagewaySetting) -> u64
+    {
+        for i in settings.outputs.iter()
+        {
+            match i
+            {
+                OutputComponentSerialization::ElectricStrike(strike) => return strike.operation_time,
+                _ => {}
+            }
+        }
+        return DEFAULT_RELEASE_TIME;
+    }
+
     pub fn new(settings: PassagewaySetting, chm: &mut ChannelManager) -> Self
     {
         Self 
         {
             id: settings.id,
-            access_points: settings.access_points,
+            access_points: settings.access_points.clone(),
             door_open_profile_id: 0,
-            input_components: Passageway::load_input_components(settings.inputs),
-            output_components: Shareable::new(Passageway::load_output_components(settings.outputs, chm)),
+            input_components: Passageway::load_input_components(&settings.inputs),
+            output_components: Shareable::new(Passageway::load_output_components(&settings.outputs, chm)),
             virtual_components: vec![],
             pending_events: vec![],
             sig_tx: chm.get_sender(),
             trace: TraceHelper::new(format!("ADCM/PW{}", settings.id), chm),            
             door_fsm: Shareable::new(DoorStateContainer::NormalOp(NormalOperation{})),
             auto_event_timer: Timer::new(),
-            auto_switch_normal_timer: None
+            auto_switch_normal_timer: None,
+            door_open_too_long_timer: None,
+            alarm_time: settings.alarm_time,
+            release_time: Passageway::find_release_time(&settings)
         }
     }
 
@@ -136,6 +157,22 @@ impl Passageway
         drop(fsm_lcked);      
     }
 
+    fn arm_timer(&self, event_to_generate: DoorEvent, timeout: u64) -> Arc<bool>
+    {
+        let mut fsm_clone = self.door_fsm.clone();
+        let mut generated_commands : Vec<DoorCommand>;
+        let mut outputs = self.output_components.clone();
+        generated_commands = vec![];                 
+        return self.auto_event_timer.schedule( Box::new( move|| {
+                Passageway::inject_door_event(event_to_generate, &mut fsm_clone, &mut generated_commands);
+                /* Attention: This will need some refactoring at some point, as this solution will only
+                   execute commands that influence the behavior of outputs. Commands that are to be executed
+                   by the Passageway will be ignored. 
+                */
+                Passageway::do_doorcommands_for_outputs(&mut outputs, generated_commands);
+            }), timeout);
+    }
+
     fn do_door_commands(&mut self, commands: Vec<DoorCommand>)
     {
         for cmd in commands.iter()
@@ -143,27 +180,16 @@ impl Passageway
             match cmd
             {
                 DoorCommand::ArmDoorOpenTooLongAlarm => {
+                    self.auto_switch_normal_timer = Some(self.arm_timer(DoorEvent::DoorOpenTooLong, self.alarm_time));
                 },
                 DoorCommand::DisarmDoorOpenTooLongAlarm => {
-                    self.auto_switch_normal_timer = None
+                    self.door_open_too_long_timer = None
                 },
                 DoorCommand::DisarmAutoswitchToNormal => {
                     self.auto_switch_normal_timer = None
                 },
                 DoorCommand::ArmAutoswitchToNormal => {
-                    let mut fsm_clone = self.door_fsm.clone();
-                    let mut generated_commands : Vec<DoorCommand>;
-                    let mut outputs = self.output_components.clone();
-                    generated_commands = vec![];       
-                    // ToDo: Obtain Strike Timeout for timer here!             
-                    self.auto_switch_normal_timer =  Some(self.auto_event_timer.schedule( Box::new( move|| {
-                            Passageway::inject_door_event(DoorEvent::DoorTimerExpired, &mut fsm_clone, &mut generated_commands);
-                            /* Attention: This will need some refactoring at some point, as this solution will only
-                               execute commands that influence the behavior of outputs. Commands that are to be executed
-                               by the Passageway will be ignored. 
-                            */
-                            Passageway::do_doorcommands_for_outputs(&mut outputs, generated_commands);
-                        }), 5000));
+                    self.auto_switch_normal_timer = Some(self.arm_timer(DoorEvent::DoorTimerExpired, self.release_time));
                 },
                 _ => {
 

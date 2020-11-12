@@ -28,5 +28,7 @@ pub struct PassagewaySetting
     pub id: u32,
     pub outputs: Vec<OutputComponentSerialization>,
     pub inputs: Vec<InputComponentSerialization>,
-    pub access_points: Vec<u32>
+    pub access_points: Vec<u32>,
+    // Denotes the time the door may be open until an alarm is triggered
+    pub alarm_time: u64
 }

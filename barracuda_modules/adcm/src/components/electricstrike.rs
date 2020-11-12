@@ -26,13 +26,13 @@ impl ElectricStrike
 
 impl OutputComponent for ElectricStrike
 {
-    fn on_profile_change(&mut self, _event: &ProfileChangeEvent, _generated_events: &mut Vec<DoorEvent>)
+    fn on_profile_change(&mut self, _event: &ProfileChangeEvent, generated_events: &mut Vec<DoorEvent>)
     {    }
 
     fn on_door_command(&mut self, command: DoorCommand) {
         match command
         {
-            DoorCommand::ToggleElectricStrike(state) => {self.output_component.control_output(state)},
+            DoorCommand::ToggleElectricStrike(state) => { self.output_component.control_output(state)},
             DoorCommand::ToggleElectricStrikeTimed(state)=> {self.output_component.control_output_with_timeout(state)},
             _ => {}
         }
