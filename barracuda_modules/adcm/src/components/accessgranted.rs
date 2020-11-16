@@ -1,8 +1,10 @@
 use barracuda_core::{
-    core::channel_manager::ChannelManager, io::OutputState, profile::ProfileChangeEvent
+    core::channel_manager::ChannelManager, profile::ProfileChangeEvent
 };
+use crate::DoorEvent;
+
 use super::{
-    DoorEvent, OutputComponent, 
+    OutputComponent, 
     outputcomponentbase::{OutputComponentBase, OutputComponentSetting}
 };
 
@@ -33,16 +35,10 @@ impl OutputComponent for AccessGranted
 
     }
 
-    fn on_door_event(&mut self, event: DoorEvent, _generated_events: &mut Vec<DoorEvent>)
-    {
-        match event
+    fn on_door_command(&mut self, command: crate::DoorCommand) {
+        match command
         {
-            DoorEvent::Closed               => { self.output_component.control_output(OutputState::Low);}
-            DoorEvent::ReleasedPermanently  => { self.output_component.control_output(OutputState::High);}
-            DoorEvent::ReleaseOnce          => { self.output_component.control_output(OutputState::High);}
-            DoorEvent::NormalOperation      => { self.output_component.control_output(OutputState::Low);}
-            DoorEvent::ForcedOpen           => { self.output_component.control_output(OutputState::Low);} // should never happen!
-            DoorEvent::DoorOpenAlarm        => { self.output_component.control_output(OutputState::Low);}
+            crate::DoorCommand::ToggleAccessAllowed(output_state) => {self.output_component.control_output(output_state)}
             _ => {}
         }
     }

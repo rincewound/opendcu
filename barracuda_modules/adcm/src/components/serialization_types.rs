@@ -1,16 +1,23 @@
 use crate::components::framecontact::FrameContact;
+use crate::components::dooropenerkey::DoorOpenerKey;
 use crate::components::outputcomponentbase::OutputComponentSetting;
+use crate::components::doorhandle::DoorHandle;
+use crate::components::releasecontact::ReleaseContact;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize,Deserialize, Clone)]
 pub enum InputComponentSerialization
 {
-    FrameContact(FrameContact)
+    FrameContact(FrameContact),
+    DoorOpenerKey(DoorOpenerKey),
+    DoorHandle(DoorHandle),
+    ReleaseContact(ReleaseContact)
 }
 
 #[derive(Serialize,Deserialize, Clone)]
 pub enum OutputComponentSerialization
 {
+    AlarmRelay(u32),
     ElectricStrike(OutputComponentSetting),
     AccessGranted(OutputComponentSetting)
 }
@@ -21,5 +28,7 @@ pub struct PassagewaySetting
     pub id: u32,
     pub outputs: Vec<OutputComponentSerialization>,
     pub inputs: Vec<InputComponentSerialization>,
-    pub access_points: Vec<u32>
+    pub access_points: Vec<u32>,
+    // Denotes the time the door may be open until an alarm is triggered
+    pub alarm_time: u64
 }

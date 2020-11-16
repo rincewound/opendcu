@@ -9,4 +9,4 @@ edition = "2018"
 [dependencies]
 barracuda_core = { path = "../barracuda_core" }
 generic_whitelist = { path = "../barracuda_modules/generic_whitelist" }
-AdvancedDoorControlModule = {path  = "../barracuda_modules/adcm" }
+adcm = {path  = "../barracuda_modules/adcm" }
