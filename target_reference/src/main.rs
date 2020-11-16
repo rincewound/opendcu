@@ -19,7 +19,7 @@ fn main() {
             generic_whitelist::launch::<generic_whitelist::whitelist::JsonEntryProvider>,
             barracuda_core::arm::console_input::launch,
             barracuda_core::io::launch,
-            AdvancedDoorControlModule::launch,            
+            adcm::launch,            
             |chm| mfrc522::launch(chm, RfidSpi::new(), RfidIrq::new()),
             barracuda_core::profile::launch
             );    

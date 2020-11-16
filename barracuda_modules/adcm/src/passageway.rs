@@ -15,7 +15,7 @@ pub struct Passageway
     access_points: Vec<u32>,
     input_components: Vec<Box<dyn InputComponent>>,
     output_components: Shareable<Vec<Box<dyn OutputComponent>>>,
-    virtual_components: Vec<Box<dyn VirtualComponent>>,
+    _virtual_components: Vec<Box<dyn VirtualComponent>>,
     pending_events: Vec<DoorEvent>,
     sig_tx:  GenericSender<SigCommand>,
     trace: TraceHelper,
@@ -87,7 +87,7 @@ impl Passageway
             door_open_profile_id: 0,
             input_components: Passageway::load_input_components(&settings.inputs),
             output_components: Shareable::new(Passageway::load_output_components(&settings.outputs, chm)),
-            virtual_components: vec![],
+            _virtual_components: vec![],
             pending_events: vec![],
             sig_tx: chm.get_sender(),
             trace: TraceHelper::new(format!("ADCM/PW{}", settings.id), chm),            
@@ -149,9 +149,9 @@ impl Passageway
         {
             DoorStateContainer::NormalOp(op) => { next_state = op.dispatch_door_event(door_event, generated_commands);}
             DoorStateContainer::ReleasedOnce(op) =>  { next_state = op.dispatch_door_event(door_event, generated_commands);}
-            DoorStateContainer::ReleasePerm(op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
-            DoorStateContainer::Blocked(op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
-            DoorStateContainer::Emergency(op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
+            DoorStateContainer::ReleasePerm(_op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
+            DoorStateContainer::Blocked(_op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
+            DoorStateContainer::Emergency(_op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
         }
 
         *fsm_lcked = next_state;
