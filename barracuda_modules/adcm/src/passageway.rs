@@ -1,10 +1,26 @@
 use std::sync::{Arc};
 
-use barracuda_core::{core::{channel_manager::ChannelManager, broadcast_channel::GenericSender}, core::timer::Timer, dcm::DoorOpenRequest, io::InputEvent, core::shareable::Shareable, profile::{ProfileChangeEvent, ProfileState}, sig::SigCommand, sig::SigType, trace::trace_helper::TraceHelper};
+use barracuda_core::{
+    core::{
+        broadcast_channel::GenericSender, 
+        channel_manager::ChannelManager, 
+        timer::Timer}, 
+        dcm::DoorOpenRequest, 
+        io::InputEvent, 
+        core::shareable::Shareable, 
+        profile::{
+            ProfileChangeEvent, 
+            ProfileState
+        }, 
+        sig::SigCommand, 
+        sig::SigType, 
+        trace::trace_helper::TraceHelper
+    };
 
 use crate::{DoorCommand, DoorEvent, components::{InputComponent, OutputComponent, VirtualComponent, accessgranted::AccessGranted, alarmrelay::AlarmRelay, electricstrike::ElectricStrike, serialization_types::InputComponentSerialization, serialization_types::{OutputComponentSerialization, PassagewaySetting}}};
 
 use crate::fsm::*;
+use crate::fsm::NormalOperation::NormalOperation;
 
 const DEFAULT_RELEASE_TIME: u64 = 5000;
 
@@ -149,9 +165,9 @@ impl Passageway
         {
             DoorStateContainer::NormalOp(op) => { next_state = op.dispatch_door_event(door_event, generated_commands);}
             DoorStateContainer::ReleasedOnce(op) =>  { next_state = op.dispatch_door_event(door_event, generated_commands);}
-            DoorStateContainer::ReleasePerm(_op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
-            DoorStateContainer::Blocked(_op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
-            DoorStateContainer::Emergency(_op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
+            DoorStateContainer::ReleasePerm(op) => {next_state = op.dispatch_door_event(door_event, generated_commands);}
+            DoorStateContainer::Blocked(op) => {next_state = op.dispatch_door_event(door_event, generated_commands);}
+            DoorStateContainer::Emergency(op) => {next_state = op.dispatch_door_event(door_event, generated_commands);}
         }
 
         *fsm_lcked = next_state;

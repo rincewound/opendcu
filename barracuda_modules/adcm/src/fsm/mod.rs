@@ -1,16 +1,20 @@
-use barracuda_core::io::OutputState;
-
 use crate::{DoorCommand, DoorEvent};
+
+pub mod NormalOperation;
+mod ReleasedOnce;
+mod ReleasedPermanently;
+mod Blocked;
+mod Emergency;
 
 
 #[derive(Copy, Clone)]
 pub enum DoorStateContainer
 {
-    NormalOp(NormalOperation),
-    ReleasedOnce(ReleasedOnce),
-    ReleasePerm(ReleasedPermanently),
-    Blocked(Blocked),
-    Emergency(Emergency)
+    NormalOp(NormalOperation::NormalOperation),
+    ReleasedOnce(ReleasedOnce::ReleasedOnce),
+    ReleasePerm(ReleasedPermanently::ReleasedPermanently),
+    Blocked(Blocked::Blocked),
+    Emergency(Emergency::Emergency)
 }
 
 
@@ -20,165 +24,13 @@ pub trait DoorStateImpl
     fn dispatch_door_event(self, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer;
 }
 
-#[derive(Copy, Clone)]
-pub struct ReleasedPermanently{}
-
-#[derive(Copy, Clone)]
-pub struct Blocked{}
-
-#[derive(Copy, Clone)]
-pub struct Emergency{}
-
-#[derive(Copy, Clone)]
-pub struct NormalOperation{}
-
-#[derive(Copy, Clone)]
-pub struct ReleasedOnce{}
-
-
-impl DoorStateImpl for NormalOperation
-{
-    fn dispatch_door_event(self, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
-        match d
-        {
-            DoorEvent::ValidDoorOpenRequestSeen(ap_id) => {
-                                    commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
-                                    commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
-                                    commands.push(DoorCommand::ArmAutoswitchToNormal);   
-                                    commands.push(DoorCommand::ShowSignal(ap_id, barracuda_core::sig::SigType::AccessGranted));
-                                    return DoorStateContainer::ReleasedOnce(ReleasedOnce{});
-                                }
-            DoorEvent::Opened => {
-                                    // Door forced open!
-                                    commands.push(DoorCommand::ToggleAlarmRelay(OutputState::High))
-                                }
-            DoorEvent::Closed => {
-                                    commands.push(DoorCommand::ToggleAlarmRelay(OutputState::Low))
-                                }
-            DoorEvent::DoorOpenProfileActive => {
-                                    commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
-                                    commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));                
-                                    return DoorStateContainer::ReleasePerm(ReleasedPermanently{});
-                                }
-            DoorEvent::DoorOpenProfileInactive => {
-                                    panic!("DoorOpenProfileInactive in NormalOperation")
-                                }
-            DoorEvent::BlockingContactEngaged => { return DoorStateContainer::Blocked(Blocked{}); }
-            DoorEvent::BlockingContactDisengaged => {
-                                    panic!("BlockingContactDisengaged in NormalOperation")
-                                }
-            DoorEvent::ReleaseSwitchEngaged => { return DoorStateContainer::Emergency(Emergency{}); }
-            DoorEvent::ReleaseSwitchDisengaged => {
-                                    panic!("ReleaseSwitchDisengaged in NormalOperation")                
-                                }
-            DoorEvent::DoorOpenerKeyTriggered => {
-                                commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
-                                commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
-                                return DoorStateContainer::ReleasedOnce(ReleasedOnce{});
-            }
-            DoorEvent::DoorHandleTriggered => {
-                                commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
-                                return DoorStateContainer::ReleasedOnce(ReleasedOnce{});
-            }
-            DoorEvent::DoorOpenTooLong => {}
-            DoorEvent::DoorTimerExpired => {}
-        }
-        return DoorStateContainer::NormalOp(self)
-    }
-}
-
-
-impl DoorStateImpl for ReleasedOnce
-{
-    fn dispatch_door_event(self, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
-        match d
-        {
-            DoorEvent::ValidDoorOpenRequestSeen(ap_id) => { /* Ignore */ }
-            DoorEvent::Opened => {
-                    // ToDo: Start timer, that triggers a door-open-too-long alarm,
-                    // if the door is not closed.                    
-                    commands.push(DoorCommand::ArmDoorOpenTooLongAlarm);
-                    commands.push(DoorCommand::ToggleElectricStrike(OutputState::Low));
-                    commands.push(DoorCommand::DisarmAutoswitchToNormal);
-                }
-            DoorEvent::Closed => {
-                    commands.push(DoorCommand::DisarmDoorOpenTooLongAlarm);
-                    commands.push(DoorCommand::ToggleAccessAllowed(OutputState::Low));
-                    return DoorStateContainer::NormalOp(NormalOperation{});
-                }
-            DoorEvent::DoorOpenProfileActive   => { /* ToDo -> This should propagate to NormalOp! */ }
-            DoorEvent::DoorOpenProfileInactive => { /* ToDo -> This should propagate to NormalOp! */ }
-
-            DoorEvent::BlockingContactEngaged    => {return DoorStateContainer::Blocked(Blocked{});}
-            DoorEvent::BlockingContactDisengaged => {
-                                            panic!("BlockingContactDisengaged in ReleasedOnce")
-                                        }
-            DoorEvent::ReleaseSwitchEngaged    => {return DoorStateContainer::Emergency(Emergency{});}
-            DoorEvent::ReleaseSwitchDisengaged => {
-                                            panic!("ReleaseSwitchDisengaged in ReleasedOnce")
-                                        }
-
-            DoorEvent::DoorOpenerKeyTriggered => { /* Ignore */ }
-            DoorEvent::DoorHandleTriggered    => { /* Ignore */ }
-            DoorEvent::DoorOpenTooLong => {}
-            DoorEvent::DoorTimerExpired => {
-                // Triggered by the pway in cases, where we have no FC.
-                commands.push(DoorCommand::ToggleElectricStrike(OutputState::Low));
-                commands.push(DoorCommand::ToggleAccessAllowed(OutputState::Low));
-                return DoorStateContainer::NormalOp(NormalOperation{});
-            }
-        }
-        return DoorStateContainer::ReleasedOnce(self)
-    }
-}
-
-
-impl DoorStateImpl for Blocked
-{
-    fn dispatch_door_event(self, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
-         match d
-         {
-             DoorEvent::ValidDoorOpenRequestSeen(ap_id) => {
-                 commands.push(DoorCommand::ShowSignal(ap_id, barracuda_core::sig::SigType::AccessDenied));
-                }
-             DoorEvent::BlockingContactDisengaged => {return DoorStateContainer::NormalOp(NormalOperation{});}
-             DoorEvent::ReleaseSwitchEngaged => {return DoorStateContainer::Emergency(Emergency{});}
-             _ => {}
-         }
-         return DoorStateContainer::Blocked(self)
-    }
-}
-
-impl DoorStateImpl for ReleasedPermanently
-{
-    fn dispatch_door_event(self, d: DoorEvent, _commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
-        match d
-        {
-            DoorEvent::DoorOpenProfileInactive => {return DoorStateContainer::NormalOp(NormalOperation{});}
-            DoorEvent::BlockingContactEngaged => {return DoorStateContainer::Blocked(Blocked{});}
-            DoorEvent::ReleaseSwitchEngaged => {return DoorStateContainer::Emergency(Emergency{});}
-            _ => {}
-        }
-        return DoorStateContainer::ReleasePerm(self)
-    }
-}
-
-impl DoorStateImpl for Emergency
-{
-    fn dispatch_door_event(self, d: DoorEvent, _commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
-        match d
-        {
-            DoorEvent::ReleaseSwitchDisengaged => {return DoorStateContainer::NormalOp(NormalOperation{});}
-            _ => {}
-        }
-        return DoorStateContainer::Emergency(self)
-    }
-}
-
 #[cfg(test)]
 mod normal_op_tests 
 {    
     use super::*;
+    use super::NormalOperation::NormalOperation;
+    use super::ReleasedOnce::ReleasedOnce;
+    use barracuda_core::io::OutputState;
 
     fn make_normal_op() -> (NormalOperation, Vec<DoorCommand>)
     {
@@ -268,6 +120,9 @@ mod normal_op_tests
 mod released_once_tests 
 {
     use super::*;
+    use super::ReleasedOnce::ReleasedOnce;
+    use super::NormalOperation::NormalOperation;
+    use barracuda_core::io::OutputState;
 
     fn make_released_once() -> (ReleasedOnce, Vec<DoorCommand>)
     {
