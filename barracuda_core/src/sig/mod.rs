@@ -1,5 +1,5 @@
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum SigType
 {
     _Default,

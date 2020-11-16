@@ -1,4 +1,4 @@
-use barracuda_core::{io::OutputState, core::{shareable::Shareable, broadcast_channel::*}};
+use barracuda_core::{core::{shareable::Shareable, broadcast_channel::*}, io::OutputState, sig::SigType};
 use barracuda_core::core::channel_manager::*;
 use barracuda_core::core::{bootstage_helper::*, event::DataEvent};
 use barracuda_core::{Handler, cfg::{cfgholder::*, self}};
@@ -29,7 +29,7 @@ enum PassagewayUpdate
 #[derive(PartialEq)]
 pub enum DoorEvent
 {
-    ValidDoorOpenRequestSeen,
+    ValidDoorOpenRequestSeen(u32),
     Opened,
     Closed,
     DoorOpenProfileActive,
@@ -56,7 +56,8 @@ pub enum DoorCommand
     ArmDoorOpenTooLongAlarm,
     DisarmDoorOpenTooLongAlarm,
     ArmAutoswitchToNormal,
-    DisarmAutoswitchToNormal
+    DisarmAutoswitchToNormal,
+    ShowSignal(u32, SigType)
 }
 
 pub fn launch(chm: &mut ChannelManager)

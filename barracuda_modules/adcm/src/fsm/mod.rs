@@ -41,10 +41,11 @@ impl DoorStateImpl for NormalOperation
     fn dispatch_door_event(self, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
         match d
         {
-            DoorEvent::ValidDoorOpenRequestSeen => {
+            DoorEvent::ValidDoorOpenRequestSeen(ap_id) => {
                                     commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
                                     commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
-                                    commands.push(DoorCommand::ArmAutoswitchToNormal);                                    
+                                    commands.push(DoorCommand::ArmAutoswitchToNormal);   
+                                    commands.push(DoorCommand::ShowSignal(ap_id, barracuda_core::sig::SigType::AccessGranted));
                                     return DoorStateContainer::ReleasedOnce(ReleasedOnce{});
                                 }
             DoorEvent::Opened => {
@@ -92,7 +93,7 @@ impl DoorStateImpl for ReleasedOnce
     fn dispatch_door_event(self, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
         match d
         {
-            DoorEvent::ValidDoorOpenRequestSeen => { /* Ignore */ }
+            DoorEvent::ValidDoorOpenRequestSeen(ap_id) => { /* Ignore */ }
             DoorEvent::Opened => {
                     // ToDo: Start timer, that triggers a door-open-too-long alarm,
                     // if the door is not closed.                    
@@ -134,9 +135,12 @@ impl DoorStateImpl for ReleasedOnce
 
 impl DoorStateImpl for Blocked
 {
-    fn dispatch_door_event(self, d: DoorEvent, _commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
+    fn dispatch_door_event(self, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
          match d
          {
+             DoorEvent::ValidDoorOpenRequestSeen(ap_id) => {
+                 commands.push(DoorCommand::ShowSignal(ap_id, barracuda_core::sig::SigType::AccessDenied));
+                }
              DoorEvent::BlockingContactDisengaged => {return DoorStateContainer::NormalOp(NormalOperation{});}
              DoorEvent::ReleaseSwitchEngaged => {return DoorStateContainer::Emergency(Emergency{});}
              _ => {}
@@ -192,17 +196,18 @@ mod normal_op_tests
     pub fn normal_op_generates_release_cmd_on_valid_booking()
     {
         let (op, mut v) = make_normal_op();
-        op.dispatch_door_event(DoorEvent::ValidDoorOpenRequestSeen, &mut v);
-        assert_eq!(v.len() , 2);
+        op.dispatch_door_event(DoorEvent::ValidDoorOpenRequestSeen(0), &mut v);
+        assert_eq!(v.len() , 3);
         assert_eq!(v[0], DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
         assert_eq!(v[1], DoorCommand::ToggleAccessAllowed(OutputState::High));
+        assert_eq!(v[2], DoorCommand::ArmAutoswitchToNormal);
     }
 
     #[test]
     pub fn normal_op_changes_to_released_once_on_valid_booking()
     {
         let (op, mut v) = make_normal_op();
-        let next = op.dispatch_door_event(DoorEvent::ValidDoorOpenRequestSeen, &mut v);
+        let next = op.dispatch_door_event(DoorEvent::ValidDoorOpenRequestSeen(0), &mut v);
         assert_states_are_equal(next, DoorStateContainer::ReleasedOnce(ReleasedOnce{}))
     }
 
@@ -281,9 +286,10 @@ mod released_once_tests
     {
         let (op, mut v)  = make_released_once();
         op.dispatch_door_event(DoorEvent::Opened, &mut v);
-        assert_eq!(2, v.len());
+        assert_eq!(3, v.len());
         assert_eq!(v[0], DoorCommand::ArmDoorOpenTooLongAlarm);
         assert_eq!(v[1], DoorCommand::ToggleElectricStrike(OutputState::Low));
+        assert_eq!(v[2], DoorCommand::DisarmAutoswitchToNormal);
     }
 
     

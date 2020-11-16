@@ -192,6 +192,11 @@ impl Passageway
                 DoorCommand::ArmAutoswitchToNormal => {
                     self.auto_switch_normal_timer = Some(self.arm_timer(DoorEvent::DoorTimerExpired, self.release_time));
                 },
+                DoorCommand::ShowSignal(ap_id, sig) =>
+                {
+                    // ToDo: Configurabale signal times!
+                    self.send_signal_command(*ap_id, *sig, 3500);
+                }
                 _ => {
 
                     for output in self.output_components.lock().iter_mut()
@@ -226,16 +231,15 @@ impl Passageway
         // Check doorstate: If we're blocked, signal this, otherwise
         // signal access granted here and release the door.
         self.trace.trace_str("Release once.");
-        self.handle_door_event(DoorEvent::ValidDoorOpenRequestSeen);
-        self.send_signal_command(request.access_point_id, SigType::AccessGranted, 3000);
+        self.handle_door_event(DoorEvent::ValidDoorOpenRequestSeen(request.access_point_id));
     }
 
     fn send_signal_command(&self, access_point_id: u32, sigtype: SigType, duration: u32)
     {
         let sig = SigCommand {
-            access_point_id: access_point_id,
+            access_point_id,
             sig_type: sigtype, 
-            duration: duration
+            duration
         };
 
         self.sig_tx.send(sig); 
