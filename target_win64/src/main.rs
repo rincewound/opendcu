@@ -17,7 +17,7 @@ fn main() {
             barracuda_core::arm::console_input::launch,
             barracuda_core::io::launch,            
             barracuda_core::profile::launch,
-            AdvancedDoorControlModule::launch,
+            adcm::launch,
             crate::io::launch
             );    
 }

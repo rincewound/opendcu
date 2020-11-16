@@ -21,7 +21,7 @@ const MODULE_ID: u32 = 0x0D000000;
 #[derive(Clone)]
 enum PassagewayUpdate
 {
-     NewPassageway(u32),
+     _NewPassageway(u32),
      PassagewayUpdate(u32),
      DeletePassageway(u32)
 }
@@ -235,7 +235,7 @@ impl ADCM
 
         match event
         {
-            PassagewayUpdate::NewPassageway(id) => {self.load_passageway(id)},
+            PassagewayUpdate::_NewPassageway(id) => {self.load_passageway(id)},
             PassagewayUpdate::PassagewayUpdate(_id) => {},
             PassagewayUpdate::DeletePassageway(id) => {self.passageways.retain(|x| x.id != id)}
         }

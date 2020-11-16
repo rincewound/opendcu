@@ -193,9 +193,10 @@ mod normal_op_tests
     {
         let (op, mut v) = make_normal_op();
         op.dispatch_door_event(DoorEvent::ValidDoorOpenRequestSeen, &mut v);
-        assert_eq!(v.len() , 2);
+        assert_eq!(v.len() , 3);
         assert_eq!(v[0], DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
         assert_eq!(v[1], DoorCommand::ToggleAccessAllowed(OutputState::High));
+        assert_eq!(v[2], DoorCommand::ArmAutoswitchToNormal);
     }
 
     #[test]
@@ -281,9 +282,10 @@ mod released_once_tests
     {
         let (op, mut v)  = make_released_once();
         op.dispatch_door_event(DoorEvent::Opened, &mut v);
-        assert_eq!(2, v.len());
+        assert_eq!(3, v.len());
         assert_eq!(v[0], DoorCommand::ArmDoorOpenTooLongAlarm);
         assert_eq!(v[1], DoorCommand::ToggleElectricStrike(OutputState::Low));
+        assert_eq!(v[2], DoorCommand::DisarmAutoswitchToNormal);
     }
 
     
