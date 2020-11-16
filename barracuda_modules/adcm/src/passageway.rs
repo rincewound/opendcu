@@ -74,6 +74,7 @@ impl Passageway
                 _ => {}
             }
         }
+        // TBD: Should we panic in case we have no strike attached to the door?
         return DEFAULT_RELEASE_TIME;
     }
 

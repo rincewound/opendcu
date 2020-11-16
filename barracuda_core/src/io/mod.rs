@@ -345,7 +345,7 @@ mod tests {
     {
         let mut md = make_mod();
         let s = md.1;
-        let evt = RawInputEvent {input_id: make_sud(10, 0, 1), state: InputState::_High};
+        let evt = RawInputEvent {input_id: make_sud(10, 0, 1), state: InputState::High};
         s.send(evt);
         md.0.run();
         let recv = md.2.receive_with_timeout(1).unwrap();
@@ -358,7 +358,7 @@ mod tests {
     {
         let mut md = make_mod();
         let s = md.1;
-        let evt = RawInputEvent {input_id: make_sud(12, 0, 1), state: InputState::_High};
+        let evt = RawInputEvent {input_id: make_sud(12, 0, 1), state: InputState::High};
         s.send(evt);
         md.0.run();
         let recv = md.2.receive_with_timeout(1).unwrap();
@@ -371,7 +371,7 @@ mod tests {
     {
         let mut md = make_mod();
         let s = md.1;
-        let evt = RawInputEvent {input_id: make_sud(14, 0, 1), state: InputState::_High};
+        let evt = RawInputEvent {input_id: make_sud(14, 0, 1), state: InputState::High};
         s.send(evt);
         md.0.run();
         let recv = md.2.receive_with_timeout(1);
