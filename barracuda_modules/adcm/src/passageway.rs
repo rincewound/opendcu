@@ -40,7 +40,8 @@ pub struct Passageway
     auto_switch_normal_timer: Option<Arc<bool>>,
     door_open_too_long_timer: Option<Arc<bool>>,
     alarm_time: u64,
-    release_time: u64
+    release_time: u64,
+    //channel_manager: barracuda_core::core::channel_manager::ChannelManager
 }
 
 impl Passageway
@@ -112,7 +113,31 @@ impl Passageway
             auto_switch_normal_timer: None,
             door_open_too_long_timer: None,
             alarm_time: settings.alarm_time,
-            release_time: Passageway::find_release_time(&settings)
+            release_time: Passageway::find_release_time(&settings),
+            //channel_manager: chm.clone()
+        }
+    }
+
+    pub fn apply_settings(&mut self, settings: PassagewaySetting)
+    {
+        self.input_components = Passageway::load_input_components(&settings.inputs);
+        //self.output_components = Shareable::new(Passageway::load_output_components(&settings.outputs, &mut self.channel_manager));
+        self.alarm_time = settings.alarm_time;
+        self.release_time = Passageway::find_release_time(&settings);
+
+        // We don't change the doorstate at all. This way we can change the settings
+        // without the user noticing or having to restart the device. Note that this 
+        // can cause a problem if the door is actually open when the settings change
+        // and an existing framecontact is removed. In this case the door will entry
+        // alarm state at some point and never recover, because it no longer "sees"
+        // the door closed event. To make sure the door returns to normal in all
+        // cases we arm the "return to default state" timer. The events generated
+        // by that timer are ignored by all but the door open state. This ensures,
+        // that the door returns to NormalOp at most release_time seconds after
+        // the confiuration change.
+        if self.auto_switch_normal_timer.is_none()
+        {
+            self.auto_switch_normal_timer = Some(self.arm_timer(DoorEvent::DoorTimerExpired, self.release_time));
         }
     }
 

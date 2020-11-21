@@ -3,6 +3,8 @@ use crate::core::broadcast_channel::*;
 extern crate anymap;
 use anymap::AnyMap;
 use std::sync::Arc;
+use crate::core::shareable::Shareable;
+
 
 struct ChannelContainer<T: Clone> {
     tx: GenericSender<T>,
@@ -10,40 +12,55 @@ struct ChannelContainer<T: Clone> {
 }
 
 pub struct ChannelManager {
-    channels: anymap::Map,
+    channels: Shareable<anymap::Map>,
 }
 
 impl ChannelManager  {
 
     pub fn new() -> Self {
         let res = ChannelManager {
-            channels: AnyMap::new(),
+            channels: Shareable::new(AnyMap::new()),
         };
         res
     }
 
-    fn get_channel<T: 'static + Clone>(&mut self) -> &ChannelContainer<T>
+    fn ensure_channel_exists<T: 'static + Clone>(&mut self)
     {
-        if !self.channels.contains::<ChannelContainer<T>>()
+        let mut writeable_channels = self.channels.lock();
+        if !writeable_channels.contains::<ChannelContainer<T>>()
         {
             let (_tx, _rx) = make_chan();
             let cont = ChannelContainer::<T> { tx: _tx, rx: _rx };
-            self.channels.insert(cont);
+            writeable_channels.insert(cont);
         }
-
-        self.channels.get::<ChannelContainer<T>>().unwrap()
     }
 
     pub fn get_receiver<T: 'static + Clone>(&mut self) -> Arc<GenericReceiver<T>> 
     {
-        let container = self.get_channel::<T>();
-        return container.rx.clone_receiver();
+        self.ensure_channel_exists::<T>();
+        return self.channels.lock().get::<ChannelContainer<T>>()
+                                   .unwrap()
+                                   .rx
+                                   .clone();
     }
 
     pub fn get_sender<T: 'static + Clone>(&mut self) -> GenericSender<T> 
     {
-        let container = self.get_channel::<T>();
-        return container.tx.clone();
+        self.ensure_channel_exists::<T>();
+        return self.channels.lock().get::<ChannelContainer<T>>()
+                                   .unwrap()
+                                   .tx
+                                   .clone();
+    }
+}
+
+impl Clone for ChannelManager
+{
+    fn clone(&self) -> Self {
+        Self
+        {
+            channels: self.channels.clone()
+        }
     }
 }
 
