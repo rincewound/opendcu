@@ -42,7 +42,7 @@ impl ChannelManager  {
         return self.channels.lock().get::<ChannelContainer<T>>()
                                    .unwrap()
                                    .rx
-                                   .clone();
+                                   .clone_receiver();
     }
 
     pub fn get_sender<T: 'static + Clone>(&mut self) -> GenericSender<T> 
