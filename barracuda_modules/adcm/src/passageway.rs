@@ -143,11 +143,6 @@ impl Passageway
 
     pub fn on_profile_change(&mut self, event: &ProfileChangeEvent)
     {
-        for v in self.output_components.lock().iter_mut()
-        {
-            v.on_profile_change(event, &mut self.pending_events);
-        }
-
         // if the profile is our door open profile, we have
         // to adjust the doorstate here as well
         if event.profile_id == self.door_open_profile_id

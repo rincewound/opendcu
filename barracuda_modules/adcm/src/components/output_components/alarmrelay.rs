@@ -1,6 +1,6 @@
-use barracuda_core::{core::channel_manager::ChannelManager, profile::ProfileChangeEvent};
+use barracuda_core::{core::channel_manager::ChannelManager};
 
-use crate::{DoorCommand, DoorEvent, components::OutputComponent};
+use crate::{DoorCommand, components::OutputComponent};
 
 use super::outputcomponentbase::*;
 
@@ -22,10 +22,8 @@ impl AlarmRelay
 
 impl OutputComponent for AlarmRelay
 {
-    fn on_profile_change(&mut self, _event: &ProfileChangeEvent, _generated_events: &mut Vec<DoorEvent>)
-    {    }
-
-    fn on_door_command(&mut self, command: DoorCommand) {
+    fn on_door_command(&mut self, command: DoorCommand) 
+    {
         match command
         {
             DoorCommand::ToggleAlarmRelay(output_state) => {self.output_component.control_output(output_state)}
@@ -41,18 +39,17 @@ mod tests {
 
     use super::*;
 
-    fn make_alarm_relay() -> (AlarmRelay, ChannelManager, Vec::<DoorEvent>)
+    fn make_alarm_relay() -> (AlarmRelay, ChannelManager)
     {
         let mut chm = ChannelManager::new();
         let strike = AlarmRelay::new(32, &mut chm);
-        let v = Vec::<DoorEvent>::new();
-        return (strike, chm, v);
+        return (strike, chm);
     }
 
     #[test]
     fn will_fire_on_cmd()
     {
-        let (mut alarm, mut chm, _events) = make_alarm_relay();
+        let (mut alarm, mut chm) = make_alarm_relay();
         let output_cmds = chm.get_receiver::<OutputSwitch>();
         alarm.on_door_command(DoorCommand::ToggleAlarmRelay(OutputState::High));
 
@@ -67,7 +64,7 @@ mod tests {
     #[test]
     fn will_switch_off_on_cmd()
     {
-        let (mut alarm, mut chm, _events) = make_alarm_relay();
+        let (mut alarm, mut chm) = make_alarm_relay();
         let output_cmds = chm.get_receiver::<OutputSwitch>();
         alarm.on_door_command(DoorCommand::ToggleAlarmRelay(OutputState::Low));
 

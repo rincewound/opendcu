@@ -1,5 +1,4 @@
 use barracuda_core::io::*;
-use barracuda_core::profile::*;
 use crate::{DoorCommand, DoorEvent};
 
 pub mod output_components;
@@ -14,7 +13,6 @@ pub trait InputComponent: Send
 
 pub trait OutputComponent: Send
 {
-    fn on_profile_change(&mut self, event: &ProfileChangeEvent, generated_events: &mut Vec<DoorEvent>);
     fn on_door_command(&mut self, command: DoorCommand);
 }
 pub trait VirtualComponent: Send

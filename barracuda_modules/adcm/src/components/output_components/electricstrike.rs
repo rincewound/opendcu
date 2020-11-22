@@ -1,6 +1,6 @@
-use barracuda_core::{core::channel_manager::ChannelManager, profile::ProfileChangeEvent};
+use barracuda_core::{core::channel_manager::ChannelManager};
 
-use crate::{DoorCommand, DoorEvent, components::OutputComponent};
+use crate::{DoorCommand, components::OutputComponent};
 
 use super::outputcomponentbase::*;
 
@@ -27,10 +27,8 @@ impl ElectricStrike
 
 impl OutputComponent for ElectricStrike
 {
-    fn on_profile_change(&mut self, _event: &ProfileChangeEvent, _generated_events: &mut Vec<DoorEvent>)
-    {    }
-
-    fn on_door_command(&mut self, command: DoorCommand) {
+    fn on_door_command(&mut self, command: DoorCommand) 
+    {
         match command
         {
             DoorCommand::ToggleElectricStrike(state) => { self.output_component.control_output(state)},
@@ -47,18 +45,17 @@ mod tests {
 
     use super::*;
 
-    fn make_strike() -> (ElectricStrike, ChannelManager, Vec::<DoorEvent>)
+    fn make_strike() -> (ElectricStrike, ChannelManager)
     {
         let mut chm = ChannelManager::new();
         let strike = ElectricStrike::new(32, 1000, &mut chm);
-        let v = Vec::<DoorEvent>::new();
-        return (strike, chm, v);
+        return (strike, chm);
     }
 
     #[test]
     fn will_switch_on_on_switch_cmd()
     {
-        let (mut strike, mut chm, _events) = make_strike();
+        let (mut strike, mut chm) = make_strike();
         let output_cmds = chm.get_receiver::<OutputSwitch>();
         strike.on_door_command(DoorCommand::ToggleElectricStrike(OutputState::High));
 
@@ -73,7 +70,7 @@ mod tests {
     #[test]
     fn will_switch_off_on_switch_cmd()
     {
-        let (mut strike, mut chm, _events) = make_strike();
+        let (mut strike, mut chm) = make_strike();
         let output_cmds = chm.get_receiver::<OutputSwitch>();
         strike.on_door_command(DoorCommand::ToggleElectricStrike(OutputState::Low));
 

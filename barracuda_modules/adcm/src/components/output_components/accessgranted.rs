@@ -1,6 +1,6 @@
-use barracuda_core::{core::channel_manager::ChannelManager, profile::ProfileChangeEvent};
+use barracuda_core::{core::channel_manager::ChannelManager};
 
-use crate::{DoorCommand, DoorEvent, components::OutputComponent};
+use crate::{DoorCommand, components::OutputComponent};
 
 use super::outputcomponentbase::*;
 
@@ -26,11 +26,6 @@ impl AccessGranted
 
 impl OutputComponent for AccessGranted
 {
-    fn on_profile_change(&mut self, _event: &ProfileChangeEvent, _generated_events: &mut Vec<DoorEvent>)
-    {
-
-    }
-
     fn on_door_command(&mut self, command: DoorCommand) {
         match command
         {
