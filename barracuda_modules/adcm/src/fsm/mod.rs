@@ -1,20 +1,20 @@
 use crate::{DoorCommand, DoorEvent};
 
-pub mod NormalOperation;
-mod ReleasedOnce;
-mod ReleasedPermanently;
-mod Blocked;
-mod Emergency;
+pub mod normal_operation;
+mod released_once;
+mod released_permanently;
+mod blocked;
+mod emergency;
 
 
 #[derive(Copy, Clone)]
 pub enum DoorStateContainer
 {
-    NormalOp(NormalOperation::NormalOperation),
-    ReleasedOnce(ReleasedOnce::ReleasedOnce),
-    ReleasePerm(ReleasedPermanently::ReleasedPermanently),
-    Blocked(Blocked::Blocked),
-    Emergency(Emergency::Emergency)
+    NormalOp(normal_operation::NormalOperation),
+    ReleasedOnce(released_once::ReleasedOnce),
+    ReleasePerm(released_permanently::ReleasedPermanently),
+    Blocked(blocked::Blocked),
+    Emergency(emergency::Emergency)
 }
 
 

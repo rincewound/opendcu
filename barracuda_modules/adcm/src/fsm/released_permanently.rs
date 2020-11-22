@@ -1,6 +1,6 @@
 use crate::{DoorCommand, DoorEvent};
 
-use super::{Blocked::Blocked, DoorStateContainer, DoorStateImpl, Emergency::Emergency, NormalOperation::NormalOperation};
+use super::{blocked::Blocked, DoorStateContainer, DoorStateImpl, emergency::Emergency, normal_operation::NormalOperation};
 
 
 #[derive(Copy, Clone)]

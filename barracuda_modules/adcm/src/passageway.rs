@@ -20,7 +20,7 @@ use barracuda_core::{
 use crate::{DoorCommand, DoorEvent, components::output_components::accessgranted::AccessGranted, components::{InputComponent, OutputComponent, VirtualComponent, output_components::{alarmrelay::AlarmRelay, electricstrike::ElectricStrike}, serialization_types::InputComponentSerialization, serialization_types::{OutputComponentSerialization, PassagewaySetting}}};
 
 use crate::fsm::*;
-use crate::fsm::NormalOperation::NormalOperation;
+use crate::fsm::normal_operation::NormalOperation;
 
 const DEFAULT_RELEASE_TIME: u64 = 5000;
 

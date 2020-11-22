@@ -2,7 +2,7 @@ use barracuda_core::io::OutputState;
 
 use crate::{DoorCommand, DoorEvent};
 
-use super::{Blocked::Blocked, DoorStateContainer, DoorStateImpl, Emergency::Emergency, NormalOperation::NormalOperation, ReleasedPermanently::ReleasedPermanently};
+use super::{DoorStateContainer, DoorStateImpl, blocked::Blocked, emergency::Emergency, normal_operation::NormalOperation, released_permanently::ReleasedPermanently};
 
 
 #[derive(Copy, Clone)]

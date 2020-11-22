@@ -1,5 +1,5 @@
 use crate::{DoorCommand, DoorEvent};
-use super::{DoorStateContainer, DoorStateImpl, NormalOperation::NormalOperation};
+use super::{DoorStateContainer, DoorStateImpl, normal_operation::NormalOperation};
 
 
 #[derive(Copy, Clone)]

@@ -2,7 +2,7 @@ use barracuda_core::io::OutputState;
 
 use crate::{DoorCommand, DoorEvent};
 
-use super::{Blocked::Blocked, DoorStateContainer, DoorStateImpl, Emergency::Emergency, ReleasedOnce::ReleasedOnce, ReleasedPermanently::ReleasedPermanently};
+use super::{DoorStateContainer, DoorStateImpl, released_once::ReleasedOnce, released_permanently::ReleasedPermanently, emergency::Emergency, blocked::Blocked};
 
 #[derive(Copy, Clone)]
 pub struct NormalOperation{}
@@ -30,18 +30,8 @@ impl DoorStateImpl for NormalOperation
                                     commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
                                     commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));                
                                     return DoorStateContainer::ReleasePerm(ReleasedPermanently{});
-                                }
-            DoorEvent::DoorOpenProfileInactive => {
-                                    panic!("DoorOpenProfileInactive in NormalOperation")
-                                }
-            DoorEvent::BlockingContactEngaged => { return DoorStateContainer::Blocked(Blocked{}); }
-            DoorEvent::BlockingContactDisengaged => {
-                                    panic!("BlockingContactDisengaged in NormalOperation")
-                                }
-            DoorEvent::ReleaseSwitchEngaged => { return DoorStateContainer::Emergency(Emergency{}); }
-            DoorEvent::ReleaseSwitchDisengaged => {
-                                    panic!("ReleaseSwitchDisengaged in NormalOperation")                
-                                }
+                                }            
+
             DoorEvent::DoorOpenerKeyTriggered => {
                                 commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
                                 commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
@@ -51,8 +41,15 @@ impl DoorStateImpl for NormalOperation
                                 commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
                                 return DoorStateContainer::ReleasedOnce(ReleasedOnce{});
             }
+
+            DoorEvent::BlockingContactEngaged => { return DoorStateContainer::Blocked(Blocked{}); }            
+            DoorEvent::ReleaseSwitchEngaged => { return DoorStateContainer::Emergency(Emergency{}); }
+            
+            DoorEvent::DoorOpenProfileInactive => {}
             DoorEvent::DoorOpenTooLong => {}
             DoorEvent::DoorTimerExpired => {}
+            DoorEvent::BlockingContactDisengaged => { }
+            DoorEvent::ReleaseSwitchDisengaged => { }
         }
         return DoorStateContainer::NormalOp(self)
     }
