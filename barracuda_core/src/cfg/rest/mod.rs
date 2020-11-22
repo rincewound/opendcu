@@ -95,7 +95,7 @@ impl ConfigRest
         let _ = d.read_to_end(&mut reqdata);
         self.cfg.lock()
                 .do_put(_module, reqdata);
-        rouille::Response::text("All is bad.")
+        rouille::Response::text("ok").with_status_code(200)
     }
 
     fn do_post(&self, req: &rouille::Request, _module: String) -> rouille::Response
@@ -106,13 +106,23 @@ impl ConfigRest
         let _ = d.read_to_end(&mut reqdata);
         self.cfg.lock()
                 .do_post(_module, reqdata);        
-        rouille::Response::text("All is bad.")
+        rouille::Response::text("ok").with_status_code(200)
     }
 
     fn do_get(&self, req: &rouille::Request, _module: String) -> rouille::Response
     {
         print!("{}", req.url());
-        rouille::Response::text("All is bad.")
+        let mut reqdata = Vec::new();
+        let mut d = req.data().unwrap();
+        let _ = d.read_to_end(&mut reqdata);
+        let response = self.cfg.lock()
+                              .do_get(_module);
+        match response
+        {            
+            Ok(data) => rouille::Response::from_data("application/octed-stream", data).with_status_code(200),   // Ok
+            Err(CfgError::ResourceEmpty) => rouille::Response::text("Resource empty").with_status_code(406),                       // Not Acceptable
+            Err(CfgError::ResourceNotFound) => rouille::Response::text("Resource not found").with_status_code(404)                 // Not found 
+        }
     }
 
     fn do_delete(&self, req: &rouille::Request, _module: String) -> rouille::Response
@@ -123,7 +133,7 @@ impl ConfigRest
         let _ = d.read_to_end(&mut reqdata);
         self.cfg.lock()
                 .do_delete(_module, reqdata);
-        rouille::Response::text("All is bad.")
+        rouille::Response::text("ok").with_status_code(200)
     }
 
     pub fn run(self) -> bool

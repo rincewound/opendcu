@@ -39,9 +39,28 @@ macro_rules! Handler {
     };
 }
 
+#[macro_export]
+macro_rules! ReadDataHandler {
+    ($func: expr) => {
+        (move |req : Vec<u8>| { 
+            let result =  $func(e.unwrap())
+            return cfg::serialize_data(result); 
+        })
+    };
+}
+
 pub fn convert_data<T: for<'de> serde::Deserialize<'de>>(r: Vec<u8>) -> Option<T>
 {
     let someval = serde_json::from_slice(&r[..]);
+    if let Ok(data) = someval {
+        return Some(data)
+    }
+    None
+}
+
+pub fn serialize_data<T: for<'de> serde::Serialize>(data: T) -> Option<Vec<u8>>
+{
+    let someval = serde_json::to_vec(&data);
     if let Ok(data) = someval {
         return Some(data)
     }

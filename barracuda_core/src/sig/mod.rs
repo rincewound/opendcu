@@ -4,7 +4,7 @@ pub enum SigType
 {
     _Default,
     AccessGranted,
-    AccessDenied
+    AccessDenied,
 }
 
 #[derive(Copy, Clone)]

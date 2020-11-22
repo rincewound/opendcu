@@ -10,6 +10,13 @@ pub enum FunctionType
     Post
 }
 
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
+pub enum CfgError
+{
+    ResourceNotFound,
+    ResourceEmpty
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 struct RouteKey
 {
@@ -19,7 +26,8 @@ struct RouteKey
 
 pub struct CfgHolder
 {
-    put_funcs: Shareable<HashMap<RouteKey, Box<dyn FnMut(Vec<u8>) ->() + Send>>>
+    write_funcs: Shareable<HashMap<RouteKey, Box<dyn FnMut(Vec<u8>) ->() + Send>>>,
+    read_funcs: Shareable<HashMap<String, Box<dyn FnMut() -> Vec<u8> + Send>>>
 }
 
 impl CfgHolder
@@ -27,7 +35,8 @@ impl CfgHolder
     pub fn new() -> Self
     {
         CfgHolder{
-            put_funcs: Shareable::new(HashMap::new())
+            write_funcs: Shareable::new(HashMap::new()),
+            read_funcs: Shareable::new(HashMap::new())
         }
     }
 
@@ -43,8 +52,15 @@ impl CfgHolder
     where F: FnMut(Vec<u8>) ->() + Send
     {
         let key = self.make_key(functy, route);
-        self.put_funcs.lock()
+        self.write_funcs.lock()
                       .insert(key , Box::new(func));
+    }
+
+    pub fn register_read_handler<F: 'static>(&mut self, route: String, func: F )
+    where F: FnMut() -> Vec<u8> + Send
+    {
+        self.read_funcs.lock()
+                       .insert(route, Box::new(func));
     }
 
     fn do_action(&mut self, action: FunctionType, route: String, data: Vec<u8>)
@@ -52,7 +68,7 @@ impl CfgHolder
         // The trouble: func in this form is not copyable, so we have to first move it out of
         // the dict   
         let the_key = self.make_key(action, route);
-        let item = self.put_funcs.lock()                                                             
+        let item = self.write_funcs.lock()                                                             
                                                              .remove_entry(&the_key); 
         if item.is_none()
         {
@@ -61,7 +77,7 @@ impl CfgHolder
         let mut func = item.unwrap().1;
         func(data);
         // and put it back afterwards    
-        self.put_funcs.lock()
+        self.write_funcs.lock()
                       .insert(the_key, func);
         // Crappily it seems to be impossible to use an Arc here, as calling the damn function would
         // require moving it out of the Arc as well.
@@ -81,6 +97,20 @@ impl CfgHolder
     {     
         self.do_action(FunctionType::Delete, route, data);
     }
+
+    pub fn do_get(&mut self, route: String) -> Result<Vec<u8>, CfgError>
+    {
+        let item = self.read_funcs.lock().remove_entry(&route);
+        if item.is_none()
+        {
+            return Err(CfgError::ResourceNotFound);
+        }
+
+        let mut func = item.unwrap().1;
+        let result = func();
+        self.read_funcs.lock().insert(route, func);
+        Ok(result)
+    }
 }
 
 #[cfg(test)]
@@ -89,7 +119,7 @@ mod tests {
     use std::{sync::{Mutex, Arc}, cell::{RefCell}};
     
      #[test]
-     fn put_triggers_correct_function()
+     pub fn put_triggers_correct_function()
      {
          let mut hdl = CfgHolder::new();
          let tmp = Arc::new(Mutex::new(RefCell::new(false)));
@@ -106,7 +136,7 @@ mod tests {
      }
 
      #[test]
-     fn put_does_not_trigger_if_registered_function_has_different_method()
+     pub fn put_does_not_trigger_if_registered_function_has_different_method()
      {
          let mut hdl = CfgHolder::new();
          let tmp = Arc::new(Mutex::new(RefCell::new(false)));
@@ -123,7 +153,7 @@ mod tests {
      }
 
      #[test]
-     fn put_triggers_a_post_triggers_b()
+     pub fn put_triggers_a_post_triggers_b()
      {
          let mut hdl = CfgHolder::new();
          let tmp =  Arc::new(Mutex::new(RefCell::new(1)));
@@ -152,11 +182,31 @@ mod tests {
      }
 
      #[test]
-     fn put_does_not_fail_if_unknown_route_is_triggered()
+     pub fn put_does_not_fail_if_unknown_route_is_triggered()
      {
          let mut hdl = CfgHolder::new();
          hdl.do_put("cfg/bar".to_string(), Vec::from("{val:true}".as_bytes()));
          // Nothing to check, we just want to make sure this does not panic.
+     }
+
+     #[test]
+     pub fn get_returns_value()
+     {
+        let mut hdl = CfgHolder::new();
+        hdl.register_read_handler("cfg/foo".to_string(), move|| {
+            return vec![1,2,3,4]
+        });
+
+        let result = hdl.do_get("cfg/foo".to_string()).expect("Not ok!");
+        assert_eq!(result, vec![1,2,3,4])
+     }
+
+     #[test]
+     pub fn get_yields_not_found_for_bad_route()
+     {
+        let mut hdl = CfgHolder::new();
+        let result  = hdl.do_get("some/route".to_string()).expect_err("Not an error");
+        assert_eq!(result, CfgError::ResourceNotFound);
      }
 }
 
