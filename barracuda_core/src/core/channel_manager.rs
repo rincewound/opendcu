@@ -5,6 +5,7 @@ use anymap::AnyMap;
 use std::sync::Arc;
 use crate::core::shareable::Shareable;
 
+unsafe impl Send for ChannelManager{}
 
 struct ChannelContainer<T: Clone> {
     tx: GenericSender<T>,

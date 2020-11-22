@@ -41,7 +41,7 @@ pub struct Passageway
     door_open_too_long_timer: Option<Arc<bool>>,
     alarm_time: u64,
     release_time: u64,
-    //channel_manager: barracuda_core::core::channel_manager::ChannelManager
+    channel_manager: barracuda_core::core::channel_manager::ChannelManager
 }
 
 impl Passageway
@@ -114,14 +114,14 @@ impl Passageway
             door_open_too_long_timer: None,
             alarm_time: settings.alarm_time,
             release_time: Passageway::find_release_time(&settings),
-            //channel_manager: chm.clone()
+            channel_manager: chm.clone()
         }
     }
 
     pub fn apply_settings(&mut self, settings: PassagewaySetting)
     {
         self.input_components = Passageway::load_input_components(&settings.inputs);
-        //self.output_components = Shareable::new(Passageway::load_output_components(&settings.outputs, &mut self.channel_manager));
+        self.output_components = Shareable::new(Passageway::load_output_components(&settings.outputs, &mut self.channel_manager));
         self.alarm_time = settings.alarm_time;
         self.release_time = Passageway::find_release_time(&settings);
 

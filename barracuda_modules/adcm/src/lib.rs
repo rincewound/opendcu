@@ -63,9 +63,9 @@ pub enum DoorCommand
 pub fn launch(chm: &mut ChannelManager)
 {    
     let tracer = trace_helper::TraceHelper::new("DCM/ADCM".to_string(), chm);
-    let mut adcm = ADCM::new(tracer, chm);      
-
+    let mut chmclone = chm.clone();
     thread::spawn(move || {        
+        let mut adcm = ADCM::new(tracer, &mut chmclone);
         adcm.init(); 
         loop 
         {            
@@ -236,7 +236,7 @@ impl ADCM
             {
                 // We can *just* change the components of the passageway, as the complete state is externalized
                 // and the pway will immediately start to react according to the setting.
-                //pway.apply_setting(setting);
+                pway.apply_settings(setting);
             }
         }
     }
