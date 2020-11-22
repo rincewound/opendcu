@@ -21,7 +21,6 @@ const MODULE_ID: u32 = 0x0D000000;
 #[derive(Clone)]
 enum PassagewayUpdate
 {
-     _NewPassageway(u32),
      PassagewayUpdate(u32),
      DeletePassageway(u32)
 }
@@ -88,7 +87,8 @@ struct ADCM
     pway_change_rx      : Arc<GenericReceiver<PassagewayUpdate>>,
     passageways         : Vec<Passageway>,
     storage             : Shareable<JsonStorage<PassagewaySetting>>,
-    trace               : trace_helper::TraceHelper
+    trace               : trace_helper::TraceHelper,
+    channel_manager     : ChannelManager
 }
 
 impl ADCM
@@ -104,7 +104,8 @@ impl ADCM
             pway_change_rx      : chm.get_receiver(),
             passageways         : vec![],
             storage             : Shareable::new(JsonStorage::new("./passageways.txt".to_string())),
-            trace               : trace_helper::TraceHelper::new("DCM/ADCM".to_string(), chm)
+            trace               : trace_helper::TraceHelper::new("DCM/ADCM".to_string(), chm),
+            channel_manager     : chm.clone()
         };
 
         for setting in result.storage.lock().iter()
@@ -157,17 +158,14 @@ impl ADCM
     fn process_passageway_setting(passageway: PassagewaySetting, storage: &mut Shareable<JsonStorage<PassagewaySetting>>)
     {
         let mut writeable_storage = storage.lock();
-        //let the_pway = writeable_storage.get_entry(|x|{x.id == passageway.id});
         writeable_storage.delete_entry(|x|{x.id == passageway.id});
         writeable_storage.put_entry(passageway);
         writeable_storage.update_storage();
-
     }
 
     fn process_delete_passageway(passageway: PassagewaySetting, storage: &mut Shareable<JsonStorage<PassagewaySetting>>)
     {
         let mut writeable_storage = storage.lock();
-        let the_pway = writeable_storage.get_entry(|x|{x.id == passageway.id});
         writeable_storage.delete_entry(|x|{x.id == passageway.id});
         writeable_storage.update_storage();
     }
@@ -214,20 +212,6 @@ impl ADCM
         }
     }
 
-
-    fn load_passageway(&mut self, pway_id: u32)
-    {
-        if let Some(setting) = self.storage.lock().get_entry(|x| x.id == pway_id)
-        {
-            //
-            // self.passageways.push(Passageway::new(setting.clone(), chm));
-        }
-        else
-        {
-            self.trace.trace(format!("Failed to load pway {} -> does not exist.", pway_id));
-        }
-    }
-
     fn update_passageway(&mut self, pway_id: u32)
     {
         if let Some(setting) = self.storage.lock().get_entry(|x| x.id == pway_id)
@@ -238,6 +222,10 @@ impl ADCM
                 // and the pway will immediately start to react according to the setting.
                 pway.apply_settings(setting);
             }
+            else
+            {
+                self.passageways.push(Passageway::new(setting.clone(), &mut self.channel_manager));
+            }
         }
     }
 
@@ -247,7 +235,6 @@ impl ADCM
 
         match event
         {
-            PassagewayUpdate::_NewPassageway(id) => {self.load_passageway(id)},
             PassagewayUpdate::PassagewayUpdate(id) => {self.update_passageway(id)},
             PassagewayUpdate::DeletePassageway(id) => {self.passageways.retain(|x| x.id != id)}
         }
