@@ -238,7 +238,7 @@ mod tests {
      use crate::whitelist::WhitelistEntry;
      use crate::whitelist::WhitelistEntryProvider;
      use barracuda_core::{sig::*, modcaps::ModuleCapabilityAdvertisement};
-     use barracuda_core::modcaps::{ModCapAggregator, ModuleCapability};
+     use barracuda_core::modcaps::ModuleCapability;
 
      struct DummyWhitelist
      {

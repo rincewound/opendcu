@@ -1,19 +1,17 @@
-use crate::DoorEvent;
-
-use super::*;
-
+use crate::{DoorEvent, components::InputComponent};
+use barracuda_core::io::{InputEvent, InputState};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize,Deserialize, Clone, Copy)]
-pub struct BlockingContact
+pub struct DoorOpenerKey
 {
     id: u32
 }
 
-impl BlockingContact
+impl DoorOpenerKey
 {  }
 
-impl InputComponent for BlockingContact
+impl InputComponent for DoorOpenerKey
 {
     fn on_input_change(&mut self, event: &InputEvent, generated_events: &mut Vec<DoorEvent>) {
 
@@ -24,12 +22,10 @@ impl InputComponent for BlockingContact
 
         if event.state == InputState::Low
         {
-            generated_events.push(DoorEvent::BlockingContactDisengaged);
+            return;
         }
-        else if event.state == InputState::High
-        {
-            generated_events.push(DoorEvent::BlockingContactEngaged);
-        }        
+
+        generated_events.push(DoorEvent::DoorOpenerKeyTriggered);
     }
 
 }
@@ -38,9 +34,9 @@ impl InputComponent for BlockingContact
 mod tests {
     use super::*;
 
-    fn make_rel() -> (BlockingContact, Vec<DoorEvent>)
+    fn make_dok() -> (DoorOpenerKey, Vec<DoorEvent>)
     {
-        let fc = BlockingContact {id: 24};
+        let fc = DoorOpenerKey {id: 24};
         let v = Vec::<DoorEvent>::new();
         return (fc, v);
     }
@@ -48,27 +44,27 @@ mod tests {
     #[test]
     fn on_input_event_will_ignore_events_with_non_matching_id()
     { 
-        let (mut doh, mut v) = make_rel();
+        let (mut dok, mut v) = make_dok();
         let event = InputEvent{input_id: 13, state: InputState::High};
-        doh.on_input_change(&event,  &mut v);
+        dok.on_input_change(&event,  &mut v);
         assert!(v.len() == 0);
     }
 
     #[test]
-    fn on_input_event_input_low_will_generates_disengaged_event()
+    fn on_input_event_input_low_will_ignore_event()
     { 
-        let (mut dok, mut v) = make_rel();
+        let (mut dok, mut v) = make_dok();
         let event = InputEvent{input_id: 24, state: InputState::Low};
         dok.on_input_change(&event,  &mut v);
-        assert!(v[0] == DoorEvent::BlockingContactDisengaged);
+        assert!(v.len() == 0);
     }
 
     #[test]
-    fn on_input_event_will_generates_engaged_event()
+    fn on_input_event_will_trigger_release_once()
     {
-        let (mut dok, mut v) = make_rel();
+        let (mut dok, mut v) = make_dok();
         let event = InputEvent{input_id: 24, state: InputState::High};
         dok.on_input_change(&event,  &mut v);
-        assert!(v[0] == DoorEvent::BlockingContactEngaged);
+        assert!(v[0] == DoorEvent::DoorOpenerKeyTriggered);
     }
 }

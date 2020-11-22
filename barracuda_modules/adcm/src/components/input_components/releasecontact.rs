@@ -1,19 +1,17 @@
-use crate::DoorEvent;
-
-use super::*;
-
+use crate::{DoorEvent, components::InputComponent};
+use barracuda_core::io::{InputEvent, InputState};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize,Deserialize, Clone, Copy)]
-pub struct DoorHandle
+pub struct ReleaseContact
 {
     id: u32
 }
 
-impl DoorHandle
+impl ReleaseContact
 {  }
 
-impl InputComponent for DoorHandle
+impl InputComponent for ReleaseContact
 {
     fn on_input_change(&mut self, event: &InputEvent, generated_events: &mut Vec<DoorEvent>) {
 
@@ -24,10 +22,12 @@ impl InputComponent for DoorHandle
 
         if event.state == InputState::Low
         {
-            return;
+            generated_events.push(DoorEvent::ReleaseSwitchDisengaged);
         }
-
-        generated_events.push(DoorEvent::DoorHandleTriggered);
+        else if event.state == InputState::High
+        {
+            generated_events.push(DoorEvent::ReleaseSwitchEngaged);
+        }        
     }
 
 }
@@ -36,9 +36,9 @@ impl InputComponent for DoorHandle
 mod tests {
     use super::*;
 
-    fn make_doh() -> (DoorHandle, Vec<DoorEvent>)
+    fn make_rel() -> (ReleaseContact, Vec<DoorEvent>)
     {
-        let fc = DoorHandle {id: 24};
+        let fc = ReleaseContact {id: 24};
         let v = Vec::<DoorEvent>::new();
         return (fc, v);
     }
@@ -46,27 +46,27 @@ mod tests {
     #[test]
     fn on_input_event_will_ignore_events_with_non_matching_id()
     { 
-        let (mut doh, mut v) = make_doh();
+        let (mut doh, mut v) = make_rel();
         let event = InputEvent{input_id: 13, state: InputState::High};
         doh.on_input_change(&event,  &mut v);
         assert!(v.len() == 0);
     }
 
     #[test]
-    fn on_input_event_input_low_will_ignore_event()
+    fn on_input_event_input_low_will_generates_normal_operation()
     { 
-        let (mut dok, mut v) = make_doh();
+        let (mut dok, mut v) = make_rel();
         let event = InputEvent{input_id: 24, state: InputState::Low};
         dok.on_input_change(&event,  &mut v);
-        assert!(v.len() == 0);
+        assert!(v[0] == DoorEvent::ReleaseSwitchDisengaged);
     }
 
     #[test]
-    fn on_input_event_will_trigger_access_allowed()
+    fn on_input_event_will_trigger_permanent_release()
     {
-        let (mut dok, mut v) = make_doh();
+        let (mut dok, mut v) = make_rel();
         let event = InputEvent{input_id: 24, state: InputState::High};
         dok.on_input_change(&event,  &mut v);
-        assert!(v[0] == DoorEvent::DoorHandleTriggered);
+        assert!(v[0] == DoorEvent::ReleaseSwitchEngaged);
     }
 }

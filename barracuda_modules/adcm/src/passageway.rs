@@ -1,10 +1,26 @@
 use std::sync::{Arc};
 
-use barracuda_core::{core::{channel_manager::ChannelManager, broadcast_channel::GenericSender}, core::timer::Timer, dcm::DoorOpenRequest, io::InputEvent, core::shareable::Shareable, profile::{ProfileChangeEvent, ProfileState}, sig::SigCommand, sig::SigType, trace::trace_helper::TraceHelper};
+use barracuda_core::{
+    core::{
+        broadcast_channel::GenericSender, 
+        channel_manager::ChannelManager, 
+        timer::Timer}, 
+        dcm::DoorOpenRequest, 
+        io::InputEvent, 
+        core::shareable::Shareable, 
+        profile::{
+            ProfileChangeEvent, 
+            ProfileState
+        }, 
+        sig::SigCommand, 
+        sig::SigType, 
+        trace::trace_helper::TraceHelper
+    };
 
-use crate::{DoorCommand, DoorEvent, components::{InputComponent, OutputComponent, VirtualComponent, accessgranted::AccessGranted, alarmrelay::AlarmRelay, electricstrike::ElectricStrike, serialization_types::InputComponentSerialization, serialization_types::{OutputComponentSerialization, PassagewaySetting}}};
+use crate::{DoorCommand, DoorEvent, components::output_components::accessgranted::AccessGranted, components::{InputComponent, OutputComponent, VirtualComponent, output_components::{alarmrelay::AlarmRelay, electricstrike::ElectricStrike}, serialization_types::InputComponentSerialization, serialization_types::{OutputComponentSerialization, PassagewaySetting}}};
 
 use crate::fsm::*;
+use crate::fsm::normal_operation::NormalOperation;
 
 const DEFAULT_RELEASE_TIME: u64 = 5000;
 
@@ -24,7 +40,8 @@ pub struct Passageway
     auto_switch_normal_timer: Option<Arc<bool>>,
     door_open_too_long_timer: Option<Arc<bool>>,
     alarm_time: u64,
-    release_time: u64
+    release_time: u64,
+    channel_manager: barracuda_core::core::channel_manager::ChannelManager
 }
 
 impl Passageway
@@ -96,7 +113,31 @@ impl Passageway
             auto_switch_normal_timer: None,
             door_open_too_long_timer: None,
             alarm_time: settings.alarm_time,
-            release_time: Passageway::find_release_time(&settings)
+            release_time: Passageway::find_release_time(&settings),
+            channel_manager: chm.clone()
+        }
+    }
+
+    pub fn apply_settings(&mut self, settings: PassagewaySetting)
+    {
+        self.input_components = Passageway::load_input_components(&settings.inputs);
+        self.output_components = Shareable::new(Passageway::load_output_components(&settings.outputs, &mut self.channel_manager));
+        self.alarm_time = settings.alarm_time;
+        self.release_time = Passageway::find_release_time(&settings);
+
+        // We don't change the doorstate at all. This way we can change the settings
+        // without the user noticing or having to restart the device. Note that this 
+        // can cause a problem if the door is actually open when the settings change
+        // and an existing framecontact is removed. In this case the door will entry
+        // alarm state at some point and never recover, because it no longer "sees"
+        // the door closed event. To make sure the door returns to normal in all
+        // cases we arm the "return to default state" timer. The events generated
+        // by that timer are ignored by all but the door open state. This ensures,
+        // that the door returns to NormalOp at most release_time seconds after
+        // the confiuration change.
+        if self.auto_switch_normal_timer.is_none()
+        {
+            self.auto_switch_normal_timer = Some(self.arm_timer(DoorEvent::DoorTimerExpired, self.release_time));
         }
     }
 
@@ -149,9 +190,9 @@ impl Passageway
         {
             DoorStateContainer::NormalOp(op) => { next_state = op.dispatch_door_event(door_event, generated_commands);}
             DoorStateContainer::ReleasedOnce(op) =>  { next_state = op.dispatch_door_event(door_event, generated_commands);}
-            DoorStateContainer::ReleasePerm(_op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
-            DoorStateContainer::Blocked(_op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
-            DoorStateContainer::Emergency(_op) => {next_state = DoorStateContainer::NormalOp(NormalOperation{});}
+            DoorStateContainer::ReleasePerm(op) => {next_state = op.dispatch_door_event(door_event, generated_commands);}
+            DoorStateContainer::Blocked(op) => {next_state = op.dispatch_door_event(door_event, generated_commands);}
+            DoorStateContainer::Emergency(op) => {next_state = op.dispatch_door_event(door_event, generated_commands);}
         }
 
         *fsm_lcked = next_state;
@@ -192,6 +233,11 @@ impl Passageway
                 DoorCommand::ArmAutoswitchToNormal => {
                     self.auto_switch_normal_timer = Some(self.arm_timer(DoorEvent::DoorTimerExpired, self.release_time));
                 },
+                DoorCommand::ShowSignal(ap_id, sig) =>
+                {
+                    // ToDo: Configurabale signal times!
+                    self.send_signal_command(*ap_id, *sig, 3500);
+                }
                 _ => {
 
                     for output in self.output_components.lock().iter_mut()
@@ -226,16 +272,15 @@ impl Passageway
         // Check doorstate: If we're blocked, signal this, otherwise
         // signal access granted here and release the door.
         self.trace.trace_str("Release once.");
-        self.handle_door_event(DoorEvent::ValidDoorOpenRequestSeen);
-        self.send_signal_command(request.access_point_id, SigType::AccessGranted, 3000);
+        self.handle_door_event(DoorEvent::ValidDoorOpenRequestSeen(request.access_point_id));
     }
 
     fn send_signal_command(&self, access_point_id: u32, sigtype: SigType, duration: u32)
     {
         let sig = SigCommand {
-            access_point_id: access_point_id,
+            access_point_id,
             sig_type: sigtype, 
-            duration: duration
+            duration
         };
 
         self.sig_tx.send(sig); 

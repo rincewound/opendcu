@@ -1,6 +1,7 @@
-use crate::DoorEvent;
+use barracuda_core::{core::channel_manager::ChannelManager, profile::ProfileChangeEvent};
 
-use super::*;
+use crate::{DoorCommand, DoorEvent, components::OutputComponent};
+
 use super::outputcomponentbase::*;
 
 pub struct ElectricStrike
@@ -42,6 +43,8 @@ impl OutputComponent for ElectricStrike
 
 #[cfg(test)]
 mod tests {
+    use barracuda_core::io::{OutputState, OutputSwitch};
+
     use super::*;
 
     fn make_strike() -> (ElectricStrike, ChannelManager, Vec::<DoorEvent>)

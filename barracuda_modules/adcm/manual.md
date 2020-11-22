@@ -118,28 +118,52 @@ stateDiagram-v2
 NormalOperation --> ReleasedOnce: Door Open Request
 NormalOperation --> ReleasedPermanently: Permanent Release Request
 NormalOperation --> Blocked: Block Door Request
-ReleasedOnce --> NormalOperation: Normal Op Request
-ReleasedPermanently --> NormalOperation: Normal Op Request
-Blocked --> NormalOperation: Unblock Request
-ReleasedPermanently --> Blocked: Block Door Request
-ReleasedOnce --> Blocked: Block Door Request
 NormalOperation --> EmergencyRelease: Emergency
-Blocked --> EmergencyRelease: Emergency
+ReleasedOnce --> NormalOperation: Normal Op Request
+ReleasedOnce --> Blocked: Block Door Request
 ReleasedOnce --> EmergencyRelease: Emergency
+ReleasedOnce --> ReleasedPermanently: Permanent Releas Request
+ReleasedPermanently --> NormalOperation: Normal Op Request
+ReleasedPermanently --> Blocked: Block Door Request
 ReleasedPermanently --> EmergencyRelease: Emergency
+Blocked --> EmergencyRelease: Emergency
+Blocked --> NormalOperation: Unblock Request
 EmergencyRelease --> NormalOperation: AcknowledgeEmergency
 ```
 
 On Doorstates:
 * During normal operation the door can be used "normally", i.e. it will open, whenever it receives a door open request. If an FC is present the FC will generate alarms in cases of unauthorized openings of the door.
 * In "ReleasedOnce" it will ignore any further door open requests and will return to Normal Operation after the door has been closed (if an FC is present!), or after the releasetime has elapsed.
-* A permanently released door will ignore any door open requests (it will signal!) and not generate any alarms if doors are opened or stay open too long.
+* A permanently released door will ignore any door open requests (it will signal however!) and not generate any alarms if doors are opened or stay open too long.
 * A blocked door will reject all access requests and never open.
-* A door that was emergency released will never lock again until an AcknowledgeEmergency Event was triggerd, this means all other events will be ignored.
+* A door that was emergency released will never lock again until the release switch is disengaged, this means all other events will be ignored.
+
+Cornercases:
+* If the door open profile fires while the door is either blocked or in emergency release, the door will not enter permanent release, when the blocking/emergency condition subsides at this point
 
 ## Command Hierarchy
 
 ## Systeminterface
+The module publishes the  api/adcm/passageway endpoint, which accepts PUT and DELETE requests. A PUT accepts a list of passageways, which will immediatly either be created or updated. No restart is required to change the configuration of an accesspoint. Note however, that an updated passageway will remain in the state it last was in with the exception of a passageway that was in released once. This passageway will be scheduled to return to normal operation after the regular releasetime has passed. Other components will not change the behavior, this means, that a passageway, that is in Emergency and has its Releaseswitch removed will stay in that mode, as it will no longer "see" changes to the releaseswitch. The same goes for a passageway that is blocked by a blocking contact.
+
+API Interface:
+The API accepts passagewayconfigurations of the following form:
+  {
+    "id": 10,
+    "outputs": [
+      {
+        "ElectricStrike": {
+          "id": 2,
+          "operation_time": 3200
+        }
+      }
+    ],
+    "inputs": [],
+    "access_points": [0],
+    "alarm_time": 7500
+  }
+
+Note that all ids for I/O components are logical IDs as used by IO/IoManager. The same goes for access points. 
 
 ### Subscribed Messages
 The modules subscribes to the following messages:
@@ -149,4 +173,4 @@ The modules subscribes to the following messages:
 * Signal
 
 ## Acknowledgements
-The ADCM uses some terminology that was originally coined by dormakaba's exos system, especially with regard to the component names.
+The ADCM uses some terminology that was originally coined by dormakaba's exos system, especially with regard to the component names (and behaviors!)

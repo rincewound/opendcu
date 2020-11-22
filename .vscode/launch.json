@@ -5,12 +5,27 @@
     "version": "0.2.0",
     "configurations": [
 
-
+        {
+            "name": "Debug Tests (WSL)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/barracuda_core/target/debug/deps/barracuda_core-0ddaaa23ba9c393a",
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "name": "Debug Application (WSL)",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/barracuda-w64",
+            "args": [],            
+            "cwd": "${workspaceFolder}",
+        },
         {
             "name": "Debug Application",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/target/debug/barracuda.exe",
+            "program": "${workspaceFolder}/target/debug/barracuda-w64.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
@@ -24,12 +39,40 @@
             // Note: cargo will occasionally change the name of the test executable.
             // -> If this target does not work as expected check if the executablename is
             // correct.
-            "program": "${workspaceFolder}/target/debug/deps/barracuda-9a3e32483d3efcc5.exe",
+            "program": "${workspaceFolder}/target/debug/deps/barracuda_core-34102f7ef353f65f.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false
-        }
+        },
+        {
+            "name": "Debug Whitelist Tests",
+            "type": "cppvsdbg",
+            "request": "launch",
+            // Note: cargo will occasionally change the name of the test executable.
+            // -> If this target does not work as expected check if the executablename is
+            // correct.
+            "program": "${workspaceFolder}/barracuda_modules/generic_whitelist/target/debug/deps/generic_whitelist-3c23b73db32b6083.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false
+        },
+        {
+            "name": "Debug MFRC",
+            "type": "cppvsdbg",
+            "request": "launch",
+            // Note: cargo will occasionally change the name of the test executable.
+            // -> If this target does not work as expected check if the executablename is
+            // correct.
+            "program": "${workspaceFolder}/barracuda_modules/mfrc522/target/debug/deps/mfrc522-a06627c928a14a0c.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false
+        },
     ]
 }

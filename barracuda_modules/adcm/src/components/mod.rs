@@ -1,18 +1,9 @@
-use barracuda_core::{core::{channel_manager::*}};
-
 use barracuda_core::io::*;
 use barracuda_core::profile::*;
 use crate::{DoorCommand, DoorEvent};
 
-pub mod electricstrike;
-pub mod accessgranted;
-pub mod outputcomponentbase;
-pub mod framecontact;
-pub mod dooropenerkey;
-pub mod doorhandle;
-pub mod releasecontact;
-pub mod blockingcontact;
-pub mod alarmrelay;
+pub mod output_components;
+pub mod input_components;
 
 pub mod serialization_types;
 

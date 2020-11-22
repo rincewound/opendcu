@@ -1,4 +1,4 @@
-use barracuda_core::{io::OutputState, core::{shareable::Shareable, broadcast_channel::*}};
+use barracuda_core::{core::{shareable::Shareable, broadcast_channel::*}, io::OutputState, sig::SigType};
 use barracuda_core::core::channel_manager::*;
 use barracuda_core::core::{bootstage_helper::*, event::DataEvent};
 use barracuda_core::{Handler, cfg::{cfgholder::*, self}};
@@ -21,7 +21,6 @@ const MODULE_ID: u32 = 0x0D000000;
 #[derive(Clone)]
 enum PassagewayUpdate
 {
-     _NewPassageway(u32),
      PassagewayUpdate(u32),
      DeletePassageway(u32)
 }
@@ -29,7 +28,7 @@ enum PassagewayUpdate
 #[derive(PartialEq)]
 pub enum DoorEvent
 {
-    ValidDoorOpenRequestSeen,
+    ValidDoorOpenRequestSeen(u32),
     Opened,
     Closed,
     DoorOpenProfileActive,
@@ -56,15 +55,16 @@ pub enum DoorCommand
     ArmDoorOpenTooLongAlarm,
     DisarmDoorOpenTooLongAlarm,
     ArmAutoswitchToNormal,
-    DisarmAutoswitchToNormal
+    DisarmAutoswitchToNormal,
+    ShowSignal(u32, SigType)
 }
 
 pub fn launch(chm: &mut ChannelManager)
 {    
     let tracer = trace_helper::TraceHelper::new("DCM/ADCM".to_string(), chm);
-    let mut adcm = ADCM::new(tracer, chm);      
-    
-    thread::spawn(move || {
+    let mut chmclone = chm.clone();
+    thread::spawn(move || {        
+        let mut adcm = ADCM::new(tracer, &mut chmclone);
         adcm.init(); 
         loop 
         {            
@@ -87,7 +87,8 @@ struct ADCM
     pway_change_rx      : Arc<GenericReceiver<PassagewayUpdate>>,
     passageways         : Vec<Passageway>,
     storage             : Shareable<JsonStorage<PassagewaySetting>>,
-    trace               : trace_helper::TraceHelper
+    trace               : trace_helper::TraceHelper,
+    channel_manager     : ChannelManager
 }
 
 impl ADCM
@@ -103,7 +104,8 @@ impl ADCM
             pway_change_rx      : chm.get_receiver(),
             passageways         : vec![],
             storage             : Shareable::new(JsonStorage::new("./passageways.txt".to_string())),
-            trace               : trace_helper::TraceHelper::new("DCM/ADCM".to_string(), chm)
+            trace               : trace_helper::TraceHelper::new("DCM/ADCM".to_string(), chm),
+            channel_manager     : chm.clone()
         };
 
         for setting in result.storage.lock().iter()
@@ -156,27 +158,14 @@ impl ADCM
     fn process_passageway_setting(passageway: PassagewaySetting, storage: &mut Shareable<JsonStorage<PassagewaySetting>>)
     {
         let mut writeable_storage = storage.lock();
-        let the_pway = writeable_storage.get_entry(|x|{x.id == passageway.id});
-        if let Some(_existing_pway) = the_pway
-        {
-            //update existing passageqay... somehow!
-        }
-
         writeable_storage.delete_entry(|x|{x.id == passageway.id});
         writeable_storage.put_entry(passageway);
         writeable_storage.update_storage();
-
     }
 
     fn process_delete_passageway(passageway: PassagewaySetting, storage: &mut Shareable<JsonStorage<PassagewaySetting>>)
     {
         let mut writeable_storage = storage.lock();
-        let the_pway = writeable_storage.get_entry(|x|{x.id == passageway.id});
-        if let Some(_existing_pway) = the_pway
-        {
-            // Kill off existing passsageway
-        }
-
         writeable_storage.delete_entry(|x|{x.id == passageway.id});
         writeable_storage.update_storage();
     }
@@ -223,10 +212,21 @@ impl ADCM
         }
     }
 
-    fn load_passageway(&mut self, _pway_id: u32)
+    fn update_passageway(&mut self, pway_id: u32)
     {
-        //let setting = self.storage.lock().get_entry(|x| x.id == pway_id);
-
+        if let Some(setting) = self.storage.lock().get_entry(|x| x.id == pway_id)
+        {
+            if let Some(pway) = self.passageways.iter_mut().find(|x| x.id == pway_id)
+            {
+                // We can *just* change the components of the passageway, as the complete state is externalized
+                // and the pway will immediately start to react according to the setting.
+                pway.apply_settings(setting);
+            }
+            else
+            {
+                self.passageways.push(Passageway::new(setting.clone(), &mut self.channel_manager));
+            }
+        }
     }
 
     fn do_passageway_change_event(&mut self)
@@ -235,8 +235,7 @@ impl ADCM
 
         match event
         {
-            PassagewayUpdate::_NewPassageway(id) => {self.load_passageway(id)},
-            PassagewayUpdate::PassagewayUpdate(_id) => {},
+            PassagewayUpdate::PassagewayUpdate(id) => {self.update_passageway(id)},
             PassagewayUpdate::DeletePassageway(id) => {self.passageways.retain(|x| x.id != id)}
         }
     }

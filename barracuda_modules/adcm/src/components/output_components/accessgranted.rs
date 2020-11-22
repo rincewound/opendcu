@@ -1,12 +1,8 @@
-use barracuda_core::{
-    core::channel_manager::ChannelManager, profile::ProfileChangeEvent
-};
-use crate::DoorEvent;
+use barracuda_core::{core::channel_manager::ChannelManager, profile::ProfileChangeEvent};
 
-use super::{
-    OutputComponent, 
-    outputcomponentbase::{OutputComponentBase, OutputComponentSetting}
-};
+use crate::{DoorCommand, DoorEvent, components::OutputComponent};
+
+use super::outputcomponentbase::*;
 
 pub struct AccessGranted
 {
@@ -35,10 +31,10 @@ impl OutputComponent for AccessGranted
 
     }
 
-    fn on_door_command(&mut self, command: crate::DoorCommand) {
+    fn on_door_command(&mut self, command: DoorCommand) {
         match command
         {
-            crate::DoorCommand::ToggleAccessAllowed(output_state) => {self.output_component.control_output(output_state)}
+            DoorCommand::ToggleAccessAllowed(output_state) => {self.output_component.control_output(output_state)}
             _ => {}
         }
     }
