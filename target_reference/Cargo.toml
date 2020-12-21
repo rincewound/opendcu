@@ -9,6 +9,7 @@ edition = "2018"
 [dependencies]
 barracuda_core = { path = "../barracuda_core" }
 barracuda_hal = { path = "../barracuda_hal" }
+barracuda_base_modules = { path = "../barracuda_base_modules" }
 generic_whitelist = { path = "../barracuda_modules/generic_whitelist" }
 mfrc522 = { path = "../barracuda_modules/mfrc522" }
 adcm = { path = "../barracuda_modules/adcm" }

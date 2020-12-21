@@ -1,4 +1,6 @@
-use barracuda_core::io::*;
+
+use barracuda_base_modules::io::InputEvent;
+
 use crate::{DoorCommand, DoorEvent};
 
 pub mod output_components;

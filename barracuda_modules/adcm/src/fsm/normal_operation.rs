@@ -1,4 +1,7 @@
-use barracuda_core::{events::LogEvent, io::OutputState};
+
+
+use barracuda_base_modules::{events::LogEvent, io::OutputState};
+use barracuda_base_modules::sig::SigType;
 
 use crate::{DoorCommand, DoorEvent};
 
@@ -16,7 +19,7 @@ impl DoorStateImpl for NormalOperation
                                     commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
                                     commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
                                     commands.push(DoorCommand::ArmAutoswitchToNormal);   
-                                    commands.push(DoorCommand::ShowSignal(ap_id, barracuda_core::sig::SigType::AccessGranted));
+                                    commands.push(DoorCommand::ShowSignal(ap_id, SigType::AccessGranted));
                                     return DoorStateContainer::ReleasedOnce(ReleasedOnce{});
                                 }
             DoorEvent::Opened => {
@@ -63,7 +66,6 @@ impl DoorStateImpl for NormalOperation
 mod normal_op_tests 
 {    
     use super::*;
-    use barracuda_core::io::OutputState;
 
     fn make_normal_op() -> (NormalOperation, Vec<DoorCommand>)
     {
@@ -86,7 +88,7 @@ mod normal_op_tests
         assert_eq!(v[0], DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
         assert_eq!(v[1], DoorCommand::ToggleAccessAllowed(OutputState::High));
         assert_eq!(v[2], DoorCommand::ArmAutoswitchToNormal);
-        assert_eq!(v[3], DoorCommand::ShowSignal(0, barracuda_core::sig::SigType::AccessGranted));
+        assert_eq!(v[3], DoorCommand::ShowSignal(0, SigType::AccessGranted));
     }
 
     #[test]

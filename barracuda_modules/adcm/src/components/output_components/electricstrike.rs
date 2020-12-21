@@ -41,7 +41,7 @@ impl OutputComponent for ElectricStrike
 
 #[cfg(test)]
 mod tests {
-    use barracuda_core::io::{OutputState, OutputSwitch};
+    use barracuda_base_modules::io::{OutputState, OutputSwitch};
 
     use super::*;
 

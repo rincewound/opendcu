@@ -11,7 +11,7 @@ impl DoorStateImpl for Blocked
          match d
          {
              DoorEvent::ValidDoorOpenRequestSeen(ap_id) => {
-                 commands.push(DoorCommand::ShowSignal(ap_id, barracuda_core::sig::SigType::AccessDenied));
+                 commands.push(DoorCommand::ShowSignal(ap_id, barracuda_base_modules::sig::SigType::AccessDenied));
                 }
              DoorEvent::BlockingContactDisengaged => {return DoorStateContainer::NormalOp(NormalOperation{});}
              DoorEvent::ReleaseSwitchEngaged => {return DoorStateContainer::Emergency(Emergency{});}

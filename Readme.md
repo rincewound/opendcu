@@ -180,6 +180,7 @@ B: Identifies the instancenumber of the module (if a module is started multiple 
 * 0x0B: ARM/MFRC522
 * 0x0C: ProfileControl
 * 0x0D: DCM/ADCM
+* 0x0E: FDB/Events
 
 ## Component ID
 A component ID is a 32 bit int, that consists of the ID of the module owning the component and 16 bits containing,

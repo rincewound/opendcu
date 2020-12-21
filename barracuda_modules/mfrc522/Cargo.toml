@@ -10,6 +10,7 @@ edition = "2018"
 [dependencies]
 barracuda_core = { path = "../../barracuda_core" }
 barracuda_hal = { path = "../../barracuda_hal" }
+barracuda_base_modules = { path = "../../barracuda_base_modules" }
 num_enum = "0.5.0"
 
 [dev-dependencies]

@@ -1,9 +1,10 @@
-use barracuda_core::{events::LogEvent, core::{broadcast_channel::*, shareable::Shareable}, io::OutputState, sig::SigType};
-use barracuda_core::core::channel_manager::*;
+use barracuda_base_modules::{cfg::{self, cfgholder::FunctionType}, dcm::DoorOpenRequest, events::LogEvent, io::{InputEvent, OutputState}, modulebase::ModuleBase, profile::ProfileChangeEvent, sig::SigType};
+use barracuda_base_modules::Handler;
+use barracuda_core::core::{broadcast_channel::GenericReceiver, channel_manager::*, shareable::Shareable};
 use barracuda_core::core::{bootstage_helper::*, event::DataEvent};
-use barracuda_core::{Handler, cfg::{cfgholder::*, self}};
+
 use barracuda_core::trace::*;
-use barracuda_core::{io::InputEvent, dcm::DoorOpenRequest, profile::ProfileChangeEvent, select_chan, wait_for};
+use barracuda_core::{select_chan, wait_for};
 use barracuda_core::util::JsonStorage;
 use barracuda_core::util::ObjectStorage;
 use std::{sync::Arc, thread};
@@ -81,11 +82,11 @@ pub fn launch(chm: &mut ChannelManager)
 
 struct ADCM
 {
-    module_base         : barracuda_core::core::module_base::ModuleBase,
-    bin_prof_rx         : Arc<GenericReceiver<ProfileChangeEvent>>,  
-    input_rx            : Arc<GenericReceiver<InputEvent>>, 
-    door_req_rx         : Arc<GenericReceiver<DoorOpenRequest>>,
-    pway_change_rx      : Arc<GenericReceiver<PassagewayUpdate>>,
+    module_base         : ModuleBase,
+    bin_prof_rx         : GenericReceiver<ProfileChangeEvent>,  
+    input_rx            : GenericReceiver<InputEvent>, 
+    door_req_rx         : GenericReceiver<DoorOpenRequest>,
+    pway_change_rx      : GenericReceiver<PassagewayUpdate>,
     passageways         : Vec<Passageway>,
     storage             : Shareable<JsonStorage<PassagewaySetting>>,
     trace               : trace_helper::TraceHelper,
@@ -98,7 +99,7 @@ impl ADCM
     {
         let mut result = Self
         {
-            module_base         : barracuda_core::core::module_base::ModuleBase::new(MODULE_ID, tracer, chm),
+            module_base         : ModuleBase::new(MODULE_ID, tracer, chm),
             bin_prof_rx         : chm.get_receiver(),
             input_rx            : chm.get_receiver(),
             door_req_rx         : chm.get_receiver(),
@@ -128,7 +129,7 @@ impl ADCM
 
     pub fn init(&mut self)
     {
-        let the_receiver = self.module_base.cfg_rx.clone(); 
+        let the_receiver = self.module_base.cfg_rx.clone_receiver(); 
         let hli_cb = Some(|| {
 
             let res = the_receiver.receive();

@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 barracuda_core = { path = "../../barracuda_core" }
+barracuda_base_modules = { path = "../../barracuda_base_modules" }
 serde = {version = "1.0.106", features = ["derive"]}
 serde_json = "1.0"
 chrono = "*"

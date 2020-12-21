@@ -1,4 +1,5 @@
-use barracuda_core::{core::{channel_manager::ChannelManager, broadcast_channel::GenericSender}, io::{OutputState, OutputSwitch}};
+use barracuda_base_modules::io::{OutputState, OutputSwitch};
+use barracuda_core::{core::{channel_manager::ChannelManager, broadcast_channel::GenericSender}};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize,Deserialize, Clone, Copy)]

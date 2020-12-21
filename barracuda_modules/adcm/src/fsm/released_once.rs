@@ -1,4 +1,5 @@
-use barracuda_core::io::OutputState;
+
+use barracuda_base_modules::io::OutputState;
 
 use crate::{DoorCommand, DoorEvent};
 
@@ -57,7 +58,6 @@ impl DoorStateImpl for ReleasedOnce
 mod released_once_tests 
 {
     use super::*;
-    use barracuda_core::io::OutputState;
 
     fn make_released_once() -> (ReleasedOnce, Vec<DoorCommand>)
     {

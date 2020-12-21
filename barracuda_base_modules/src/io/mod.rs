@@ -315,7 +315,6 @@ mod tests {
         * switch_output sends message with correct SUD
         * switch_output with bad ID doesn't crash
     */
-    use crate::*;
     use barracuda_core::core::*;
     use crate::io::*;
     use crate::modcaps::{ModuleCapabilityAdvertisement, ModuleCapability};

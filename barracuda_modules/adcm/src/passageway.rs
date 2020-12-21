@@ -1,13 +1,10 @@
 use std::sync::{Arc};
 
+use barracuda_base_modules::{dcm::DoorOpenRequest, events::LogEvent, io::InputEvent, profile::{ProfileChangeEvent, ProfileState}, sig::{SigCommand, SigType}};
 use barracuda_core::{core::{
         broadcast_channel::GenericSender, 
         channel_manager::ChannelManager, 
-        timer::Timer}, core::shareable::Shareable, dcm::DoorOpenRequest, io::InputEvent, events::LogEvent, profile::{
-            ProfileChangeEvent, 
-            ProfileState
-        }, sig::SigCommand, sig::SigType, trace::trace_helper::TraceHelper};
-
+        timer::Timer}, core::shareable::Shareable, trace::trace_helper::TraceHelper};
 use crate::{DoorCommand, DoorEvent, components::output_components::accessgranted::AccessGranted, components::{InputComponent, OutputComponent, VirtualComponent, output_components::{alarmrelay::AlarmRelay, electricstrike::ElectricStrike}, serialization_types::InputComponentSerialization, serialization_types::{OutputComponentSerialization, PassagewaySetting}}};
 
 use crate::fsm::*;

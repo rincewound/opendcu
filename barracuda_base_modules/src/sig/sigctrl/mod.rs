@@ -1,7 +1,7 @@
 use std::thread;
 use barracuda_core::{core::{SystemMessage, bootstage_helper::{boot, boot_noop}, broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::ChannelManager}, trace::trace_helper};
 
-use crate::cfg::ConfigMessage;
+//use crate::cfg::ConfigMessage;
 
 
 const MODULE_ID: u32 = 0x0C000000;
@@ -30,7 +30,7 @@ struct SignalControl
     system_events_rx: GenericReceiver<SystemMessage>,
     system_events_tx: GenericSender<SystemMessage>,
     // profile_state_tx: GenericSender<ProfileChangeEvent>,
-    cfg_rx          : GenericReceiver<ConfigMessage>,
+    //cfg_rx          : GenericReceiver<ConfigMessage>,
     // checker         : Shareable<profile_checker::ProfileChecker>
 }
 
@@ -44,7 +44,7 @@ impl SignalControl
             system_events_rx: chm.get_receiver(),
             system_events_tx: chm.get_sender(),
             //profile_state_tx: chm.get_sender(),
-            cfg_rx:           chm.get_receiver(),
+            //cfg_rx:           chm.get_receiver(),
             //checker:          Shareable::new(profile_checker::ProfileChecker::new())
         }
     }
@@ -52,7 +52,7 @@ impl SignalControl
     pub fn init(&mut self)
     {
         //crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
-        let the_receiver = self.cfg_rx.clone_receiver();  
+        //let the_receiver = self.cfg_rx.clone_receiver();  
         let hli_cb= Some(|| {
             /*
                 This is executed during HLI

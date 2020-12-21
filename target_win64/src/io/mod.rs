@@ -1,9 +1,9 @@
+use barracuda_base_modules::modcaps::{ModuleCapability, ModuleCapabilityAdvertisement};
 use barracuda_core::{trace::trace_helper, 
     core::{
         broadcast_channel::{GenericReceiver, GenericSender}, 
         channel_manager::ChannelManager, bootstage_helper::{boot, boot_noop}
-        }, 
-        modcaps::{ModuleCapability, ModuleCapabilityAdvertisement}};
+        }};
 use std::{thread, sync::Arc};
 
 const MODULE_ID: u32 = 0x09000000;
@@ -19,9 +19,9 @@ pub fn launch(chm: &mut ChannelManager)
 
 struct W32Io
 {
-    system_events_rx: Arc<GenericReceiver<barracuda_core::core::SystemMessage>>,
+    system_events_rx: GenericReceiver<barracuda_core::core::SystemMessage>,
     system_events_tx: GenericSender<barracuda_core::core::SystemMessage>,
-    modcaps_tx:  GenericSender<barracuda_core::modcaps::ModuleCapabilityAdvertisement>,
+    modcaps_tx:  GenericSender<ModuleCapabilityAdvertisement>,
     tracer: trace_helper::TraceHelper
 }
 
@@ -53,8 +53,8 @@ impl W32Io
         });
 
         boot(MODULE_ID, llicb, Some(boot_noop),
-            self.system_events_tx.clone(), 
-            self.system_events_rx.clone(), 
+            &self.system_events_tx, 
+            &self.system_events_rx, 
             &self.tracer);
     }
 }

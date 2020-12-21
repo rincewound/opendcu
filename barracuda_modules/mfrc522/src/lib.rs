@@ -36,16 +36,16 @@ extern crate barracuda_core;
 extern crate barracuda_hal;
 extern crate num_enum;
 
+use barracuda_base_modules::{acm::WhitelistAccessRequest, modcaps::{ModuleCapability, ModuleCapabilityAdvertisement}};
 use barracuda_core::{core::
             {bootstage_helper::{boot_noop, boot}, 
              channel_manager::ChannelManager, 
              broadcast_channel::{GenericSender, GenericReceiver}, SystemMessage},              
-             trace::trace_helper, 
-             modcaps::{ModuleCapability, ModuleCapabilityAdvertisement}, acm::WhitelistAccessRequest
+             trace::trace_helper,              
             };
 
 use barracuda_hal::{spi::SpiInterface, interrupt::Interrupt};
-use std::{thread, sync::Arc, time};
+use std::{thread, time};
 use iso14443a::Iso14443aTransponder;
 
 mod mfrc522;
@@ -73,10 +73,10 @@ pub fn launch<Spi, Irq>(chm: &mut ChannelManager, spi_driver: Spi, tx_ready_irq:
 pub struct ReaderModule<Spi, Irq>
     where Spi: SpiInterface, Irq: Interrupt
 {            
-    system_events_rx: Arc<GenericReceiver<SystemMessage>>,
+    system_events_rx: GenericReceiver<SystemMessage>,
     system_events_tx: GenericSender<SystemMessage>,
     modcaps_tx:  GenericSender<ModuleCapabilityAdvertisement>,
-    access_request_tx: GenericSender<barracuda_core::acm::WhitelistAccessRequest>,
+    access_request_tx: GenericSender<WhitelistAccessRequest>,
     tracer: trace_helper::TraceHelper,
     last_txp: Option<Iso14443aTransponder>,
     rfchip: mfrc522::Mfrc522<Spi,Irq>
@@ -110,8 +110,8 @@ impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq>
         });
 
         boot(MODULE_ID, Some(boot_noop), hlicb, 
-            self.system_events_tx.clone(), 
-            self.system_events_rx.clone(), 
+            &self.system_events_tx, 
+            &self.system_events_rx, 
             &self.tracer);
     }
 

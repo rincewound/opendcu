@@ -1,7 +1,8 @@
 use crate::DoorEvent;
 use crate::components::InputComponent;
-use barracuda_core::io::{InputEvent, InputState};
 
+
+use barracuda_base_modules::io::{InputEvent, InputState};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize,Deserialize, Clone, Copy)]

@@ -1,16 +1,12 @@
-extern crate barracuda_core;
-
-extern crate barracuda_hal;
-
 use barracuda_core::core::broadcast_channel::*;
 use barracuda_core::core::channel_manager::*;
 use barracuda_core::core::{shareable::Shareable, bootstage_helper::*, SystemMessage};
-use barracuda_core::{Handler, cfg::{ConfigMessage, cfgholder::*, self}};
+use barracuda_base_modules::{Handler, cfg::{ConfigMessage, cfgholder::*, self}};
 use barracuda_core::trace::*;
-use barracuda_core::{sig::*, acm::*};
-use barracuda_core::dcm::DoorOpenRequest;
-use barracuda_core::modcaps::{ModCapAggregator, ModuleCapabilityAdvertisement, ModuleCapabilityType};
-use std::{sync::Arc, thread};
+use barracuda_base_modules::{sig::*, acm::*};
+use barracuda_base_modules::dcm::DoorOpenRequest;
+use barracuda_base_modules::modcaps::{ModCapAggregator, ModuleCapabilityAdvertisement, ModuleCapabilityType};
+use std::{thread};
 
 use profiles::{ProfileChecker, JsonProfileChecker, AccessProfile};
 
@@ -42,16 +38,16 @@ pub fn launch<T: 'static>(chm: &mut ChannelManager)
 struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider, ProfileStorage: ProfileChecker>
 {
     tracer              : trace_helper::TraceHelper,
-    access_request_rx   : Arc<GenericReceiver<WhitelistAccessRequest>>,
-    cfg_rx              : Arc<GenericReceiver<ConfigMessage>>,
-    system_events_rx    : Arc<GenericReceiver<SystemMessage>>,
+    access_request_rx   : GenericReceiver<WhitelistAccessRequest>,
+    cfg_rx              : GenericReceiver<ConfigMessage>,
+    system_events_rx    : GenericReceiver<SystemMessage>,
     system_events_tx    : GenericSender<SystemMessage>,
     sig_tx              : GenericSender<SigCommand>,
     door_tx             : GenericSender<DoorOpenRequest>,
     whitelist           : Shareable<WhitelistProvider>,
     profiles            : Shareable<ProfileStorage>,
     modcaps             : ModCapAggregator,
-    modcap_rx           : Arc<GenericReceiver<ModuleCapabilityAdvertisement>>
+    modcap_rx           : GenericReceiver<ModuleCapabilityAdvertisement>
 }
 
 impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, ProfileStorage:ProfileChecker + Send +'static> GenericWhitelist<WhitelistProvider, ProfileStorage>
@@ -76,7 +72,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
 
     pub fn init(&mut self)
     {    
-        let the_receiver = self.cfg_rx.clone();  
+        let the_receiver = self.cfg_rx.clone_receiver();  
         let hli_cb= Some(|| {
             /*
                 This is executed during HLI
@@ -115,8 +111,8 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
         });
 
         boot(MODULE_ID, Some(boot_noop), hli_cb, 
-            self.system_events_tx.clone(), 
-            self.system_events_rx.clone(), 
+            &self.system_events_tx, 
+            &self.system_events_rx, 
             &self.tracer);
 
         self.do_modcaps_messages();
@@ -179,7 +175,7 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
 
                 // Good? If so, emit DoorOpenRequest, otherwise emit AccessDenied Sig 
                 self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.identification_token_id));
-                let openreq = barracuda_core::dcm::DoorOpenRequest {access_point_id: sud_ap_id};
+                let openreq = DoorOpenRequest {access_point_id: sud_ap_id};
                 self.door_tx.send(openreq);
             }
             else
@@ -233,12 +229,12 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
 
 #[cfg(test)]
 mod tests {
-     use barracuda_core::{core::channel_manager::ChannelManager, acm::*, trace::*, sig::SigCommand};
+     use barracuda_core::{core::channel_manager::ChannelManager, trace::*};
      use crate::profiles::{AccessProfile, ProfileChecker, ProfileCheckResult};
      use crate::whitelist::WhitelistEntry;
      use crate::whitelist::WhitelistEntryProvider;
-     use barracuda_core::{sig::*, modcaps::ModuleCapabilityAdvertisement};
-     use barracuda_core::modcaps::ModuleCapability;
+     use barracuda_base_modules::{acm::WhitelistAccessRequest, modcaps::ModuleCapabilityAdvertisement, sig::*};
+     use barracuda_base_modules::modcaps::ModuleCapability;
 
      struct DummyWhitelist
      {
@@ -349,7 +345,7 @@ mod tests {
         chm.get_sender().send(ap_modcap_message);
         md.do_modcaps_messages();        
 
-        let dcm_rx = chm.get_receiver::<barracuda_core::dcm::DoorOpenRequest>();
+        let dcm_rx = chm.get_receiver::<barracuda_base_modules::dcm::DoorOpenRequest>();
         let access_tx = chm.get_sender::<WhitelistAccessRequest>();
 
         let req = WhitelistAccessRequest {
@@ -390,7 +386,7 @@ mod tests {
         chm.get_sender().send(ap_modcap_message);
         md.do_modcaps_messages();   
 
-        let dcm_rx = chm.get_receiver::<barracuda_core::dcm::DoorOpenRequest>();
+        let dcm_rx = chm.get_receiver::<barracuda_base_modules::dcm::DoorOpenRequest>();
         let access_tx = chm.get_sender::<WhitelistAccessRequest>();
 
         for _ in 0..20
