@@ -7,11 +7,6 @@ use crate::core::shareable::Shareable;
 
 unsafe impl Send for ChannelManager{}
 
-// struct ChannelContainer<T: Clone> {
-//     tx: GenericSender<T>,
-//     rx: Arc<GenericReceiver<T>>
-// }
-
 pub struct ChannelManager {
     channels: Shareable<anymap::Map>,
 }
@@ -28,27 +23,22 @@ impl ChannelManager  {
     fn ensure_channel_exists<T: 'static + Clone>(&mut self)
     {
         let mut writeable_channels = self.channels.lock();
-        if !writeable_channels.contains::<ChannelImpl<T>>()
+        if !writeable_channels.contains::<Arc<ChannelImpl<T>>>()
         {
-            // let (_tx, _rx) = make_chan();
-            // let cont = ChannelContainer::<T> { tx: _tx, rx: _rx };
-            writeable_channels.insert(ChannelImpl::<T>::new());
+            writeable_channels.insert(Arc::new(ChannelImpl::<T>::new()));
         }
     }
 
-    pub fn get_receiver<T: 'static + Clone>(&mut self) -> Arc<GenericReceiver<T>> 
+    pub fn get_receiver<T: 'static + Clone>(&mut self) -> GenericReceiver<T> 
     {
         self.ensure_channel_exists::<T>();
-        make_receiver_from_ref( self.channels.lock().get_mut::<ChannelImpl<T>>().unwrap())
+        make_receiver(self.channels.lock().get_mut::<Arc<ChannelImpl<T>>>().unwrap())
     }
 
     pub fn get_sender<T: 'static + Clone>(&mut self) -> GenericSender<T> 
     {
         self.ensure_channel_exists::<T>();
-        return self.channels.lock().get::<ChannelImpl<T>>()
-                                   .unwrap()
-                                   .tx
-                                   .clone();
+        make_sender(self.channels.lock().get::<Arc<ChannelImpl<T>>>().unwrap())
     }
 }
 

@@ -2,13 +2,11 @@ use std::sync::{Arc, Weak};
 use std::cell::*;
 use super::{event::DataEvent, atomic_queue::AtomicQueue, shareable::Shareable};
 
-
-
 const GARBAGE_THRESHOLD: u32 = 10;
 
 pub struct ChannelImpl<T: Clone>
 {
-    receiver_queues:  Cell<Vec<Weak<GenericReceiver<T>>>>
+    receiver_queues:  Shareable<RefCell<Vec<Weak<ReceiverContent<T>>>>>
 }
 
 impl <T: Clone> ChannelImpl<T>
@@ -16,19 +14,20 @@ impl <T: Clone> ChannelImpl<T>
     pub fn new() -> Self{
         ChannelImpl
         {        
-            receiver_queues: Cell::new(Vec::new())
+            receiver_queues: Shareable::new(RefCell::new(Vec::new()))
         }
     }
 
     pub fn push_message(&self, data: T)
     {
-        let mut the_vec = self.receiver_queues.take();
+        let writeable_queues = self.receiver_queues.lock();
+        let mut the_vec = writeable_queues.borrow_mut();
         let mut garbage = 0;
         for i in the_vec.iter()
         {
            if let Some(owned) = i.upgrade()
            {
-                owned.push_message(data.clone());
+                owned.data.push(data.clone());
            }
            else
            {
@@ -46,8 +45,11 @@ impl <T: Clone> ChannelImpl<T>
         {
             the_vec.retain(|x| x.upgrade().is_some());
         }
+    }
 
-        self.receiver_queues.set(the_vec);
+    pub fn add_receiver(&self, receiver: Weak<ReceiverContent<T>>)
+    {
+        self.receiver_queues.lock().borrow_mut().push(receiver)
     }
 }
 
@@ -61,63 +63,69 @@ impl <T: Clone> ChannelImpl<T>
 //     rec
 // }
 
-pub fn make_receiver_from_ref<T: Clone>(owner: &mut ChannelImpl<T>) -> Arc<GenericReceiver<T>>
+pub fn make_receiver<T: Clone>(owner: &Arc<ChannelImpl<T>>) -> GenericReceiver<T>
 {
-    let rec = Arc::new(GenericReceiver::<T>::new(owner.clone()));
-    let weak = Arc::downgrade(&rec.clone());
-    owner.receiver_queues.get_mut().push(weak);
+    let rec = GenericReceiver::<T>::new(&owner.clone());
+    let weak = Arc::downgrade(&rec.contents.clone());
+    owner.add_receiver(weak);
     rec
 }
 
-pub fn make_sender<T: Clone>(owner: Shareable<RefCell<ChannelImpl<T>>>) -> GenericSender<T>
+pub fn make_sender<T: Clone>(owner: &Arc<ChannelImpl<T>>) -> GenericSender<T>
 {
     GenericSender::<T>::new(owner)
 }
 
-pub fn make_chan<T: Clone>() -> (GenericSender<T>, Arc<GenericReceiver<T>>)
+// pub fn make_chan<T: Clone>() -> (GenericSender<T>, Arc<GenericReceiver<T>>)
+// {
+//     let chan = Shareable::new(RefCell::new(ChannelImpl::<T>::new()));
+//     let receiver = make_receiver(chan.clone());
+//     let sender = make_sender(chan);        
+//     (sender, receiver)
+// }
+
+pub struct ReceiverContent<T: Clone>
 {
-    let chan = Shareable::new(RefCell::new(ChannelImpl::<T>::new()));
-    let receiver = make_receiver(chan.clone());
-    let sender = make_sender(chan);        
-    (sender, receiver)
+    pub owner: Arc<ChannelImpl<T>>,
+    pub data: AtomicQueue<T>
 }
 
-pub struct GenericReceiver<'a, T: Clone>
+pub struct GenericReceiver<T: Clone>
 {
-    owner: &'a ChannelImpl<T>,
-    data: AtomicQueue<T>
+    contents: Arc<ReceiverContent<T>>
 }
 
-impl <'a, T: Clone> GenericReceiver<'a, T>
+impl <T: Clone> GenericReceiver< T>
 {
-    pub fn new(owner: Shareable<RefCell<ChannelImpl<T>>>) -> Self
+    pub fn new(owner: &Arc<ChannelImpl<T>>) -> Self
     {
         GenericReceiver
         {
-            owner: owner,
-            data: AtomicQueue::<T>::new()
+            contents: Arc::new(ReceiverContent{ owner: owner.clone(),
+                                                     data: AtomicQueue::<T>::new()
+                              })
         }
     }
 
     pub fn create_sender(&self) -> GenericSender<T>
     {
-        return make_sender(self.owner.clone());
+        return make_sender(&self.contents.owner);
     }
 
-    pub fn clone_receiver(&self) -> Arc<Self>
+    pub fn clone_receiver(&self) -> Self
     {
-        make_receiver_from_ref(self.owner.clone())
+        return make_receiver(&self.contents.owner)
     }
 
     pub fn push_message(&self, data: T)
     {
-        self.data.push(data);
+        self.contents.data.push(data);
     }
 
     #[allow(dead_code)]
     pub fn has_data(&self) -> bool
     {
-        return self.data.len() != 0;
+        return self.contents.data.len() != 0;
     }
 
     pub fn receive(&self) -> T
@@ -130,24 +138,24 @@ impl <'a, T: Clone> GenericReceiver<'a, T>
         */
         while result.is_none()
         {
-            if self.data.len() == 0
+            if self.contents.data.len() == 0
             {
-                self.data.wait_data();
+                self.contents.data.wait_data();
             }
-            result = self.data.pop();  
+            result = self.contents.data.pop();  
         }
         return result.unwrap();   
     }
 
     pub fn receive_with_timeout(&self, milliseconds: u64) -> Option<T>
     {
-        self.data.wait_with_timeout(milliseconds);
-        return self.data.pop();
+        self.contents.data.wait_with_timeout(milliseconds);
+        return self.contents.data.pop();
     }
 
     pub fn set_data_trigger(&self, d: Arc<DataEvent<u32>>, trigger_data:u32)
     {
-        self.data.set_data_trigger(d, trigger_data)
+        self.contents.data.set_data_trigger(d, trigger_data)
     }
 }
 
@@ -155,12 +163,12 @@ impl <'a, T: Clone> GenericReceiver<'a, T>
 
 pub struct GenericSender<T: Clone>
 {
-    source: Shareable<RefCell<ChannelImpl<T> >>
+    source: Arc<ChannelImpl<T>>
 }
 
 impl <T: Clone> GenericSender<T>
 {
-    pub fn new(owner: Shareable<RefCell<ChannelImpl<T> >>) -> Self{
+    pub fn new(owner: &Arc<ChannelImpl<T>>) -> Self{
         GenericSender {
             source: owner.clone()
         }
@@ -168,7 +176,7 @@ impl <T: Clone> GenericSender<T>
 
     pub fn send(&self, data: T)
     {
-        self.source.lock().get_mut().push_message(data.clone());
+        self.source.push_message(data.clone());
     }
 
     pub fn clone(&self) -> Self
@@ -184,6 +192,13 @@ impl <T: Clone> GenericSender<T>
 mod tests {
      use crate::core::broadcast_channel::*;
 
+    pub fn make_chan<T: Clone>() -> (GenericSender<T>, GenericReceiver<T>)
+    {
+        let mut chan = Arc::new(ChannelImpl::<T>::new());
+        let receiver = make_receiver(&mut chan);
+        let sender = make_sender(&mut chan);        
+        (sender, receiver)
+    }
 
     #[test]
     fn can_create_channel()

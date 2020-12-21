@@ -9,10 +9,9 @@
 use crate::core::{SystemMessage, BootStage};
 use crate::core::broadcast_channel::*;
 use crate::trace::*;
-use std::sync::Arc;
 
 pub struct Supervisor{
-    sysrec: Arc<GenericReceiver<SystemMessage>>,
+    sysrec: GenericReceiver<SystemMessage>,
     tracer: trace_helper::TraceHelper,
     chm: crate::core::channel_manager::ChannelManager,
     num_threads: u32
@@ -91,7 +90,7 @@ impl Supervisor
         //wait_for_stage_completion(recv, core::BootStage::Application, 0);
     }
 
-    fn wait_for_stage_completion(&self, recv: &Arc<GenericReceiver<SystemMessage>>, stage: BootStage, num_participants: u32 ) -> bool
+    fn wait_for_stage_completion(&self, recv: &GenericReceiver<SystemMessage>, stage: BootStage, num_participants: u32 ) -> bool
     {
         let mut checked_in = Vec::<u32>::new();
         let mut messages_left = num_participants;
