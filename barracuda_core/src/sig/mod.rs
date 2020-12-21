@@ -14,3 +14,5 @@ pub struct SigCommand
     pub sig_type: SigType,
     pub duration: u32
 }
+
+pub mod sigctrl;

@@ -19,3 +19,4 @@ pub mod modcaps;
 pub mod io;
 pub mod util;
 pub mod profile;
+pub mod events;

@@ -1,4 +1,5 @@
-pub enum Events
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum LogEvent
 {
     AccessGranted,                  // pwayid, token, ap id
     AccessDeniedTimezoneViolated,   // pwayid, token, ap id
