@@ -19,7 +19,6 @@ pub mod supervisor;
 pub mod bootstage_helper;
 pub mod shareable;
 pub mod timer;
-pub mod module_base;
 
 #[derive(Clone, Copy, PartialEq)]
 pub enum BootStage

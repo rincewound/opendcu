@@ -4,12 +4,9 @@ version = "0.1.0"
 authors = ["Rincewound <aaaargh@minddebugger.com>"]
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-barracuda_hal = { path = "../barracuda_hal" }
+#barracuda_hal = { path = "../barracuda_hal" }
 anymap = "0.12.1"
-#diesel = { version = "1.0.0", features = ["sqlite"] }
 rouille = "3.0.0"
 serde = {version = "1.0.106", features = ["derive"]}
 serde_json = "1.0"

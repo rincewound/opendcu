@@ -51,13 +51,21 @@ impl <T: Clone> ChannelImpl<T>
     }
 }
 
-pub fn make_receiver<T: Clone>(owner: Shareable<RefCell<ChannelImpl<T>>>) -> Arc<GenericReceiver<T>>
+// pub fn make_receiver<T: Clone>(owner: Shareable<RefCell<ChannelImpl<T>>>) -> Arc<GenericReceiver<T>>
+// {
+//     let rec = Arc::new(GenericReceiver::<T>::new(owner.clone()));
+//     let weak = Arc::downgrade(&rec.clone());
+//     let mut rec_queue = owner.lock();
+//     let m = rec_queue.get_mut();
+//     m.receiver_queues.get_mut().push(weak);
+//     rec
+// }
+
+pub fn make_receiver_from_ref<T: Clone>(owner: &mut ChannelImpl<T>) -> Arc<GenericReceiver<T>>
 {
     let rec = Arc::new(GenericReceiver::<T>::new(owner.clone()));
     let weak = Arc::downgrade(&rec.clone());
-    let mut rec_queue = owner.lock();
-    let m = rec_queue.get_mut();
-    m.receiver_queues.get_mut().push(weak);
+    owner.receiver_queues.get_mut().push(weak);
     rec
 }
 
@@ -74,13 +82,13 @@ pub fn make_chan<T: Clone>() -> (GenericSender<T>, Arc<GenericReceiver<T>>)
     (sender, receiver)
 }
 
-pub struct GenericReceiver<T: Clone>
+pub struct GenericReceiver<'a, T: Clone>
 {
-    owner: Shareable<RefCell<ChannelImpl<T>>>,
+    owner: &'a ChannelImpl<T>,
     data: AtomicQueue<T>
 }
 
-impl <T: Clone> GenericReceiver<T>
+impl <'a, T: Clone> GenericReceiver<'a, T>
 {
     pub fn new(owner: Shareable<RefCell<ChannelImpl<T>>>) -> Self
     {
@@ -98,7 +106,7 @@ impl <T: Clone> GenericReceiver<T>
 
     pub fn clone_receiver(&self) -> Arc<Self>
     {
-        make_receiver(self.owner.clone())
+        make_receiver_from_ref(self.owner.clone())
     }
 
     pub fn push_message(&self, data: T)
