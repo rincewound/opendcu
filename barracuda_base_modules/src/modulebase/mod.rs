@@ -1,13 +1,13 @@
-use crate::{cfg::ConfigMessage, trace::trace_helper};
-use super::{SystemMessage, broadcast_channel::{GenericSender, GenericReceiver}, channel_manager::ChannelManager, bootstage_helper::boot};
-use std::sync::Arc;
+use barracuda_core::{core::{SystemMessage, bootstage_helper::{boot, plain_boot}, broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::ChannelManager}, trace::trace_helper};
+
+use crate::cfg::ConfigMessage;
 
 pub struct ModuleBase
 {
     module_id               : u32,
     tracer                  : trace_helper::TraceHelper,
-    pub cfg_rx              : Arc<GenericReceiver<ConfigMessage>>,
-    pub system_events_rx    : Arc<GenericReceiver<SystemMessage>>,
+    pub cfg_rx              : GenericReceiver<ConfigMessage>,
+    pub system_events_rx    : GenericReceiver<SystemMessage>,
     pub system_events_tx    : GenericSender<SystemMessage>,
 }
 
@@ -29,13 +29,13 @@ impl ModuleBase
     where LliCb: FnOnce() -> (), HliCb: FnOnce() -> ()
     {
         boot(self.module_id, llicb, hlicb, 
-            self.system_events_tx.clone(), 
-            self.system_events_rx.clone(), 
+            &self.system_events_tx, 
+            &self.system_events_rx, 
             &self.tracer);        
     }
 
     pub fn plain_boot(&self)
     {
-        crate::core::bootstage_helper::plain_boot(self.module_id, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer)
+        plain_boot(self.module_id, &self.system_events_tx, &self.system_events_rx, &self.tracer)
     }
 }

@@ -1,11 +1,11 @@
+use barracuda_core::{core::{SystemMessage, bootstage_helper::{boot, boot_noop}, broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::ChannelManager, shareable::Shareable}, trace::trace_helper};
 use rouille::*;
 
-use crate::core::broadcast_channel::*;
-use crate::core::{channel_manager::*};
-use crate::trace::*;
-use std::{sync::{Arc}, thread};
+
+
+use std::{thread};
 use std::io::Read;
-use crate::core::{shareable::Shareable, bootstage_helper::*};
+
 use crate::cfg::cfgholder::*;
 
 
@@ -52,8 +52,8 @@ However:
 struct ConfigRest
 {
     tracer: trace_helper::TraceHelper,
-    system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
-    system_events_tx: GenericSender<crate::core::SystemMessage>,
+    system_events_rx: GenericReceiver<SystemMessage>,
+    system_events_tx: GenericSender<SystemMessage>,
     cfg_publish_tx: GenericSender<crate::cfg::ConfigMessage>,
     cfg: Shareable<crate::cfg::cfgholder::CfgHolder>,
     
@@ -83,8 +83,8 @@ impl ConfigRest
         });
 
         boot(MODULE_ID, Some(boot_noop), hlicb, 
-            self.system_events_tx.clone(), 
-            self.system_events_rx.clone(), 
+            &self.system_events_tx, 
+            &self.system_events_rx, 
             &self.tracer);
     }    
 

@@ -1,5 +1,7 @@
 use std::{collections::HashMap};
-use crate::core::shareable::Shareable;
+
+use barracuda_core::core::shareable::Shareable;
+
 
 #[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
 pub enum FunctionType

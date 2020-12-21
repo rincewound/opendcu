@@ -1,7 +1,8 @@
-use crate::core::broadcast_channel::*;
-use crate::core::{channel_manager::*, bootstage_helper};
-use crate::{io, trace::*};
-use std::{sync::Arc, thread};
+use barracuda_core::{core::{SystemMessage, bootstage_helper::{self}, broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::ChannelManager}, trace::trace_helper};
+
+use std::thread;
+
+use crate::io;
 
 const MODULE_ID: u32 = 0x08000000;
 
@@ -31,9 +32,9 @@ pub fn launch(chm: &mut ChannelManager)
 pub struct TrivialDoorControl
 {
     tracer: trace_helper::TraceHelper,
-    system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
-    system_events_tx: GenericSender<crate::core::SystemMessage>,
-    door_requests_rx: Arc<GenericReceiver<crate::dcm::DoorOpenRequest>>,
+    system_events_rx: GenericReceiver<SystemMessage>,
+    system_events_tx: GenericSender<SystemMessage>,
+    door_requests_rx: GenericReceiver<crate::dcm::DoorOpenRequest>,
     output_cmd_tx: GenericSender<io::OutputSwitch>
 }
 
@@ -53,7 +54,7 @@ impl TrivialDoorControl
 
     pub fn init(&self)
     {
-        bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer)
+        bootstage_helper::plain_boot(MODULE_ID, &self.system_events_tx, &self.system_events_rx, &self.tracer)
     }
 
     pub fn do_request(&self) -> bool

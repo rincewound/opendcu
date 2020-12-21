@@ -1,4 +1,5 @@
-use crate::util::{datetime::TimeSlot, JsonStorage, ObjectStorage};
+
+use barracuda_core::util::{JsonStorage, datetime::TimeSlot, ObjectStorage};
 use serde::{Deserialize, Serialize};
 use chrono::{Datelike, Timelike, Local};
 use super::ProfileChangeEvent;

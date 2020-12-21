@@ -1,3 +1,5 @@
+use barracuda_core::core::broadcast_channel::GenericReceiver;
+
 
 #[derive(Copy, Clone, Debug)]
 pub enum ModuleCapability
@@ -50,7 +52,7 @@ impl ModCapAggregator
         }
     }
 
-    pub fn aggregate(&mut self, message_receiver: &crate::core::broadcast_channel::GenericReceiver<ModuleCapabilityAdvertisement>)
+    pub fn aggregate(&mut self, message_receiver: &GenericReceiver<ModuleCapabilityAdvertisement>)
     {
         while let Some(modcap_message) = message_receiver.receive_with_timeout(0)
         {

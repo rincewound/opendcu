@@ -1,8 +1,8 @@
-use crate::core::broadcast_channel::*;
-use crate::core::{bootstage_helper::{boot, boot_noop}, channel_manager::*, shareable::Shareable, SystemMessage};
-use crate::{cfg::{cfgholder::FunctionType, ConfigMessage}, trace::*};
+use barracuda_core::{core::{SystemMessage, bootstage_helper::{boot, boot_noop}, broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::ChannelManager, shareable::Shareable}, trace::trace_helper};
+
+use crate::{cfg::{cfgholder::FunctionType, ConfigMessage}};
 use crate::{Handler, cfg::{self}};
-use std::{sync::Arc, thread};
+use std::{thread};
 mod profile_checker;
 
 use chrono::{Local};
@@ -43,10 +43,10 @@ pub fn launch(chm: &mut ChannelManager)
 struct ProfileControl
 {
     tracer: trace_helper::TraceHelper,
-    system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
-    system_events_tx: GenericSender<crate::core::SystemMessage>,
+    system_events_rx: GenericReceiver<SystemMessage>,
+    system_events_tx: GenericSender<SystemMessage>,
     profile_state_tx: GenericSender<ProfileChangeEvent>,
-    cfg_rx          : Arc<GenericReceiver<ConfigMessage>>,
+    cfg_rx          : GenericReceiver<ConfigMessage>,
     checker         : Shareable<profile_checker::ProfileChecker>
 }
 
@@ -68,7 +68,7 @@ impl ProfileControl
     pub fn init(&mut self)
     {
         //crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
-        let the_receiver = self.cfg_rx.clone();  
+        let the_receiver = self.cfg_rx.clone_receiver();  
         let hli_cb= Some(|| {
             /*
                 This is executed during HLI
@@ -92,8 +92,8 @@ impl ProfileControl
         });
 
         boot(MODULE_ID, Some(boot_noop), hli_cb, 
-            self.system_events_tx.clone(), 
-            self.system_events_rx.clone(), 
+            &self.system_events_tx, 
+            &self.system_events_rx, 
             &self.tracer);
 
         //self.modcaps.aggregate(&self.modcap_rx);

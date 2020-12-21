@@ -1,5 +1,4 @@
-
-use crate::core::shareable::Shareable;
+use barracuda_core::core::shareable::Shareable;
 
 pub mod rest;
 

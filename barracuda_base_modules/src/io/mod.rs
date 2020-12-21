@@ -1,9 +1,9 @@
 
-use crate::{trace::trace_helper, core::{broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::ChannelManager}};
+use barracuda_core::{core::{SystemMessage, bootstage_helper::{self}, broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::ChannelManager, event::DataEvent, shareable::Shareable, timer::Timer}, trace::trace_helper};
 use std::{sync::Arc, thread};
-use crate::core::{shareable::Shareable, event::DataEvent};
+
 use crate::modcaps::*;
-use crate::core::timer::*;
+
 
 extern crate chrono;
 
@@ -131,12 +131,12 @@ struct OutputEntry
 /// and does not have logic for e.g. debouncing inputs.
 pub struct IoManager
 {
-    system_events_rx: Arc<GenericReceiver<crate::core::SystemMessage>>,
-    system_events_tx: GenericSender<crate::core::SystemMessage>,
-    modcaps_rx: Arc<GenericReceiver<crate::modcaps::ModuleCapabilityAdvertisement>>,
-    raw_input_events: Arc<GenericReceiver<RawInputEvent>>,
+    system_events_rx: GenericReceiver<SystemMessage>,
+    system_events_tx: GenericSender<SystemMessage>,
+    modcaps_rx: GenericReceiver<crate::modcaps::ModuleCapabilityAdvertisement>,
+    raw_input_events: GenericReceiver<RawInputEvent>,
     input_events: GenericSender<InputEvent>,
-    output_commands: Arc<GenericReceiver<OutputSwitch>>,
+    output_commands: GenericReceiver<OutputSwitch>,
     raw_output_commands: GenericSender<RawOutputSwitch>,
     tracer: trace_helper::TraceHelper,
     timer: Arc<Timer>,
@@ -179,7 +179,7 @@ impl IoManager
         self.raw_input_events.set_data_trigger(self.dataevent.clone(), 1);
         self.output_commands.set_data_trigger(self.dataevent.clone(), 2);
 
-        crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);
+        bootstage_helper::plain_boot(MODULE_ID, &self.system_events_tx, &self.system_events_rx, &self.tracer);
     }
 
     fn do_all_modcap_messages(&mut self)
@@ -315,17 +315,18 @@ mod tests {
         * switch_output sends message with correct SUD
         * switch_output with bad ID doesn't crash
     */
-    use crate::core::*;
+    use crate::*;
+    use barracuda_core::core::*;
     use crate::io::*;
     use crate::modcaps::{ModuleCapabilityAdvertisement, ModuleCapability};
     use std::time::Duration;
 
 
     fn make_mod() -> (IoManager, GenericSender<crate::io::RawInputEvent>,
-                      Arc<GenericReceiver<crate::io::InputEvent>>,
-                      GenericSender<OutputSwitch>, Arc<GenericReceiver<crate::io::RawOutputSwitch>>)
+                      GenericReceiver<crate::io::InputEvent>,
+                      GenericSender<OutputSwitch>, GenericReceiver<crate::io::RawOutputSwitch>)
     {
-        let mut chm = crate::core::channel_manager::ChannelManager::new();
+        let mut chm = ChannelManager::new();
         let trace = trace_helper::TraceHelper::new("".to_string(), &mut chm);
         let sender = chm.get_sender::<crate::io::RawInputEvent>();
         let receiver = chm.get_receiver::<crate::io::InputEvent>();
