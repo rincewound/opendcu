@@ -1,4 +1,4 @@
-use barracuda_core::{core::{shareable::Shareable, broadcast_channel::*}, io::OutputState, sig::SigType};
+use barracuda_core::{events::LogEvent, core::{broadcast_channel::*, shareable::Shareable}, io::OutputState, sig::SigType};
 use barracuda_core::core::channel_manager::*;
 use barracuda_core::core::{bootstage_helper::*, event::DataEvent};
 use barracuda_core::{Handler, cfg::{cfgholder::*, self}};
@@ -56,7 +56,8 @@ pub enum DoorCommand
     DisarmDoorOpenTooLongAlarm,
     ArmAutoswitchToNormal,
     DisarmAutoswitchToNormal,
-    ShowSignal(u32, SigType)
+    ShowSignal(u32, SigType),
+    TriggerEvent(LogEvent)
 }
 
 pub fn launch(chm: &mut ChannelManager)

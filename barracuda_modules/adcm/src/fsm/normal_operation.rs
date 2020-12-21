@@ -1,4 +1,4 @@
-use barracuda_core::io::OutputState;
+use barracuda_core::{events::LogEvent, io::OutputState};
 
 use crate::{DoorCommand, DoorEvent};
 
@@ -21,14 +21,17 @@ impl DoorStateImpl for NormalOperation
                                 }
             DoorEvent::Opened => {
                                     // Door forced open!
-                                    commands.push(DoorCommand::ToggleAlarmRelay(OutputState::High))
+                                    commands.push(DoorCommand::ToggleAlarmRelay(OutputState::High));
+                                    commands.push(DoorCommand::TriggerEvent(LogEvent::DoorForcedOpen(1048))); // ToDo: Doorstate needs to know the door id
                                 }
             DoorEvent::Closed => {
-                                    commands.push(DoorCommand::ToggleAlarmRelay(OutputState::Low))
+                                    commands.push(DoorCommand::ToggleAlarmRelay(OutputState::Low));
+                                    commands.push(DoorCommand::TriggerEvent(LogEvent::DoorClosedAgain(1048))); // ToDo: Doorstate needs to know the door id
                                 }
             DoorEvent::DoorOpenProfileActive => {
                                     commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
-                                    commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));                
+                                    commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));      
+                                    commands.push(DoorCommand::TriggerEvent(LogEvent::DoorPermantlyReleased(1048))); // ToDo: Doorstate needs to know the door id          
                                     return DoorStateContainer::ReleasePerm(ReleasedPermanently{});
                                 }            
 

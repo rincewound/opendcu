@@ -1,21 +1,12 @@
 use std::sync::{Arc};
 
-use barracuda_core::{
-    core::{
+use barracuda_core::{core::{
         broadcast_channel::GenericSender, 
         channel_manager::ChannelManager, 
-        timer::Timer}, 
-        dcm::DoorOpenRequest, 
-        io::InputEvent, 
-        core::shareable::Shareable, 
-        profile::{
+        timer::Timer}, core::shareable::Shareable, dcm::DoorOpenRequest, io::InputEvent, events::LogEvent, profile::{
             ProfileChangeEvent, 
             ProfileState
-        }, 
-        sig::SigCommand, 
-        sig::SigType, 
-        trace::trace_helper::TraceHelper
-    };
+        }, sig::SigCommand, sig::SigType, trace::trace_helper::TraceHelper};
 
 use crate::{DoorCommand, DoorEvent, components::output_components::accessgranted::AccessGranted, components::{InputComponent, OutputComponent, VirtualComponent, output_components::{alarmrelay::AlarmRelay, electricstrike::ElectricStrike}, serialization_types::InputComponentSerialization, serialization_types::{OutputComponentSerialization, PassagewaySetting}}};
 
@@ -33,7 +24,8 @@ pub struct Passageway
     output_components: Shareable<Vec<Box<dyn OutputComponent>>>,
     _virtual_components: Vec<Box<dyn VirtualComponent>>,
     pending_events: Vec<DoorEvent>,
-    sig_tx:  GenericSender<SigCommand>,
+    sig_tx: GenericSender<SigCommand>,
+    log_tx: GenericSender<LogEvent>,
     trace: TraceHelper,
     door_fsm: Shareable<crate::fsm::DoorStateContainer>,
     auto_event_timer: Arc<Timer>,
@@ -107,6 +99,7 @@ impl Passageway
             _virtual_components: vec![],
             pending_events: vec![],
             sig_tx: chm.get_sender(),
+            log_tx: chm.get_sender(),
             trace: TraceHelper::new(format!("ADCM/PW{}", settings.id), chm),            
             door_fsm: Shareable::new(DoorStateContainer::NormalOp(NormalOperation{})),
             auto_event_timer: Timer::new(),
@@ -232,6 +225,14 @@ impl Passageway
                 {
                     // ToDo: Configurabale signal times!
                     self.send_signal_command(*ap_id, *sig, 3500);
+                }
+                DoorCommand::TriggerEvent(log_event) =>
+                {
+                    // Trouble: This will fill up memory, if nobody is on the other
+                    // side, due to the channel implementation not being completely
+                    // asynchronous, i.e. it always creates at least once receiver
+                    // for each channel, even if that receiver is then dropped
+                    self.log_tx.send(*log_event);
                 }
                 _ => {
 
