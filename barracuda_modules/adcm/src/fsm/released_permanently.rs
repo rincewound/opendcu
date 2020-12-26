@@ -1,3 +1,5 @@
+use barracuda_base_modules::events::LogEvent;
+
 use crate::{DoorCommand, DoorEvent};
 
 use super::{blocked::Blocked, DoorStateContainer, DoorStateImpl, emergency::Emergency, normal_operation::NormalOperation};
@@ -8,14 +10,23 @@ pub struct ReleasedPermanently{}
 
 impl DoorStateImpl for ReleasedPermanently
 {
-    fn dispatch_door_event(self, d: DoorEvent, _commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
+    fn dispatch_door_event(self,passageway_id: u32, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
         match d
         {
-            DoorEvent::DoorOpenProfileInactive => {return DoorStateContainer::NormalOp(NormalOperation{});}
-            DoorEvent::BlockingContactEngaged => {return DoorStateContainer::Blocked(Blocked{});}
-            DoorEvent::ReleaseSwitchEngaged => {return DoorStateContainer::Emergency(Emergency{});}
+            DoorEvent::DoorOpenProfileInactive => {
+                commands.push(DoorCommand::TriggerEvent(LogEvent::DoorEnteredNormalOperation(passageway_id)));
+                return DoorStateContainer::NormalOp(NormalOperation{}, passageway_id);                
+            }
+            DoorEvent::BlockingContactEngaged => {
+                commands.push(DoorCommand::TriggerEvent(LogEvent::DoorBlocked(passageway_id)));
+                return DoorStateContainer::Blocked(Blocked{}, passageway_id);
+            }
+            DoorEvent::ReleaseSwitchEngaged => {
+                commands.push(DoorCommand::TriggerEvent(LogEvent::DoorEmergencyReleased(passageway_id)));
+                return DoorStateContainer::Emergency(Emergency{}, passageway_id);
+            }
             _ => {}
         }
-        return DoorStateContainer::ReleasePerm(self)
+        return DoorStateContainer::ReleasePerm(self, passageway_id)
     }
 }

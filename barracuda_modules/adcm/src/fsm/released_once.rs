@@ -1,5 +1,5 @@
 
-use barracuda_base_modules::io::OutputState;
+use barracuda_base_modules::{events::LogEvent, io::OutputState};
 
 use crate::{DoorCommand, DoorEvent};
 
@@ -11,36 +11,48 @@ pub struct ReleasedOnce{}
 
 impl DoorStateImpl for ReleasedOnce
 {
-    fn dispatch_door_event(self, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
+    fn dispatch_door_event(self,passageway_id: u32, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
         match d
         {
-            DoorEvent::ValidDoorOpenRequestSeen(_ap_id) => { /* Ignore */ }
+            DoorEvent::ValidDoorOpenRequestSeen(_ap_id, _token) => { /* Ignore */ }
             DoorEvent::Opened => {
                     // ToDo: Start timer, that triggers a door-open-too-long alarm,
                     // if the door is not closed.                    
                     commands.push(DoorCommand::ArmDoorOpenTooLongAlarm);
                     commands.push(DoorCommand::ToggleElectricStrike(OutputState::Low));
                     commands.push(DoorCommand::DisarmAutoswitchToNormal);
+                    commands.push(DoorCommand::TriggerEvent(LogEvent::DoorReleasedOnce(passageway_id)));
                 }
             DoorEvent::Closed => {
                     commands.push(DoorCommand::DisarmDoorOpenTooLongAlarm);
                     commands.push(DoorCommand::ToggleAccessAllowed(OutputState::Low));
-                    return DoorStateContainer::NormalOp(NormalOperation{});
+                    commands.push(DoorCommand::TriggerEvent(LogEvent::DoorClosedAgain(passageway_id)));
+                    commands.push(DoorCommand::TriggerEvent(LogEvent::DoorEnteredNormalOperation(passageway_id)));
+                    return DoorStateContainer::NormalOp(NormalOperation{}, passageway_id);
                 }
             DoorEvent::DoorOpenProfileActive => { 
                     commands.push(DoorCommand::ToggleElectricStrike(OutputState::High));
                     commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
-                    return DoorStateContainer::ReleasePerm(ReleasedPermanently{})
+                    commands.push(DoorCommand::TriggerEvent(LogEvent::DoorPermantlyReleased(passageway_id)));
+                    return DoorStateContainer::ReleasePerm(ReleasedPermanently{}, passageway_id)
                 }            
             
             DoorEvent::DoorTimerExpired => {
                 // Triggered by the pway in cases, where we have no FC.
                 commands.push(DoorCommand::ToggleElectricStrike(OutputState::Low));
                 commands.push(DoorCommand::ToggleAccessAllowed(OutputState::Low));
-                return DoorStateContainer::NormalOp(NormalOperation{});
+                commands.push(DoorCommand::TriggerEvent(LogEvent::DoorClosedAgain(passageway_id)));
+                commands.push(DoorCommand::TriggerEvent(LogEvent::DoorEnteredNormalOperation(passageway_id)));
+                return DoorStateContainer::NormalOp(NormalOperation{}, passageway_id);
             }
-            DoorEvent::BlockingContactEngaged => {return DoorStateContainer::Blocked(Blocked{});}
-            DoorEvent::ReleaseSwitchEngaged    => {return DoorStateContainer::Emergency(Emergency{});}
+            DoorEvent::BlockingContactEngaged => {
+                commands.push(DoorCommand::TriggerEvent(LogEvent::DoorBlocked(passageway_id)));
+                return DoorStateContainer::Blocked(Blocked{}, passageway_id);
+            }
+            DoorEvent::ReleaseSwitchEngaged    => {
+                commands.push(DoorCommand::TriggerEvent(LogEvent::DoorEmergencyReleased(passageway_id)));
+                return DoorStateContainer::Emergency(Emergency{}, passageway_id);
+            }
 
             DoorEvent::BlockingContactDisengaged => {/* Ignore */ }
             DoorEvent::ReleaseSwitchDisengaged => { /* Ignore */ }
@@ -49,7 +61,7 @@ impl DoorStateImpl for ReleasedOnce
             DoorEvent::DoorHandleTriggered    => { /* Ignore */ }
             DoorEvent::DoorOpenTooLong        => { /* Ignore */ }
         }
-        return DoorStateContainer::ReleasedOnce(self)
+        return DoorStateContainer::ReleasedOnce(self,passageway_id)
     }
 }
 

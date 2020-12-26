@@ -12,44 +12,54 @@ pub struct NormalOperation{}
 
 impl DoorStateImpl for NormalOperation
 {
-    fn dispatch_door_event(self, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
+    fn dispatch_door_event(self,passageway_id: u32, d: DoorEvent, commands: &mut Vec<DoorCommand>) -> DoorStateContainer {
         match d
         {
-            DoorEvent::ValidDoorOpenRequestSeen(ap_id) => {
+            DoorEvent::ValidDoorOpenRequestSeen(ap_id, token) => {
                                     commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
                                     commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
                                     commands.push(DoorCommand::ArmAutoswitchToNormal);   
                                     commands.push(DoorCommand::ShowSignal(ap_id, SigType::AccessGranted));
-                                    return DoorStateContainer::ReleasedOnce(ReleasedOnce{});
+                                    commands.push(DoorCommand::TriggerEvent(LogEvent::AccessGranted(passageway_id, token, ap_id)));
+                                    commands.push(DoorCommand::TriggerEvent(LogEvent::DoorReleasedOnce(passageway_id)));
+                                    return DoorStateContainer::ReleasedOnce(ReleasedOnce{}, passageway_id);
                                 }
             DoorEvent::Opened => {
                                     // Door forced open!
                                     commands.push(DoorCommand::ToggleAlarmRelay(OutputState::High));
-                                    commands.push(DoorCommand::TriggerEvent(LogEvent::DoorForcedOpen(1048))); // ToDo: Doorstate needs to know the door id
+                                    commands.push(DoorCommand::TriggerEvent(LogEvent::DoorForcedOpen(passageway_id)));
                                 }
             DoorEvent::Closed => {
                                     commands.push(DoorCommand::ToggleAlarmRelay(OutputState::Low));
-                                    commands.push(DoorCommand::TriggerEvent(LogEvent::DoorClosedAgain(1048))); // ToDo: Doorstate needs to know the door id
+                                    commands.push(DoorCommand::TriggerEvent(LogEvent::DoorClosedAgain(passageway_id))); 
                                 }
             DoorEvent::DoorOpenProfileActive => {
                                     commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
                                     commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));      
-                                    commands.push(DoorCommand::TriggerEvent(LogEvent::DoorPermantlyReleased(1048))); // ToDo: Doorstate needs to know the door id          
-                                    return DoorStateContainer::ReleasePerm(ReleasedPermanently{});
+                                    commands.push(DoorCommand::TriggerEvent(LogEvent::DoorPermantlyReleased(passageway_id)));
+                                    return DoorStateContainer::ReleasePerm(ReleasedPermanently{}, passageway_id);
                                 }            
 
             DoorEvent::DoorOpenerKeyTriggered => {
                                 commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
                                 commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
-                                return DoorStateContainer::ReleasedOnce(ReleasedOnce{});
+                                commands.push(DoorCommand::TriggerEvent(LogEvent::DoorReleasedOnce(passageway_id)));
+                                return DoorStateContainer::ReleasedOnce(ReleasedOnce{}, passageway_id);
             }
             DoorEvent::DoorHandleTriggered => {
+                                commands.push(DoorCommand::TriggerEvent(LogEvent::DoorReleasedOnce(passageway_id)));
                                 commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
-                                return DoorStateContainer::ReleasedOnce(ReleasedOnce{});
+                                return DoorStateContainer::ReleasedOnce(ReleasedOnce{}, passageway_id);
             }
 
-            DoorEvent::BlockingContactEngaged => { return DoorStateContainer::Blocked(Blocked{}); }            
-            DoorEvent::ReleaseSwitchEngaged => { return DoorStateContainer::Emergency(Emergency{}); }
+            DoorEvent::BlockingContactEngaged => { 
+                commands.push(DoorCommand::TriggerEvent(LogEvent::DoorBlocked(passageway_id)));
+                return DoorStateContainer::Blocked(Blocked{}, passageway_id); 
+            }            
+            DoorEvent::ReleaseSwitchEngaged => { 
+                commands.push(DoorCommand::TriggerEvent(LogEvent::DoorEmergencyReleased(passageway_id)));
+                return DoorStateContainer::Emergency(Emergency{}, passageway_id); 
+            }
             
             DoorEvent::DoorOpenProfileInactive => {}
             DoorEvent::DoorOpenTooLong => {}
@@ -57,7 +67,7 @@ impl DoorStateImpl for NormalOperation
             DoorEvent::BlockingContactDisengaged => { }
             DoorEvent::ReleaseSwitchDisengaged => { }
         }
-        return DoorStateContainer::NormalOp(self)
+        return DoorStateContainer::NormalOp(self, passageway_id)
     }
 }
 

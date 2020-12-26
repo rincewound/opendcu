@@ -98,7 +98,7 @@ impl Passageway
             sig_tx: chm.get_sender(),
             log_tx: chm.get_sender(),
             trace: TraceHelper::new(format!("ADCM/PW{}", settings.id), chm),            
-            door_fsm: Shareable::new(DoorStateContainer::NormalOp(NormalOperation{})),
+            door_fsm: Shareable::new(DoorStateContainer::NormalOp(NormalOperation{}, settings.id)),
             auto_event_timer: Timer::new(),
             auto_switch_normal_timer: None,
             door_open_too_long_timer: None,
@@ -173,11 +173,11 @@ impl Passageway
         let fsm = *fsm_lcked;
         match fsm
         {
-            DoorStateContainer::NormalOp(op) => { next_state = op.dispatch_door_event(door_event, generated_commands);}
-            DoorStateContainer::ReleasedOnce(op) =>  { next_state = op.dispatch_door_event(door_event, generated_commands);}
-            DoorStateContainer::ReleasePerm(op) => {next_state = op.dispatch_door_event(door_event, generated_commands);}
-            DoorStateContainer::Blocked(op) => {next_state = op.dispatch_door_event(door_event, generated_commands);}
-            DoorStateContainer::Emergency(op) => {next_state = op.dispatch_door_event(door_event, generated_commands);}
+            DoorStateContainer::NormalOp(op, id) => { next_state = op.dispatch_door_event(id,door_event, generated_commands);}
+            DoorStateContainer::ReleasedOnce(op, id) =>  { next_state = op.dispatch_door_event(id,door_event, generated_commands);}
+            DoorStateContainer::ReleasePerm(op, id) => {next_state = op.dispatch_door_event(id, door_event, generated_commands);}
+            DoorStateContainer::Blocked(op, id) => {next_state = op.dispatch_door_event(id, door_event, generated_commands);}
+            DoorStateContainer::Emergency(op, id) => {next_state = op.dispatch_door_event(id, door_event, generated_commands);}
         }
 
         *fsm_lcked = next_state;
@@ -225,11 +225,7 @@ impl Passageway
                 }
                 DoorCommand::TriggerEvent(log_event) =>
                 {
-                    // Trouble: This will fill up memory, if nobody is on the other
-                    // side, due to the channel implementation not being completely
-                    // asynchronous, i.e. it always creates at least once receiver
-                    // for each channel, even if that receiver is then dropped
-                    self.log_tx.send(*log_event);
+                    self.log_tx.send(log_event.clone());
                 }
                 _ => {
 
@@ -262,10 +258,8 @@ impl Passageway
             return;
         }
 
-        // Check doorstate: If we're blocked, signal this, otherwise
-        // signal access granted here and release the door.
         self.trace.trace_str("Release once.");
-        self.handle_door_event(DoorEvent::ValidDoorOpenRequestSeen(request.access_point_id));
+        self.handle_door_event(DoorEvent::ValidDoorOpenRequestSeen(request.access_point_id, request.identification_token.clone()));
     }
 
     fn send_signal_command(&self, access_point_id: u32, sigtype: SigType, duration: u32)

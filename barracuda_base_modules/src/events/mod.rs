@@ -1,11 +1,10 @@
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive( Clone, Debug, PartialEq)]
 pub enum LogEvent
 {
-    AccessGranted,                  // pwayid, token, ap id
-    AccessDeniedTimezoneViolated,   // pwayid, token, ap id
-    AccessDeniedTokenUnknown,       // pwayid, token, ap id
-
-    AccessDeniedDoorBlocked,        // pwayid, token, ap id
+    AccessGranted(u32, Vec<u8>, u32),                  // pwayid, token, ap id
+    AccessDeniedTimezoneViolated(u32, Vec<u8>, u32),   // pwayid, token, ap id
+    AccessDeniedTokenUnknown(u32, Vec<u8>, u32),       // pwayid, token, ap id
+    AccessDeniedDoorBlocked(u32, Vec<u8>, u32),        // pwayid, token, ap id
 
     DoorEmergencyReleased(u32),      // pwayid
     DoorEnteredNormalOperation(u32), // pwayid

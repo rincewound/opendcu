@@ -174,8 +174,8 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
                 if !self.check_profile(sud_ap_id, &entry) { return; }
 
                 // Good? If so, emit DoorOpenRequest, otherwise emit AccessDenied Sig 
-                self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.identification_token_id));
-                let openreq = DoorOpenRequest {access_point_id: sud_ap_id};
+                self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.identification_token_id.clone()));
+                let openreq = DoorOpenRequest {access_point_id: sud_ap_id, identification_token: entry.identification_token_id};
                 self.door_tx.send(openreq);
             }
             else
