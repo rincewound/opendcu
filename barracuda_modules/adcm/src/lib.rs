@@ -10,7 +10,6 @@ use barracuda_core::util::ObjectStorage;
 use std::{sync::Arc, thread};
 use crate::components::serialization_types::*;
 use passageway::Passageway;
-//use crate::components::outputcomponentbase::*;
 
 
 mod components;
@@ -114,15 +113,6 @@ impl ADCM
         {
             result.passageways.push(Passageway::new(setting.clone(), chm));
         }
-
-        // let s = PassagewaySetting{
-        //     id: 10,
-        //     outputs: vec![OutputComponentSerialization::ElectricStrike(OutputComponentSetting {id: 24, operation_time: 3200})],
-        //     inputs: vec![],
-        //     access_points: vec![]
-        // };
-        // result.storage.lock().put_entry(s);
-        // result.storage.lock().update_storage();
 
         return result;
     }
@@ -229,6 +219,7 @@ impl ADCM
                 self.passageways.push(Passageway::new(setting.clone(), &mut self.channel_manager));
             }
         }
+        
     }
 
     fn do_passageway_change_event(&mut self)

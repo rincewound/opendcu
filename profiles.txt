@@ -14,6 +14,11 @@
         "day": "Thursday",
         "from": 1000,
         "to": 2359
+      },
+        {
+        "day": "Sunday",
+        "from": 1000,
+        "to": 2359
       }
     ]
   }

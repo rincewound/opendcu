@@ -4,12 +4,20 @@
     "outputs": [
       {
         "ElectricStrike": {
-          "id": 2,
+          "id": 24,
           "operation_time": 3200
         }
       }
     ],
     "inputs": [],
-    "access_points": [0]
+    "access_points": [0],
+    "alarm_time": 2000
+  },
+  {
+    "id": 1,
+    "outputs": [],
+    "inputs": [],
+    "access_points": [],
+    "alarm_time": 1000
   }
 ]

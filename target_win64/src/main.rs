@@ -11,6 +11,7 @@ fn main() {
             barracuda_base_modules::arm::console_input::launch,
             barracuda_base_modules::io::launch,            
             barracuda_base_modules::profile::launch,
+            barracuda_base_modules::events::launch,
             generic_whitelist::launch::<generic_whitelist::whitelist::JsonEntryProvider>,
             adcm::launch,
             crate::io::launch

@@ -119,7 +119,7 @@ impl ConfigRest
                               .do_get(_module);
         match response
         {            
-            Ok(data) => rouille::Response::from_data("application/octed-stream", data).with_status_code(200),   // Ok
+            Ok(data) => rouille::Response::from_data("application/octet-stream", data).with_status_code(200),   // Ok
             Err(CfgError::ResourceEmpty) => rouille::Response::text("Resource empty").with_status_code(406),                       // Not Acceptable
             Err(CfgError::ResourceNotFound) => rouille::Response::text("Resource not found").with_status_code(404)                 // Not found 
         }

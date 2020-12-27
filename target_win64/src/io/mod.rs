@@ -4,7 +4,7 @@ use barracuda_core::{trace::trace_helper,
         broadcast_channel::{GenericReceiver, GenericSender}, 
         channel_manager::ChannelManager, bootstage_helper::{boot, boot_noop}
         }};
-use std::{thread, sync::Arc};
+use std::{thread};
 
 const MODULE_ID: u32 = 0x09000000;
 

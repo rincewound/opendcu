@@ -41,9 +41,9 @@ macro_rules! Handler {
 #[macro_export]
 macro_rules! ReadDataHandler {
     ($func: expr) => {
-        (move |req : Vec<u8>| { 
-            let result =  $func(e.unwrap())
-            return cfg::serialize_data(result); 
+        (move || { 
+            let result =  $func();
+            return cfg::serialize_data(result).unwrap(); 
         })
     };
 }
