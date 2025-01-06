@@ -42,8 +42,15 @@ pub fn launch(chm: &mut ChannelManager) {
         .spawn(move || loop {
             let queue = select_chan!(sys_rx, trace_rx);
             if queue == 1 {
+                let datetime = chrono::Local::now();
+
                 let message = trace_rx.receive();
-                println!("{}", message.msg);
+                let msg = format!(
+                    "[{}] {}",
+                    datetime.format("%H:%M:%S:%3f"),
+                    message.msg
+                );
+                println!("{}", msg);
                 let _ = io::stdout().flush();
             }
             if queue == 0 {

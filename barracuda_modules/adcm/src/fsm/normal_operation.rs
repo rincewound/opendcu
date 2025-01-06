@@ -20,7 +20,7 @@ impl DoorStateImpl for NormalOperation {
     ) -> DoorStateContainer {
         match d {
             DoorEvent::ValidDoorOpenRequestSeen(ap_id, token) => {
-                commands.push(DoorCommand::ToggleElectricStrikeTimed(OutputState::High));
+                commands.push(DoorCommand::ToggleElectricStrike(OutputState::High));
                 commands.push(DoorCommand::ToggleAccessAllowed(OutputState::High));
                 commands.push(DoorCommand::ArmAutoswitchToNormal);
                 commands.push(DoorCommand::ShowSignal(ap_id, SigType::AccessGranted));

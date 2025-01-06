@@ -10,7 +10,7 @@ use barracuda_core::{
     },
     trace::trace_helper,
 };
-use std::{sync::Arc, thread};
+use std::{fmt::Display, sync::Arc, thread};
 
 use crate::modcaps::*;
 
@@ -70,6 +70,15 @@ pub enum OutputState {
     High,
 }
 
+impl Display for OutputState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OutputState::Low => write!(f, "Low"),
+            OutputState::High => write!(f, "High"),
+        }
+    }
+}
+
 // pub struct OutputSetting
 // {
 //     output_id: u32, // Logical!
@@ -78,8 +87,8 @@ pub enum OutputState {
 
 #[derive(Clone)]
 pub struct RawOutputSwitch {
-    output_id: u32,            // SUD!
-    target_state: OutputState, // physical!
+    pub output_id: u32,            // SUD!
+    pub target_state: OutputState, // physical!
 }
 
 #[derive(Clone)]
