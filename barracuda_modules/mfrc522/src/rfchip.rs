@@ -2,7 +2,7 @@
 use crate::error::TxpError;
 
 #[cfg(test)]
-use mockall::{automock, mock, predicate::*};
+use mockall::{automock, predicate::*};
 #[cfg_attr(test, automock)]
 pub trait RFChip
 {

@@ -1,6 +1,7 @@
 
 use crate::trace::TraceMessage;
 
+#[derive(Clone)]
 pub struct TraceHelper
 {
     source_mod: String,

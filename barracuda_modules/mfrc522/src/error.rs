@@ -2,7 +2,7 @@
 #[derive(Debug)]
 pub enum TxpError
 {
-    NoTxp,
+    _NoTxp,
     GeneralError,
     Timeout,
     CommunicationLost,

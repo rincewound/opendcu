@@ -20,7 +20,6 @@ impl Timer
 {
     pub fn new() -> Arc<Self>
     {
-        //let mut chm = ChannelManager::new();
         let result = Arc::new(Timer {
             scheduled_calls:    Shareable::new(Vec::new()),
             wait_event:         Event::new(),
@@ -178,6 +177,7 @@ mod tests {
         sleep(Duration::from_millis(100));
         drop(guard);
         assert!(*flag.lock() == true); 
+        t.stop();
     }
 
     #[test]
@@ -196,5 +196,6 @@ mod tests {
         sleep(Duration::from_millis(100));
 
         assert!(*flag.lock() == false); 
+        t.stop();
     }
 }

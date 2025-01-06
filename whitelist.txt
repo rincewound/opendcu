@@ -1,0 +1,34 @@
+[
+  {
+    "identification_token_id": [
+      49,
+      50,
+      51,
+      52,
+      13,
+      10
+    ],
+    "access_profiles": [1]
+  },
+  {
+    "identification_token_id": [
+      49,
+      50,
+      51,
+      53,
+      13,
+      10
+    ],
+    "access_profiles": [2]
+  },
+  {
+    "identification_token_id": [
+      49,
+      50,
+      51,
+      52,
+      10
+    ],
+    "access_profiles": [1]
+  }
+]

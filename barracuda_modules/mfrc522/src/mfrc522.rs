@@ -1,50 +1,5 @@
 
-/*
-    # The MFRC522 ISO 14443A Interface
-  
-    ## Searching a transponder
 
-    The ISO/IEC 14443 specifies that cards following the 
-    ISO/IEC 14443A shall not interfere cards following 
-    the ISO/IEC 14443B, and vice versa. In any case, 
-    the card activation procedure starts with a 
-    Request command (REQA or REQB), which is used only 
-    to check whether there is at least one card in the 
-    reader field. The REQA or REQB has to be sent after 
-    the carrier is switched on, waiting 5 ms at minimum 
-    before starting the transmission.
-
-    For NFC devices, there has to be another block between 
-    “Card Polling” and “Switch on RF”, because NFC devices 
-    need to check whether there is already a field available 
-    or not. If an external field is detected, the reader 
-    is not allowed to switch on its own RF field.
-
-    Command Order for searching a transponder (14443a only!)
-
-    * Enable RF
-        * Delay >= 5ms
-        * Send REQA/REQIDL (0x23)
-        * If not ATQA received: Terminate
-            [* Activate Card]
-            [* Perform transaction]
-            [* Halt/Deselect]
-    * RF Off
-
-
-    ### Activating a card
-    Card activation will yield the UID of a given medium,
-    procedure:
-    * Do Anticollision
-    * Check SAK Bit 6 == 1, if not: Terminate
-    * RATS + PSS if required
-    * Card is now selected
-
-
-    ### Anticollision Loop
-
-
-*/
 
 use barracuda_hal::{interrupt::Interrupt, spi::SpiInterface};
 use std::{time, thread};

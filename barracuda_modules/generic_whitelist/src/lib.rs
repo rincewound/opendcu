@@ -1,15 +1,12 @@
-extern crate barracuda_core;
-
-extern crate barracuda_hal;
-
 use barracuda_core::core::broadcast_channel::*;
 use barracuda_core::core::channel_manager::*;
 use barracuda_core::core::{shareable::Shareable, bootstage_helper::*, SystemMessage};
-use barracuda_core::{Handler, cfg::{ConfigMessage, cfgholder::*, self}};
+use barracuda_base_modules::{Handler, cfg::{ConfigMessage, cfgholder::*, self}};
 use barracuda_core::trace::*;
-use barracuda_core::{sig::*, acm::*};
-use barracuda_core::dcm::DoorOpenRequest;
-use std::{sync::Arc, thread};
+use barracuda_base_modules::{sig::*, acm::*};
+use barracuda_base_modules::dcm::DoorOpenRequest;
+use barracuda_base_modules::modcaps::{ModCapAggregator, ModuleCapabilityAdvertisement, ModuleCapabilityType};
+use std::{thread};
 
 use profiles::{ProfileChecker, JsonProfileChecker, AccessProfile};
 
@@ -41,14 +38,16 @@ pub fn launch<T: 'static>(chm: &mut ChannelManager)
 struct GenericWhitelist<WhitelistProvider: whitelist::WhitelistEntryProvider, ProfileStorage: ProfileChecker>
 {
     tracer              : trace_helper::TraceHelper,
-    access_request_rx   : Arc<GenericReceiver<WhitelistAccessRequest>>,
-    cfg_rx              : Arc<GenericReceiver<ConfigMessage>>,
-    system_events_rx    : Arc<GenericReceiver<SystemMessage>>,
+    access_request_rx   : GenericReceiver<WhitelistAccessRequest>,
+    cfg_rx              : GenericReceiver<ConfigMessage>,
+    system_events_rx    : GenericReceiver<SystemMessage>,
     system_events_tx    : GenericSender<SystemMessage>,
     sig_tx              : GenericSender<SigCommand>,
     door_tx             : GenericSender<DoorOpenRequest>,
     whitelist           : Shareable<WhitelistProvider>,
-    profiles            : Shareable<ProfileStorage>    
+    profiles            : Shareable<ProfileStorage>,
+    modcaps             : ModCapAggregator,
+    modcap_rx           : GenericReceiver<ModuleCapabilityAdvertisement>
 }
 
 impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, ProfileStorage:ProfileChecker + Send +'static> GenericWhitelist<WhitelistProvider, ProfileStorage>
@@ -65,13 +64,15 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
             sig_tx              : chm.get_sender(),
             door_tx             : chm.get_sender(),
             whitelist           : Shareable::new(whitelist),
-            profiles            : Shareable::new(profile_source)
+            profiles            : Shareable::new(profile_source),
+            modcaps             : ModCapAggregator::new(),
+            modcap_rx           : chm.get_receiver()
         }
     }
 
     pub fn init(&mut self)
     {    
-        let the_receiver = self.cfg_rx.clone();  
+        let the_receiver = self.cfg_rx.clone_receiver();  
         let hli_cb= Some(|| {
             /*
                 This is executed during HLI
@@ -110,10 +111,16 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
         });
 
         boot(MODULE_ID, Some(boot_noop), hli_cb, 
-            self.system_events_tx.clone(), 
-            self.system_events_rx.clone(), 
+            &self.system_events_tx, 
+            &self.system_events_rx, 
             &self.tracer);
 
+        self.do_modcaps_messages();
+    }
+
+    pub fn do_modcaps_messages(&mut self)
+    {
+        self.modcaps.aggregate(&self.modcap_rx);
     }
 
     pub fn do_request(&mut self) -> bool
@@ -163,12 +170,19 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
         // Found? If so, check access profile, otherwise emit AccessDenied Sig
         if let Some(entry) = entry 
         {
-            if !self.check_profile(req.access_point_id, &entry) { return; }
+            if let Ok(sud_ap_id) = self.modcaps.sud_to_logical_id(req.access_point_id, ModuleCapabilityType::AccessPoints)
+            {
+                if !self.check_profile(sud_ap_id, &entry) { return; }
 
-            // Good? If so, emit DoorOpenRequest, otherwise emit AccessDenied Sig 
-            self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.identification_token_id));
-            let openreq = barracuda_core::dcm::DoorOpenRequest {access_point_id: req.access_point_id};
-            self.door_tx.send(openreq);
+                // Good? If so, emit DoorOpenRequest, otherwise emit AccessDenied Sig 
+                self.tracer.trace(format!("Request seems ok for token {:?}, sending door open request.", entry.identification_token_id.clone()));
+                let openreq = DoorOpenRequest {access_point_id: sud_ap_id, identification_token: entry.identification_token_id};
+                self.door_tx.send(openreq);
+            }
+            else
+            {
+                self.tracer.trace(format!("Received access request from unknown accesspoint {}", req.access_point_id));
+            }
                
         }
         else
@@ -216,11 +230,12 @@ impl<WhitelistProvider: whitelist::WhitelistEntryProvider + Send + 'static, Prof
 
 #[cfg(test)]
 mod tests {
-     use barracuda_core::{core::channel_manager::ChannelManager, acm::*, trace::*, sig::SigCommand};
+     use barracuda_core::{core::channel_manager::ChannelManager, trace::*};
      use crate::profiles::{AccessProfile, ProfileChecker, ProfileCheckResult};
      use crate::whitelist::WhitelistEntry;
      use crate::whitelist::WhitelistEntryProvider;
-     use barracuda_core::{sig::*};
+     use barracuda_base_modules::{acm::WhitelistAccessRequest, modcaps::ModuleCapabilityAdvertisement, sig::*};
+     use barracuda_base_modules::modcaps::ModuleCapability;
 
      struct DummyWhitelist
      {
@@ -270,9 +285,19 @@ mod tests {
         let wl = DummyWhitelist::new();
         let prof = DummyProfileChecker {check_result: Ok(())};
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), chm);
-        let md = crate::GenericWhitelist::new(tracer, chm, wl, prof);
+        let mut md = crate::GenericWhitelist::new(tracer, chm, wl, prof);
+
+        let ap_modcap_message = ModuleCapabilityAdvertisement {
+            module_id: 0x10000000,
+            caps: vec![ModuleCapability::AccessPoints(50)]
+        };
+        
+        chm.get_sender().send(ap_modcap_message);
+        md.do_modcaps_messages();
+
         return md;
      }
+
 
      #[test]
      fn will_throw_access_denied_if_no_whitelist_entry_exists()
@@ -313,11 +338,19 @@ mod tests {
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
         let mut md = crate::GenericWhitelist::new(tracer, &mut chm, wl, DummyProfileChecker {check_result: Ok(())});
 
-        let dcm_rx = chm.get_receiver::<barracuda_core::dcm::DoorOpenRequest>();
+        let ap_modcap_message = ModuleCapabilityAdvertisement {
+            module_id: 0x10000000,
+            caps: vec![ModuleCapability::AccessPoints(50)]
+        };
+        
+        chm.get_sender().send(ap_modcap_message);
+        md.do_modcaps_messages();        
+
+        let dcm_rx = chm.get_receiver::<barracuda_base_modules::dcm::DoorOpenRequest>();
         let access_tx = chm.get_sender::<WhitelistAccessRequest>();
 
         let req = WhitelistAccessRequest {
-            access_point_id: 47,
+            access_point_id: 0x1000002F,
             identity_token_number: vec![1,2,3,4],
         };
 
@@ -345,14 +378,22 @@ mod tests {
         });
         let tracer = trace_helper::TraceHelper::new("ACM/Whitelist".to_string(), &mut chm);
         let mut md = crate::GenericWhitelist::new(tracer, &mut chm, wl,DummyProfileChecker {check_result: Ok(())});
+        
+        let ap_modcap_message = ModuleCapabilityAdvertisement {
+            module_id: 0x10000000,
+            caps: vec![ModuleCapability::AccessPoints(50)]
+        };
+        
+        chm.get_sender().send(ap_modcap_message);
+        md.do_modcaps_messages();   
 
-        let dcm_rx = chm.get_receiver::<barracuda_core::dcm::DoorOpenRequest>();
+        let dcm_rx = chm.get_receiver::<barracuda_base_modules::dcm::DoorOpenRequest>();
         let access_tx = chm.get_sender::<WhitelistAccessRequest>();
 
         for _ in 0..20
         {
             let req = WhitelistAccessRequest {
-                access_point_id: 47,
+                access_point_id: 0x1000002F,
                 identity_token_number: vec![1,2,3,4],
             };
 
