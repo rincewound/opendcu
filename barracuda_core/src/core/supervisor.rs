@@ -98,7 +98,7 @@ impl Supervisor {
                     SystemMessage::StageComplete(the_stage, mod_id) => {
                         if std::mem::discriminant(&the_stage) == std::mem::discriminant(&stage) {
                             let mod_type = (mod_id & 0xFF000000) >> 24;
-                            let mod_instance = mod_id & 0x00FF0000 >> 16;
+                            let mod_instance = (mod_id & 0x00FF0000) >> 16;
                             // Note: It would probably be a good idea to not just count
                             // modules, but to also make sure, that no module checks in
                             // multiple times. This should also help to find ID clashes

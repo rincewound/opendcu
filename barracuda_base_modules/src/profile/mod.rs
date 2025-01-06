@@ -34,7 +34,7 @@ pub struct ProfileChangeEvent {
 }
 
 pub fn launch(chm: &mut ChannelManager) {
-    let tracer = trace_helper::TraceHelper::new("ProfileControl".to_string(), chm);
+    let tracer = trace_helper::TraceHelper::new("SYS/ProfileControl".to_string(), chm);
     let mut wl = ProfileControl::new(tracer, chm);
     thread::spawn(move || {
         wl.init();

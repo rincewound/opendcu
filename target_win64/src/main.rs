@@ -15,6 +15,7 @@ fn main() {
         barracuda_base_modules::events::launch,
         generic_whitelist::launch::<generic_whitelist::whitelist::JsonEntryProvider>,
         adcm::launch,
-        crate::io::launch
+        |x|{crate::io::launch(x,0)},
+        |x|{crate::io::launch(x,1)}
     );
 }

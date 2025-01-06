@@ -13,11 +13,11 @@ use std::sync::Arc;
 
 const MODULE_ID: u32 = 0x09000000;
 
-pub fn launch(chm: &mut ChannelManager) {
-    let tracer = trace_helper::TraceHelper::new("Plattform/Win32Io".to_string(), chm);
+pub fn launch(chm: &mut ChannelManager, instance: u32) {
+    let tracer = trace_helper::TraceHelper::new(format!("Plattform/Win32Io({})", instance), chm);
     let ioman = W32Io::new(tracer, chm);
     thread::spawn(move || {
-        ioman.init();
+        ioman.init(instance);
         loop {
             if !ioman.run() {
                 break;
@@ -45,7 +45,7 @@ impl W32Io {
         }
     }
 
-    pub fn init(&self) {
+    pub fn init(&self, instance: u32) {
         let modcaps_tx_clone = self.modcaps_tx.clone();
         let llicb = Some(move || {
             /*
@@ -53,13 +53,14 @@ impl W32Io {
             */
             let m = ModuleCapabilityAdvertisement {
                 caps: vec![ModuleCapability::Outputs(3), ModuleCapability::Inputs(3)],
-                module_id: MODULE_ID,
+                // let mod_instance = mod_id & 0x00FF0000 >> 16;
+                module_id: MODULE_ID ^ (instance << 16) ,                
             };
             modcaps_tx_clone.send(m);
         });
 
         boot(
-            MODULE_ID,
+            MODULE_ID ^ (instance << 16),
             llicb,
             Some(boot_noop),
             &self.system_events_tx,
