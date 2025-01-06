@@ -3,7 +3,7 @@
 *   This module implements reading RFID media (ISO 14443A),
 *   using the NXP MRFC522 reader chip
 *
-*   The code in this module is loosely based on 
+*   The code in this module is loosely based on
 *   "Pi My Life Up's guide on setting up an RFID RC522"
 *   implementation.
 *
@@ -17,7 +17,7 @@
 *
 *
 *   ## Usage
-*   
+*
 *   ### Configuration
 *   The module expects to be provided with a completely configured
 *   SPI instance.
@@ -30,138 +30,141 @@
 *
 *   ### Notes
 *   The original code does not use IRQs, but instead uses polling
-*   (stupidly!). This should be 
+*   (stupidly!). This should be
 */
 extern crate barracuda_core;
 extern crate barracuda_hal;
 extern crate num_enum;
 
-use barracuda_base_modules::{acm::WhitelistAccessRequest, modcaps::{ModuleCapability, ModuleCapabilityAdvertisement}};
-use barracuda_core::{core::
-            {bootstage_helper::{boot_noop, boot}, 
-             channel_manager::ChannelManager, 
-             broadcast_channel::{GenericSender, GenericReceiver}, SystemMessage},              
-             trace::trace_helper,              
-            };
+use barracuda_base_modules::{
+    acm::WhitelistAccessRequest,
+    modcaps::{ModuleCapability, ModuleCapabilityAdvertisement},
+};
+use barracuda_core::{
+    core::{
+        bootstage_helper::{boot, boot_noop},
+        broadcast_channel::{GenericReceiver, GenericSender},
+        channel_manager::ChannelManager,
+        SystemMessage,
+    },
+    trace::trace_helper,
+};
 
-use barracuda_hal::{spi::SpiInterface, interrupt::Interrupt};
-use std::{thread, time};
+use barracuda_hal::{interrupt::Interrupt, spi::SpiInterface};
 use iso14443a::Iso14443aTransponder;
+use std::{thread, time};
 
+mod error;
+mod iso14443a;
 mod mfrc522;
 mod rfchip;
-mod iso14443a;
-mod error;
 
 const MODULE_ID: u32 = 0x0B000000;
 
 pub fn launch<Spi, Irq>(chm: &mut ChannelManager, spi_driver: Spi, tx_ready_irq: Irq)
-    where Spi: SpiInterface+Send + 'static, Irq: Interrupt+Send+ 'static
-{    
+where
+    Spi: SpiInterface + Send + 'static,
+    Irq: Interrupt + Send + 'static,
+{
     let tracer = trace_helper::TraceHelper::new("ARM/MFRC522".to_string(), chm);
     let mut rm = ReaderModule::new(tracer, chm, spi_driver, tx_ready_irq);
-    thread::spawn(move || {  
-        rm.init();   
-        loop 
-        {
+    thread::spawn(move || {
+        rm.init();
+        loop {
             rm.search_media();
-        }   
-        
+        }
     });
 }
 
 pub struct ReaderModule<Spi, Irq>
-    where Spi: SpiInterface, Irq: Interrupt
-{            
+where
+    Spi: SpiInterface,
+    Irq: Interrupt,
+{
     system_events_rx: GenericReceiver<SystemMessage>,
     system_events_tx: GenericSender<SystemMessage>,
-    modcaps_tx:  GenericSender<ModuleCapabilityAdvertisement>,
+    modcaps_tx: GenericSender<ModuleCapabilityAdvertisement>,
     access_request_tx: GenericSender<WhitelistAccessRequest>,
     tracer: trace_helper::TraceHelper,
     last_txp: Option<Iso14443aTransponder>,
-    rfchip: mfrc522::Mfrc522<Spi,Irq>
+    rfchip: mfrc522::Mfrc522<Spi, Irq>,
 }
 
-impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq> 
-{
-    pub fn new(tracer: trace_helper::TraceHelper, chm: &mut ChannelManager, spi_driver: Spi, tx_rdy_irq: Irq) -> Self
-    {
-        Self
-        {   
+impl<Spi: SpiInterface, Irq: Interrupt> ReaderModule<Spi, Irq> {
+    pub fn new(
+        tracer: trace_helper::TraceHelper,
+        chm: &mut ChannelManager,
+        spi_driver: Spi,
+        tx_rdy_irq: Irq,
+    ) -> Self {
+        Self {
             system_events_rx: chm.get_receiver(),
             system_events_tx: chm.get_sender(),
             modcaps_tx: chm.get_sender(),
             access_request_tx: chm.get_sender(),
             tracer,
             rfchip: mfrc522::Mfrc522::new(spi_driver, tx_rdy_irq),
-            last_txp: None
+            last_txp: None,
         }
     }
 
-    pub fn init(&self)
-    {
-        let modcaps_tx_clone =self.modcaps_tx.clone();
-        let hlicb= Some(move|| {
+    pub fn init(&self) {
+        let modcaps_tx_clone = self.modcaps_tx.clone();
+        let hlicb = Some(move || {
             let m = ModuleCapabilityAdvertisement {
                 caps: vec![ModuleCapability::AccessPoints(1)],
-                module_id: MODULE_ID
+                module_id: MODULE_ID,
             };
-            modcaps_tx_clone.send(m);            
+            modcaps_tx_clone.send(m);
         });
 
-        boot(MODULE_ID, Some(boot_noop), hlicb, 
-            &self.system_events_tx, 
-            &self.system_events_rx, 
-            &self.tracer);
+        boot(
+            MODULE_ID,
+            Some(boot_noop),
+            hlicb,
+            &self.system_events_tx,
+            &self.system_events_rx,
+            &self.tracer,
+        );
     }
 
-    fn is_new_txp(&self, txp: &Iso14443aTransponder) -> bool
-    {
-        match self.last_txp
-        {            
+    fn is_new_txp(&self, txp: &Iso14443aTransponder) -> bool {
+        match self.last_txp {
             Some(ref last_uid) => {
                 let zip_iter = last_uid.uid.iter().zip(txp.uid.iter());
-                for (byte_a, byte_b) in zip_iter
-                {   
-                    if byte_a != byte_b
-                    {
+                for (byte_a, byte_b) in zip_iter {
+                    if byte_a != byte_b {
                         return true;
                     }
                 }
-            },
-            None => return true
+            }
+            None => return true,
         }
         return false;
     }
 
-    pub fn search_media(&mut self)
-    {
+    pub fn search_media(&mut self) {
         let iso_impl = iso14443a::Iso14443A::new(&self.rfchip);
 
-        self.rfchip.toggle_antenna(true);        
+        self.rfchip.toggle_antenna(true);
         let txp = iso_impl.search_txp();
         self.rfchip.toggle_antenna(false);
 
-        if let Ok(uid) = txp
-        {
+        if let Ok(uid) = txp {
             // found a txp, check if we have seen this one before:
-            if !self.is_new_txp(&uid)
-            {
+            if !self.is_new_txp(&uid) {
                 return;
             }
             self.tracer.trace_str("Found new transponder.");
 
-            let req = WhitelistAccessRequest
-            {
-                access_point_id: MODULE_ID,     // use AP 1, i.e. index 0
-                identity_token_number: uid.uid.clone()
+            let req = WhitelistAccessRequest {
+                access_point_id: MODULE_ID, // use AP 1, i.e. index 0
+                identity_token_number: uid.uid.clone(),
             };
 
             self.access_request_tx.send(req);
             self.last_txp = Some(uid);
-        }
-        else
-        {
+        } else {
             self.last_txp = None;
         }
 

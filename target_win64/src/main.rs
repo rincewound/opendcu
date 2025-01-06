@@ -6,14 +6,15 @@ mod io;
 
 fn main() {
     // Note: Launch never returns!
-    launch!(barracuda_core::trace::launch,
-            barracuda_base_modules::cfg::rest::launch,            
-            barracuda_base_modules::arm::console_input::launch,
-            barracuda_base_modules::io::launch,            
-            barracuda_base_modules::profile::launch,
-            barracuda_base_modules::events::launch,
-            generic_whitelist::launch::<generic_whitelist::whitelist::JsonEntryProvider>,
-            adcm::launch,
-            crate::io::launch
-            );    
+    launch!(
+        barracuda_core::trace::launch,
+        barracuda_base_modules::cfg::rest::launch,
+        barracuda_base_modules::arm::console_input::launch,
+        barracuda_base_modules::io::launch,
+        barracuda_base_modules::profile::launch,
+        barracuda_base_modules::events::launch,
+        generic_whitelist::launch::<generic_whitelist::whitelist::JsonEntryProvider>,
+        adcm::launch,
+        crate::io::launch
+    );
 }

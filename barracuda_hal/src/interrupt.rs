@@ -1,5 +1,4 @@
-pub trait Interrupt
-{
+pub trait Interrupt {
     fn wait(&self);
-    fn wait_timeout(&self,timeout_ms: u32) -> bool;
+    fn wait_timeout(&self, timeout_ms: u32) -> bool;
 }

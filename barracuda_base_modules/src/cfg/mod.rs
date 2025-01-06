@@ -20,20 +20,18 @@ value
 pub mod cfgholder;
 
 #[derive(Clone)]
-pub enum ConfigMessage
-{
-    RegisterHandlers(Shareable<cfgholder::CfgHolder>)
+pub enum ConfigMessage {
+    RegisterHandlers(Shareable<cfgholder::CfgHolder>),
 }
 
 #[macro_export]
 macro_rules! Handler {
     ($func: expr) => {
-        (move |req : Vec<u8>| { 
-            let e = cfg::convert_data(req); 
-            if e.is_some() 
-            {
+        (move |req: Vec<u8>| {
+            let e = cfg::convert_data(req);
+            if e.is_some() {
                 $func(e.unwrap())
-            } 
+            }
         })
     };
 }
@@ -41,27 +39,25 @@ macro_rules! Handler {
 #[macro_export]
 macro_rules! ReadDataHandler {
     ($func: expr) => {
-        (move || { 
-            let result =  $func();
-            return cfg::serialize_data(result).unwrap(); 
+        (move || {
+            let result = $func();
+            return cfg::serialize_data(result).unwrap();
         })
     };
 }
 
-pub fn convert_data<T: for<'de> serde::Deserialize<'de>>(r: Vec<u8>) -> Option<T>
-{
+pub fn convert_data<T: for<'de> serde::Deserialize<'de>>(r: Vec<u8>) -> Option<T> {
     let someval = serde_json::from_slice(&r[..]);
     if let Ok(data) = someval {
-        return Some(data)
+        return Some(data);
     }
     None
 }
 
-pub fn serialize_data<T: for<'de> serde::Serialize>(data: T) -> Option<Vec<u8>>
-{
+pub fn serialize_data<T: for<'de> serde::Serialize>(data: T) -> Option<Vec<u8>> {
     let someval = serde_json::to_vec(&data);
     if let Ok(data) = someval {
-        return Some(data)
+        return Some(data);
     }
     None
 }

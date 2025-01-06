@@ -10,37 +10,33 @@ for the rest of the appliaction, most notably
 
 */
 
-
+pub mod atomic_queue;
+pub mod bootstage_helper;
 pub mod broadcast_channel;
 pub mod channel_manager;
 pub mod event;
-pub mod atomic_queue;
-pub mod supervisor;
-pub mod bootstage_helper;
 pub mod shareable;
+pub mod supervisor;
 pub mod timer;
 
 #[derive(Clone, Copy, PartialEq)]
-pub enum BootStage
-{
+pub enum BootStage {
     Sync,
     LowLevelInit,
     HighLevelInit,
     Application,
-    _Shutdown
+    _Shutdown,
 }
 
 #[derive(Clone, PartialEq)]
-pub enum SystemMessage
-{
+pub enum SystemMessage {
     Shutdown,
     StageComplete(BootStage, u32),
     RunStage(BootStage),
-    _Reboot(u32),               // Contains the module ID of the module that is supposed to reboot.
+    _Reboot(u32), // Contains the module ID of the module that is supposed to reboot.
     _Heartbeat,
-    _HeartbeatResponse(u32)
+    _HeartbeatResponse(u32),
 }
-
 
 // # Generate a System Unique iD
 // A module ID is a 16 Bit integer consisting of the acutal id and the instancenumber of the module:
@@ -52,20 +48,17 @@ pub enum SystemMessage
 // AAAA AAAA BBBB BBBB CCCC CCCC CCCC CCCC
 // C: Used to uniquely identify a given component of a module
 #[allow(dead_code)]
-pub fn make_sud(module_id: u8, module_instance: u8, object_index: u16) -> u32
-{
+pub fn make_sud(module_id: u8, module_instance: u8, object_index: u16) -> u32 {
     let m = (module_id as u32) << 24;
     let i = (module_instance as u32) << 16;
     return m | i | (object_index as u32);
 }
 
-pub fn _modid_from_sud(sud: u32) -> u32
-{
+pub fn _modid_from_sud(sud: u32) -> u32 {
     return sud >> 16;
 }
 
-pub fn _objectindex_from_sud(sud: u32) -> u32
-{
+pub fn _objectindex_from_sud(sud: u32) -> u32 {
     return sud & 0x0000FFFF;
 }
 
@@ -73,7 +66,7 @@ pub fn _objectindex_from_sud(sud: u32) -> u32
 Launch expects a list of functions. Launch will call all
 functions and walk through the bootup sequence, expecting
 all called functions to:
-* start a thread that implements the bootup protocol, 
+* start a thread that implements the bootup protocol,
 i.e. it shall check in when a RunStage command is
 sent.
 
@@ -87,7 +80,7 @@ macro_rules! launch {
     ($($threadlist: expr),+) => (
         {
             let mut supervisor = crate::core::supervisor::Supervisor::new();
-            launch_impl!(supervisor, $($threadlist),+);            
+            launch_impl!(supervisor, $($threadlist),+);
             supervisor.run();
         }
     )
@@ -98,12 +91,12 @@ macro_rules! launch_impl {
     ($supervisor: expr, $head: expr, $($threadlist: expr),+) => (
         {
             $supervisor.start_thread($head);
-            launch_impl!($supervisor, $($threadlist),+)                    
+            launch_impl!($supervisor, $($threadlist),+)
         }
     );
     ($supervisor: expr, $head: expr) => (
         {
-            $supervisor.start_thread($head);         
+            $supervisor.start_thread($head);
         }
     )
 }
@@ -140,7 +133,7 @@ macro_rules! select_chan {
 macro_rules! wait_for_with_timeout {
     ($evt: expr, $timeout: expr, $id: expr, $head: expr) => (
         {
-            if $head.has_data() { 
+            if $head.has_data() {
                 Some($id)
             }
             else

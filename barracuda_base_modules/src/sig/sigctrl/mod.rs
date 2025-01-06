@@ -1,31 +1,32 @@
+use barracuda_core::{
+    core::{
+        bootstage_helper::{boot, boot_noop},
+        broadcast_channel::{GenericReceiver, GenericSender},
+        channel_manager::ChannelManager,
+        SystemMessage,
+    },
+    trace::trace_helper,
+};
 use std::thread;
-use barracuda_core::{core::{SystemMessage, bootstage_helper::{boot, boot_noop}, broadcast_channel::{GenericReceiver, GenericSender}, channel_manager::ChannelManager}, trace::trace_helper};
 
 //use crate::cfg::ConfigMessage;
 
-
 const MODULE_ID: u32 = 0x0C000000;
 
-pub fn launch(chm: &mut ChannelManager)
-{    
+pub fn launch(chm: &mut ChannelManager) {
     let tracer = trace_helper::TraceHelper::new("ProfileControl".to_string(), chm);
     let mut wl = SignalControl::new(tracer, chm);
-    thread::spawn(move || {  
-        wl.init();   
-        loop 
-        {
-            if !wl.run()
-            {
+    thread::spawn(move || {
+        wl.init();
+        loop {
+            if !wl.run() {
                 break;
             }
-        }   
-        
+        }
     });
 }
 
-
-struct SignalControl
-{
+struct SignalControl {
     tracer: trace_helper::TraceHelper,
     system_events_rx: GenericReceiver<SystemMessage>,
     system_events_tx: GenericSender<SystemMessage>,
@@ -34,12 +35,9 @@ struct SignalControl
     // checker         : Shareable<profile_checker::ProfileChecker>
 }
 
-impl SignalControl
-{
-    fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager) -> Self
-    {
-        SignalControl
-        {
+impl SignalControl {
+    fn new(trace: trace_helper::TraceHelper, chm: &mut ChannelManager) -> Self {
+        SignalControl {
             tracer: trace,
             system_events_rx: chm.get_receiver(),
             system_events_tx: chm.get_sender(),
@@ -49,11 +47,10 @@ impl SignalControl
         }
     }
 
-    pub fn init(&mut self)
-    {
-        //crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);        
-        //let the_receiver = self.cfg_rx.clone_receiver();  
-        let hli_cb= Some(|| {
+    pub fn init(&mut self) {
+        //crate::core::bootstage_helper::plain_boot(MODULE_ID, self.system_events_tx.clone(), self.system_events_rx.clone(), &self.tracer);
+        //let the_receiver = self.cfg_rx.clone_receiver();
+        let hli_cb = Some(|| {
             /*
                 This is executed during HLI
             */
@@ -72,21 +69,22 @@ impl SignalControl
             // holder.register_handler(FunctionType::Delete, "profiles/entry".to_string(), Handler!(|r: profile_checker::BinaryProfile|
             //     {
             //         //profile_deleter.lock().delete_profile(r.id);
-            //     }));            
+            //     }));
         });
 
-        boot(MODULE_ID, Some(boot_noop), hli_cb, 
-            &self.system_events_tx, 
-            &self.system_events_rx, 
-            &self.tracer);
-
+        boot(
+            MODULE_ID,
+            Some(boot_noop),
+            hli_cb,
+            &self.system_events_tx,
+            &self.system_events_rx,
+            &self.tracer,
+        );
     }
 
-    pub fn run(&mut self) -> bool
-    {
+    pub fn run(&mut self) -> bool {
         //let mut last_date_time = Local::now();
-        loop 
-        {
+        loop {
             // if let Some(e) = self.system_events_rx.receive_with_timeout(5000)
             // {
             //     if e == SystemMessage::Shutdown

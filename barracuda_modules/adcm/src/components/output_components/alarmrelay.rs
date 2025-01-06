@@ -1,37 +1,31 @@
-use barracuda_core::{core::channel_manager::ChannelManager};
+use barracuda_core::core::channel_manager::ChannelManager;
 
-use crate::{DoorCommand, components::OutputComponent};
+use crate::{components::OutputComponent, DoorCommand};
 
 use super::outputcomponentbase::*;
 
-pub struct AlarmRelay
-{
-    output_component: OutputComponentBase
+pub struct AlarmRelay {
+    output_component: OutputComponentBase,
 }
 
-impl AlarmRelay
-{
-    pub fn new(id: u32, chm: &mut ChannelManager) -> Self
-    {
-        Self
-        {
-            output_component: OutputComponentBase::new(id, 0, chm)
+impl AlarmRelay {
+    pub fn new(id: u32, chm: &mut ChannelManager) -> Self {
+        Self {
+            output_component: OutputComponentBase::new(id, 0, chm),
         }
     }
 }
 
-impl OutputComponent for AlarmRelay
-{
-    fn on_door_command(&mut self, command: DoorCommand) 
-    {
-        match command
-        {
-            DoorCommand::ToggleAlarmRelay(output_state) => {self.output_component.control_output(output_state)}
+impl OutputComponent for AlarmRelay {
+    fn on_door_command(&mut self, command: DoorCommand) {
+        match command {
+            DoorCommand::ToggleAlarmRelay(output_state) => {
+                self.output_component.control_output(output_state)
+            }
             _ => {}
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -40,16 +34,14 @@ mod tests {
 
     use super::*;
 
-    fn make_alarm_relay() -> (AlarmRelay, ChannelManager)
-    {
+    fn make_alarm_relay() -> (AlarmRelay, ChannelManager) {
         let mut chm = ChannelManager::new();
         let strike = AlarmRelay::new(32, &mut chm);
         return (strike, chm);
     }
 
     #[test]
-    fn will_fire_on_cmd()
-    {
+    fn will_fire_on_cmd() {
         let (mut alarm, mut chm) = make_alarm_relay();
         let output_cmds = chm.get_receiver::<OutputSwitch>();
         alarm.on_door_command(DoorCommand::ToggleAlarmRelay(OutputState::High));
@@ -63,8 +55,7 @@ mod tests {
     }
 
     #[test]
-    fn will_switch_off_on_cmd()
-    {
+    fn will_switch_off_on_cmd() {
         let (mut alarm, mut chm) = make_alarm_relay();
         let output_cmds = chm.get_receiver::<OutputSwitch>();
         alarm.on_door_command(DoorCommand::ToggleAlarmRelay(OutputState::Low));
